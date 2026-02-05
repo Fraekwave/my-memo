@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Today's Tasks (DB)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * { font-family: 'Inter', system-ui, sans-serif; }
+        
+        .task-item { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .task-item:hover { transform: translateY(-1px); }
+        
+        .completed { text-decoration: line-through; opacity: 0.5; }
+        
+        .task-checkbox {
+            appearance: none; width: 20px; height: 20px;
+            border: 2px solid #d4d4d8; border-radius: 50%;
+            cursor: pointer; transition: all 0.2s ease; flex-shrink: 0;
+        }
+        .task-checkbox:checked {
+            background-color: #18181b; border-color: #18181b; position: relative;
+        }
+        .task-checkbox:checked::after {
+            content: ''; position: absolute; top: 2px; left: 6px;
+            width: 4px; height: 8px; border: solid white;
+            border-width: 0 2px 2px 0; transform: rotate(45deg);
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3; border-top: 3px solid #18181b;
+            border-radius: 50%; width: 20px; height: 20px;
+            animation: spin 1s linear infinite; display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-zinc-50 min-h-screen flex items-center justify-center p-4 sm:p-8">
+    
+    <div class="w-full max-w-2xl">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2">Today's Tasks</h1>
+            <p class="text-zinc-500 font-light" id="currentDate"></p>
+        </div>
+        
+        <div class="bg-white rounded-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 overflow-hidden">
+            <form id="taskForm" class="p-6 sm:p-8 border-b border-zinc-100">
+                <div class="flex gap-3">
+                    <input 
+                        type="text" 
+                        id="taskInput"
+                        placeholder="새로운 할 일을 입력하세요..."
+                        class="flex-1 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder-zinc-400 transition-all focus:bg-white focus:border-zinc-900 outline-none"
+                        autocomplete="off"
+                    />
+                    <button 
+                        type="submit"
+                        id="addBtn"
+                        class="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all active:scale-95 whitespace-nowrap flex-shrink-0 flex items-center justify-center gap-2"
+                    >
+                        <span>추가</span>
+                        <div id="loadingSpinner" class="spinner"></div>
+                    </button>
+                </div>
+            </form>
+            
+            <div class="p-6 sm:p-8">
+                <div id="taskList" class="space-y-3 max-h-[500px] overflow-y-auto"></div>
+                
+                <div id="emptyState" class="text-center py-12 hidden">
+                    <p class="text-zinc-400 font-light">할 일이 없습니다</p>
+                    <p class="text-zinc-300 text-sm mt-1">새로운 태스크를 추가해보세요</p>
+                </div>
+            </div>
+            
+            <div class="px-6 sm:px-8 py-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-sm">
+                <span class="text-zinc-500 font-light">전체 <span id="totalCount" class="font-medium text-zinc-900">0</span>개</span>
+                <span class="text-zinc-500 font-light">완료 <span id="completedCount" class="font-medium text-zinc-900">0</span>개</span>
+            </div>
+        </div>
+        
+        <div class="text-center mt-8">
+            <p class="text-zinc-400 text-sm font-light">Premium Minimalism © 2026</p>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // [필수] 여기에 Supabase 키를 다시 넣어주세요!
+        // ==========================================
+        const supabaseUrl = 'https://twxhxorhfyfgyixoiqis.supabase.co'; // 예: https://xyz.supabase.co
+        const supabaseKey = 'sb_publishable_FgDC4cWrxDgw0dgZJyAaBA_ffAgsa4_';     // 예: eyJhbGciOi...
+        
+        // [수정됨] 변수 이름을 'client'로 변경하여 충돌 해결
+        const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+        const taskForm = document.getElementById('taskForm');
+        const taskInput = document.getElementById('taskInput');
+        const taskList = document.getElementById('taskList');
+        const emptyState = document.getElementById('emptyState');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const addBtnText = document.querySelector('#addBtn span');
+        
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('ko-KR', { 
+            year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' 
+        });
+
+        // 1. 가져오기 (Read) - client 변수 사용
+        async function fetchTasks() {
+            const { data, error } = await client
+                .from('mytask')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('불러오기 에러:', error);
+                return;
+            }
+            renderTasks(data || []);
+        }
+
+        function renderTasks(tasks) {
+            taskList.innerHTML = '';
+            if (tasks.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                tasks.forEach(task => {
+                    const div = document.createElement('div');
+                    div.className = 'task-item flex items-center gap-4 p-4 bg-zinc-50 rounded-xl border border-zinc-100 hover:border-zinc-200 hover:shadow-sm';
+                    div.innerHTML = `
+                        <input type="checkbox" class="task-checkbox" 
+                            ${task.is_completed ? 'checked' : ''} 
+                            onchange="toggleTask(${task.id}, this.checked)">
+                        <span class="flex-1 text-zinc-900 ${task.is_completed ? 'completed' : ''}">${task.text}</span>
+                        <button onclick="deleteTask(${task.id})" class="text-zinc-400 hover:text-red-500 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    `;
+                    taskList.appendChild(div);
+                });
+            }
+            updateStats(tasks);
+        }
+
+        // 2. 추가하기 (Create)
+        taskForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = taskInput.value.trim();
+            if (!text) return;
+
+            setLoading(true);
+            // client 변수 사용
+            const { data, error } = await client
+                .from('mytask')
+                .insert([{ text: text, is_completed: false }])
+                .select();
+
+            if (error) {
+                alert('저장 실패: ' + error.message);
+                console.error(error);
+            } else {
+                taskInput.value = '';
+                fetchTasks();
+            }
+            setLoading(false);
+        });
+
+        // 3. 토글하기 (Update)
+        async function toggleTask(id, isCompleted) {
+            const { error } = await client
+                .from('mytask')
+                .update({ is_completed: isCompleted })
+                .eq('id', id);
+            if (error) console.error('수정 에러:', error);
+            else fetchTasks();
+        }
+
+        // 4. 삭제하기 (Delete)
+        async function deleteTask(id) {
+            if(!confirm('정말 삭제하시겠습니까?')) return;
+            const { error } = await client
+                .from('mytask')
+                .delete()
+                .eq('id', id);
+            if (error) console.error('삭제 에러:', error);
+            else fetchTasks();
+        }
+
+        function updateStats(tasks) {
+            document.getElementById('totalCount').textContent = tasks.length;
+            document.getElementById('completedCount').textContent = tasks.filter(t => t.is_completed).length;
+        }
+
+        function setLoading(isLoading) {
+            if (isLoading) {
+                loadingSpinner.style.display = 'block';
+                addBtnText.style.display = 'none';
+            } else {
+                loadingSpinner.style.display = 'none';
+                addBtnText.style.display = 'block';
+            }
+        }
+
+        fetchTasks();
+        window.toggleTask = toggleTask;
+        window.deleteTask = deleteTask;
+    </script>
+</body>
+</html>
