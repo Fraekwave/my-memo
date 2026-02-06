@@ -17,9 +17,11 @@ interface TaskListProps {
 export const TaskList = ({ tasks, onToggle, onUpdate, onDelete }: TaskListProps) => {
   if (tasks.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-zinc-400 font-light">할 일이 없습니다</p>
-        <p className="text-zinc-300 text-sm mt-1">새로운 태스크를 추가해보세요</p>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-zinc-400 font-light">할 일이 없습니다</p>
+          <p className="text-zinc-300 text-sm mt-1">새로운 태스크를 추가해보세요</p>
+        </div>
       </div>
     );
   }

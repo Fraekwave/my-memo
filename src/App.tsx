@@ -91,16 +91,16 @@ function App() {
           {/* Task 입력 폼 */}
           <TaskForm onSubmit={addTask} />
 
-          {/* Task 목록 — 최소 높이로 레이아웃 점프 방지 */}
-          <div className="p-6 sm:p-8 min-h-[400px]">
+             {/* Task 목록 — 고정 최소 높이로 레이아웃 점프 완전 방지 */}
+          <div className="p-6 sm:p-8 min-h-[500px] flex flex-col">
             {isTasksLoading ? (
-              <div className="flex items-center justify-center h-[340px]">
+              <div className="flex-1 flex items-center justify-center">
                 <div className="inline-block w-8 h-8 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
               </div>
             ) : (
               <div
                 key={selectedTabId}
-                className="animate-fade-in"
+                className="animate-fade-in flex-1 flex flex-col"
               >
                 <TaskList
                   tasks={tasks}
