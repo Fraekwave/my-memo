@@ -11,9 +11,13 @@
   font-family: 'Inter', system-ui, sans-serif;
 }
 
-/* 스크롤바 유무에 따른 수평 레이아웃 시프트 방지 */
+/* 스크롤바 유무에 따른 수평 레이아웃 시프트 방지 + 모바일 dvh 대응 */
 html {
   scrollbar-gutter: stable;
+}
+
+html, body, #root {
+  min-height: 100dvh;
 }
 
 /* Task 아이템 애니메이션 */
