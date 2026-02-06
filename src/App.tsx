@@ -1,25 +1,42 @@
+import { useTabs } from '@/hooks/useTabs';
 import { useTasks } from '@/hooks/useTasks';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
+import { TabBar } from '@/components/TabBar';
 
 /**
  * 메인 애플리케이션 컴포넌트
- * 
+ *
+ * ✨ 탭(Tab) 기능 추가:
+ * - 브라우저 스타일 탭으로 할 일 목록을 분리 관리
+ * - 탭 CRUD: 추가 / 삭제 / 이름 변경
+ * - 각 탭별 독립적인 Task 목록
+ *
  * ✨ Optimistic UI 적용:
  * - 초기 로딩 시에만 스피너 표시
- * - Task 추가/수정/삭제는 즉시 반영 (서버 응답 기다리지 않음)
- * 
- * ✨ 인라인 편집 기능 추가:
- * - Pencil 아이콘으로 수정 모드 진입
- * - Enter/Blur 저장, Esc 취소
- * 
- * 기존 index.html의 로직을 React로 변환:
- * - HTML 구조 → JSX
- * - Vanilla JS → React Hooks
- * - 전역 함수 → 컴포넌트 props
+ * - Task 추가/수정/삭제는 즉시 반영
  */
 function App() {
-  const { tasks, isInitialLoading, error, addTask, toggleTask, updateTask, deleteTask, stats } = useTasks();
+  const {
+    tabs,
+    selectedTabId,
+    setSelectedTabId,
+    isLoading: isTabsLoading,
+    addTab,
+    updateTab,
+    deleteTab,
+  } = useTabs();
+
+  const {
+    tasks,
+    isInitialLoading: isTasksLoading,
+    error,
+    addTask,
+    toggleTask,
+    updateTask,
+    deleteTask,
+    stats,
+  } = useTasks(selectedTabId);
 
   // 현재 날짜 포맷팅
   const currentDate = new Date().toLocaleDateString('ko-KR', {
@@ -29,8 +46,8 @@ function App() {
     weekday: 'long',
   });
 
-  // 초기 로딩 중 화면
-  if (isInitialLoading) {
+  // 초기 로딩 중 화면 (탭 로딩)
+  if (isTabsLoading) {
     return (
       <div className="bg-zinc-50 min-h-screen flex items-center justify-center p-4 sm:p-8">
         <div className="text-center">
@@ -52,8 +69,18 @@ function App() {
           <p className="text-zinc-500 font-light">{currentDate}</p>
         </div>
 
-        {/* 메인 카드 */}
-        <div className="bg-white rounded-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 overflow-hidden">
+        {/* 탭 바 */}
+        <TabBar
+          tabs={tabs}
+          selectedTabId={selectedTabId}
+          onSelect={setSelectedTabId}
+          onAdd={() => addTab()}
+          onUpdate={updateTab}
+          onDelete={deleteTab}
+        />
+
+        {/* 메인 카드 — 탭 바 아래에 연결되도록 rounded-t 제거 */}
+        <div className="bg-white rounded-b-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 border-t-0 overflow-hidden">
           {/* 에러 메시지 */}
           {error && (
             <div className="p-4 bg-red-50 border-b border-red-200 text-red-600 text-sm">
@@ -61,12 +88,28 @@ function App() {
             </div>
           )}
 
-          {/* Task 입력 폼 - 항상 즉시 반응 (loading prop 제거) */}
+          {/* Task 입력 폼 */}
           <TaskForm onSubmit={addTask} />
 
-          {/* Task 목록 */}
+          {/* Task 목록 — 탭 전환 시 부드러운 애니메이션 */}
           <div className="p-6 sm:p-8">
-            <TaskList tasks={tasks} onToggle={toggleTask} onUpdate={updateTask} onDelete={deleteTask} />
+            {isTasksLoading ? (
+              <div className="text-center py-8">
+                <div className="inline-block w-8 h-8 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div
+                key={selectedTabId}
+                className="animate-fade-in"
+              >
+                <TaskList
+                  tasks={tasks}
+                  onToggle={toggleTask}
+                  onUpdate={updateTask}
+                  onDelete={deleteTask}
+                />
+              </div>
+            )}
           </div>
 
           {/* 통계 푸터 */}
@@ -92,5 +135,3 @@ function App() {
 }
 
 export default App;
-
-// 배포 강제 실행용 주석

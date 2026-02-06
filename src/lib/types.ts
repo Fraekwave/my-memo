@@ -1,4 +1,14 @@
 /**
+ * Tab 데이터 타입 정의
+ */
+export interface Tab {
+  id: number;
+  title: string;
+  created_at: string;
+  user_id?: string; // Phase 2에서 활성화 예정
+}
+
+/**
  * Task 데이터 타입 정의
  */
 export interface Task {
@@ -6,6 +16,7 @@ export interface Task {
   text: string;
   is_completed: boolean;
   created_at: string;
+  tab_id: number | null; // 소속 탭 ID
   user_id?: string; // Phase 2에서 활성화 예정
 }
 

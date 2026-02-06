@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/lib/types';
 
@@ -10,27 +10,38 @@ import { Task } from '@/lib/types';
  * - 백그라운드에서 서버 동기화
  * - 실패 시 이전 상태로 롤백
  * 
+ * ✨ Tab 연동:
+ * - selectedTabId에 해당하는 task만 조회
+ * - task 추가 시 tab_id 포함
+ * 
  * 비즈니스 로직을 컴포넌트에서 분리하여:
  * - 재사용성 향상
  * - 테스트 용이성 증가
  * - 컴포넌트 코드 간결화
  */
-export const useTasks = () => {
+export const useTasks = (selectedTabId: number | null) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true); // 초기 로딩만 추적
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * 1. Read: 모든 Task 가져오기
+   * 1. Read: 선택된 탭의 Task 가져오기
    * 
    * 초기 로드 시에만 로딩 스피너 표시
    */
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
+    if (selectedTabId === null) {
+      setTasks([]);
+      setIsInitialLoading(false);
+      return;
+    }
+
     try {
       setIsInitialLoading(true);
       const { data, error } = await supabase
         .from('mytask')
         .select('*')
+        .eq('tab_id', selectedTabId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -41,7 +52,7 @@ export const useTasks = () => {
     } finally {
       setIsInitialLoading(false);
     }
-  };
+  }, [selectedTabId]);
 
   /**
    * 2. Create: 새로운 Task 추가
@@ -62,6 +73,7 @@ export const useTasks = () => {
       text: text.trim(),
       is_completed: false,
       created_at: new Date().toISOString(),
+      tab_id: selectedTabId,
     };
 
     // 2️⃣ 즉시 UI에 반영 (Optimistic Update)
@@ -71,7 +83,7 @@ export const useTasks = () => {
       // 3️⃣ 백그라운드에서 서버에 저장
       const { data, error } = await supabase
         .from('mytask')
-        .insert([{ text: text.trim(), is_completed: false }])
+        .insert([{ text: text.trim(), is_completed: false, tab_id: selectedTabId }])
         .select();
 
       if (error) throw error;
@@ -226,11 +238,11 @@ export const useTasks = () => {
   };
 
   /**
-   * 초기 데이터 로드
+   * 탭 변경 시 데이터 로드
    */
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
 
   /**
    * 통계 계산
