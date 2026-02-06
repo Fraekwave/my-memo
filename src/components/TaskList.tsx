@@ -3,7 +3,6 @@ import {
   DndContext,
   DragOverlay,
   pointerWithin,
-  closestCorners,
   MeasuringStrategy,
   MouseSensor,
   TouchSensor,
@@ -33,21 +32,45 @@ const restrictToVerticalAxis: Modifier = ({ transform }) => ({
 });
 
 // ──────────────────────────────────────────────
-// Hybrid Collision Detection (Variable-Height + Gaps)
+// Pointer-Tracking Collision Detection
 // ──────────────────────────────────────────────
-// 가변 높이 아이템 + 12px 갭 환경에서 안정적인 드래그를 위한 복합 충돌 감지.
+// 드래그 아이템의 크기/위치(Bounding Box)를 완전히 무시하고,
+// 오직 마우스/터치 포인터의 Y 좌표만으로 충돌을 판정합니다.
 //
-// 1차: pointerWithin — 포인터가 아이템 위에 있을 때 정밀 타겟팅
-// 2차: closestCorners — 포인터가 갭(빈 공간)에 있을 때 가장 가까운 이웃 반환
-//
-// MeasuringStrategy.Always와 함께 사용하여 실시간 좌표 정확성 보장.
-// hybridCollision은 포인터 기반이므로 Always에서도 피드백 루프가 발생하지 않음.
-const hybridCollision: CollisionDetection = (args) => {
+// 1차: pointerWithin — 포인터가 아이템 영역 안에 있으면 즉시 반환
+// 2차: Pointer-Y 최근접 Center — 포인터가 갭(빈 공간)에 있을 때,
+//      각 droppable의 수직 중심(centerY)과 포인터 Y의 거리를 비교하여
+//      가장 가까운 아이템 반환. closestCorners/closestCenter와 달리
+//      dragged rect를 참조하지 않으므로 아이템 높이에 무관하게 안정적.
+const pointerTrackingCollision: CollisionDetection = (args) => {
+  // 1차: 포인터가 아이템 위에 있으면 정밀 타겟팅
   const pointerCollisions = pointerWithin(args);
   if (pointerCollisions.length > 0) {
     return pointerCollisions;
   }
-  return closestCorners(args);
+
+  // 2차: 갭에 있을 때 — 포인터 Y와 가장 가까운 droppable center 탐색
+  const { pointerCoordinates, droppableRects, droppableContainers } = args;
+  if (!pointerCoordinates) return [];
+
+  const pointerY = pointerCoordinates.y;
+  let closestId: string | number | null = null;
+  let closestDistance = Infinity;
+
+  for (const container of droppableContainers) {
+    const rect = droppableRects.get(container.id);
+    if (!rect) continue;
+
+    const centerY = rect.top + rect.height / 2;
+    const distance = Math.abs(pointerY - centerY);
+
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestId = container.id;
+    }
+  }
+
+  return closestId !== null ? [{ id: closestId }] : [];
 };
 
 // ──────────────────────────────────────────────
@@ -173,7 +196,7 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={hybridCollision}
+      collisionDetection={pointerTrackingCollision}
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       modifiers={[restrictToVerticalAxis]}
       onDragStart={handleDragStart}
