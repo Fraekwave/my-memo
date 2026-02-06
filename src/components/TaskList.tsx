@@ -1,10 +1,14 @@
+import type { MouseEvent, TouchEvent } from 'react';
 import {
   DndContext,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
+  type MouseSensorOptions,
+  type TouchSensorOptions,
+  type DragEndEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -12,6 +16,68 @@ import {
 } from '@dnd-kit/sortable';
 import { Task } from '@/lib/types';
 import { TaskItem } from './TaskItem';
+
+// ──────────────────────────────────────────────
+// Interactive Element Filter
+// ──────────────────────────────────────────────
+// 이벤트 대상이 Checkbox, Button, Input 등 인터랙티브 요소이면
+// 드래그를 활성화하지 않습니다. DOM 트리를 올라가며 확인합니다.
+function isInteractiveElement(element: HTMLElement | null): boolean {
+  const interactiveTags = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'LABEL']);
+  let cur = element;
+  while (cur) {
+    if (interactiveTags.has(cur.tagName)) return true;
+    if (cur.dataset?.noDnd === 'true') return true;
+    cur = cur.parentElement;
+  }
+  return false;
+}
+
+// ──────────────────────────────────────────────
+// Custom Sensors: Interactive Element를 무시
+// ──────────────────────────────────────────────
+// MouseSensor/TouchSensor를 확장하여 activator handler에서
+// 인터랙티브 요소 클릭/터치 시 드래그를 차단합니다.
+
+class SmartMouseSensor extends MouseSensor {
+  static activators = [
+    {
+      eventName: 'onMouseDown' as const,
+      handler: (
+        { nativeEvent: event }: MouseEvent,
+        { onActivation }: MouseSensorOptions
+      ) => {
+        if (isInteractiveElement(event.target as HTMLElement)) return false;
+        return MouseSensor.activators[0].handler(
+          { nativeEvent: event } as unknown as MouseEvent,
+          { onActivation } as MouseSensorOptions
+        );
+      },
+    },
+  ];
+}
+
+class SmartTouchSensor extends TouchSensor {
+  static activators = [
+    {
+      eventName: 'onTouchStart' as const,
+      handler: (
+        { nativeEvent: event }: TouchEvent,
+        { onActivation }: TouchSensorOptions
+      ) => {
+        if (isInteractiveElement(event.target as HTMLElement)) return false;
+        return TouchSensor.activators[0].handler(
+          { nativeEvent: event } as unknown as TouchEvent,
+          { onActivation } as TouchSensorOptions
+        );
+      },
+    },
+  ];
+}
+
+// ──────────────────────────────────────────────
+// Component
+// ──────────────────────────────────────────────
 
 interface TaskListProps {
   tasks: Task[];
@@ -24,19 +90,19 @@ interface TaskListProps {
 /**
  * Task 목록 컴포넌트
  *
- * ✨ Drag & Drop 순서 변경:
- * - @dnd-kit의 verticalListSortingStrategy 사용
- * - PointerSensor (distance: 5px) — 핸들 기반이므로 복잡한 센서 분리 불필요
- * - 각 TaskItem이 자체적으로 useSortable + GripVertical 핸들 보유
- *
- * 빈 상태(Empty State) 처리 포함
+ * ✨ Drag & Drop 순서 변경 (Whole-Body Drag):
+ * - 전체 Task 아이템 영역이 드래그 대상
+ * - Mouse: distance 10px (클릭과 구분)
+ * - Touch: delay 250ms + tolerance 5px (스크롤과 구분 — Long Press)
+ * - SmartSensor: Checkbox, Button, Input 위의 이벤트는 드래그 차단
  */
 export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: TaskListProps) => {
-  // PointerSensor: 핸들에만 바인딩되므로 distance 5px만으로 충분
-  // (Mouse & Touch 모두 Pointer Events API로 처리)
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
+    useSensor(SmartMouseSensor, {
+      activationConstraint: { distance: 10 },
+    }),
+    useSensor(SmartTouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
     })
   );
 

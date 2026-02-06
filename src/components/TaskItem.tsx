@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Pencil, X } from 'lucide-react';
+import { Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -19,10 +19,11 @@ interface TaskItemProps {
  * - Pencil 아이콘 클릭 → 텍스트가 input으로 변경
  * - Enter 키 → 저장 / Esc 키 → 취소 / Blur → 저장
  *
- * ✨ Drag & Drop:
- * - GripVertical 핸들로만 드래그 활성화 (setActivatorNodeRef)
- * - 체크박스, 텍스트 클릭, 편집과 충돌 없음
- * - 드래그 중 시각적 피드백 (opacity, shadow)
+ * ✨ Drag & Drop (Whole-Body):
+ * - 아이템 전체가 드래그 대상 (핸들 없음)
+ * - Mouse: 10px 이동 시 활성화 / Touch: 250ms Long Press 시 활성화
+ * - Checkbox, Button, Input 클릭은 SmartSensor에서 필터링되어 드래그 미발생
+ * - 편집 모드에서는 드래그 리스너 비활성화
  *
  * ✨ 커스텀 삭제 확인 모달
  */
@@ -37,14 +38,12 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition: sortableTransition,
     isDragging,
   } = useSortable({ id: task.id });
 
   // 드래그 중에는 transition 비활성화 (CSS .task-item의 transition: all과 충돌 방지)
-  // 비드래그 아이템은 useSortable의 reorder 애니메이션 transition 사용
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? 'none' : sortableTransition,
@@ -52,6 +51,9 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
     zIndex: isDragging ? 50 : undefined,
     position: isDragging ? 'relative' as const : undefined,
   };
+
+  // 편집 중에는 드래그 리스너 비활성화
+  const dragProps = isEditing ? {} : { ...attributes, ...listeners };
 
   // 편집 모드 진입 시 자동 포커스
   useEffect(() => {
@@ -97,26 +99,14 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
     <div
       ref={setNodeRef}
       style={style}
+      {...dragProps}
       className={`
         task-item flex items-center gap-3 p-4 bg-zinc-50 rounded-xl border border-zinc-100
-        hover:border-zinc-200 hover:shadow-sm
-        ${isDragging ? 'shadow-lg ring-1 ring-zinc-200 !bg-white' : ''}
+        hover:border-zinc-200 hover:shadow-sm select-none
+        ${isDragging ? 'shadow-lg ring-1 ring-zinc-200 !bg-white cursor-grabbing' : 'cursor-grab'}
+        ${isEditing ? '!cursor-auto' : ''}
       `}
     >
-      {/* 드래그 핸들 — 이 요소만 드래그를 활성화 */}
-      {!isEditing && (
-        <button
-          ref={setActivatorNodeRef}
-          {...attributes}
-          {...listeners}
-          className="touch-none flex-shrink-0 text-zinc-300 hover:text-zinc-500 cursor-grab active:cursor-grabbing p-0.5 -ml-1"
-          aria-label="순서 변경"
-          tabIndex={-1}
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
-      )}
-
       {/* 체크박스 */}
       <input
         type="checkbox"
@@ -136,11 +126,11 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
             onChange={(e) => setEditText(e.target.value)}
             onBlur={saveEdit}
             onKeyDown={handleKeyDown}
-            className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 outline-none focus:border-zinc-900 transition-colors"
+            className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 outline-none focus:border-zinc-900 transition-colors select-text"
           />
         ) : (
           <span
-            className={`block text-zinc-900 ${
+            className={`block text-zinc-900 select-none ${
               task.is_completed ? 'completed' : ''
             }`}
           >
