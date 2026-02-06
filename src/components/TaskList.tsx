@@ -2,7 +2,8 @@ import { useState, type MouseEvent, type TouchEvent } from 'react';
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  closestCorners,
+  MeasuringStrategy,
   MouseSensor,
   TouchSensor,
   useSensor,
@@ -152,7 +153,8 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={closestCorners}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       modifiers={[restrictToVerticalAxis]}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
