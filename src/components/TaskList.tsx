@@ -1,6 +1,7 @@
-import type { MouseEvent, TouchEvent } from 'react';
+import { useState, type MouseEvent, type TouchEvent } from 'react';
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   MouseSensor,
   TouchSensor,
@@ -9,6 +10,7 @@ import {
   type Modifier,
   type MouseSensorOptions,
   type TouchSensorOptions,
+  type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
@@ -107,6 +109,10 @@ interface TaskListProps {
  * - SmartSensor: Checkbox, Button, Input 위의 이벤트는 드래그 차단
  */
 export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: TaskListProps) => {
+  // DragOverlay용: 현재 드래그 중인 Task ID 추적
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const activeTask = activeId !== null ? tasks.find((t) => t.id === activeId) : null;
+
   const sensors = useSensors(
     useSensor(SmartMouseSensor, {
       activationConstraint: { distance: 10 },
@@ -116,11 +122,20 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
     })
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(Number(event.active.id));
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
       onReorder(Number(active.id), Number(over.id));
     }
+    setActiveId(null);
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
   };
 
   if (tasks.length === 0) {
@@ -139,7 +154,9 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
       sensors={sensors}
       collisionDetection={closestCenter}
       modifiers={[restrictToVerticalAxis]}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <SortableContext
         items={tasks.map((t) => t.id)}
@@ -157,6 +174,30 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
           ))}
         </div>
       </SortableContext>
+
+      {/* DragOverlay: 드래그 중 포인터를 따라다니는 플로팅 복사본 */}
+      {/* React Portal로 렌더링되어 리스트 DOM 플로우와 완전히 분리됨 */}
+      <DragOverlay>
+        {activeTask ? (
+          <div className="task-item flex items-center gap-3 p-4 bg-white rounded-xl border border-zinc-200 shadow-xl select-none cursor-grabbing">
+            <input
+              type="checkbox"
+              className="task-checkbox"
+              checked={activeTask.is_completed}
+              readOnly
+            />
+            <div className="flex-1 min-w-0">
+              <span
+                className={`block text-zinc-900 select-none ${
+                  activeTask.is_completed ? 'completed' : ''
+                }`}
+              >
+                {activeTask.text}
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 };

@@ -43,13 +43,14 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
     isDragging,
   } = useSortable({ id: task.id });
 
-  // 드래그 중에는 transition 비활성화 (CSS .task-item의 transition: all과 충돌 방지)
+  // DragOverlay 패턴:
+  // - isDragging인 아이템은 "플레이스홀더"로 표시 (dimmed)
+  // - 실제 드래그 비주얼은 TaskList의 DragOverlay에서 렌더링
+  // - 플레이스홀더는 리스트 레이아웃을 유지하면서 부드럽게 이동
   const style = {
     transform: CSS.Translate.toString(transform),
-    transition: isDragging ? 'none' : sortableTransition,
-    opacity: isDragging ? 0.5 : undefined,
-    zIndex: isDragging ? 50 : undefined,
-    position: isDragging ? 'relative' as const : undefined,
+    transition: sortableTransition,
+    opacity: isDragging ? 0.3 : undefined,
   };
 
   // 편집 중에는 드래그 리스너 비활성화
@@ -103,8 +104,7 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
       className={`
         task-item flex items-center gap-3 p-4 bg-zinc-50 rounded-xl border border-zinc-100
         hover:border-zinc-200 hover:shadow-sm select-none
-        ${isDragging ? 'shadow-lg ring-1 ring-zinc-200 !bg-white cursor-grabbing' : 'cursor-grab'}
-        ${isEditing ? '!cursor-auto' : ''}
+        ${isEditing ? 'cursor-auto' : 'cursor-grab'}
       `}
     >
       {/* 체크박스 */}
