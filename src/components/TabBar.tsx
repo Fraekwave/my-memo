@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { Plus, X, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { Tab } from '@/lib/types';
 import { ConfirmModal } from './ConfirmModal';
@@ -7,7 +8,7 @@ interface TabBarProps {
   tabs: Tab[];
   selectedTabId: number | null;
   onSelect: (id: number) => void;
-  onAdd: () => void;
+  onAdd: () => number;
   onUpdate: (id: number, newTitle: string) => void;
   onDelete: (id: number) => void;
 }
@@ -33,7 +34,6 @@ export const TabBar = ({
   const [editingTabId, setEditingTabId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [deleteTabId, setDeleteTabId] = useState<number | null>(null);
-  const [shouldAutoEdit, setShouldAutoEdit] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -103,22 +103,6 @@ export const TabBar = ({
     }
   }, [selectedTabId]);
 
-  // ──────────────────────────────────────────────
-  // 3. Auto-edit: 새 탭 생성 후 즉시 편집 모드
-  // ──────────────────────────────────────────────
-  useEffect(() => {
-    if (shouldAutoEdit && selectedTabId !== null) {
-      const newTab = tabs.find((t) => t.id === selectedTabId);
-      if (newTab) {
-        requestAnimationFrame(() => {
-          setEditingTabId(newTab.id);
-          setEditTitle(newTab.title);
-          setShouldAutoEdit(false);
-        });
-      }
-    }
-  }, [shouldAutoEdit, selectedTabId, tabs]);
-
   // Optimistic ID 교체 시 편집 상태 유지
   // (서버 응답으로 탭 ID가 바뀌어도 편집 모드가 끊기지 않도록)
   useEffect(() => {
@@ -187,10 +171,36 @@ export const TabBar = ({
     }
   };
 
-  // + 버튼 핸들러: 생성 + 자동 편집 플래그
+  /**
+   * + 버튼 핸들러: flushSync 기반 동기적 Focus
+   *
+   * iOS Webkit은 focus()가 User Gesture의 동기 콜 스택 안에 있어야만
+   * 가상 키보드를 활성화합니다. useEffect 경유 시 Gesture 체인이 끊기므로
+   * flushSync로 React의 상태→DOM 업데이트를 동기적으로 강제하고,
+   * 같은 콜 스택 내에서 focus()를 호출합니다.
+   */
   const handleAdd = () => {
-    setShouldAutoEdit(true);
-    onAdd();
+    // 1. 편집 중인 탭이 있으면 먼저 저장
+    //    (Desktop: onMouseDown preventDefault로 blur 미발생 → 여기서 명시적으로 저장)
+    //    (Mobile: blur → saveEdit가 이미 실행됨 → editingTabId === null이므로 skip)
+    if (editingTabId !== null && editTitle.trim()) {
+      onUpdate(editingTabId, editTitle.trim());
+    }
+
+    // 2. 탭 생성 — 동기적 optimistic update, optimistic ID 반환
+    const newTabId = onAdd();
+
+    // 3. flushSync: 편집 상태 + 새 탭 DOM을 같은 User Gesture 스택 안에서 커밋
+    flushSync(() => {
+      setEditingTabId(newTabId);
+      setEditTitle('New Tab');
+    });
+
+    // 4. DOM이 동기적으로 업데이트된 직후 — 같은 User Gesture 스택 내에서 focus
+    if (inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
   };
 
   // ──────────────────────────────────────────────
@@ -318,7 +328,10 @@ export const TabBar = ({
       </button>
 
       {/* 새 탭 추가 버튼 */}
+      {/* onMouseDown + preventDefault: Desktop에서 기존 input의 blur를 방지 */}
+      {/* Mobile에서는 touchstart → blur가 mousedown보다 먼저 발생하므로 영향 없음 */}
       <button
+        onMouseDown={(e) => e.preventDefault()}
         onClick={handleAdd}
         className="flex-shrink-0 flex items-center justify-center w-8 h-8 mb-0.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition-all duration-150"
         aria-label="새 탭 추가"

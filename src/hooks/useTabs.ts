@@ -84,43 +84,54 @@ export const useTabs = () => {
   }, []);
 
   /**
-   * 새 탭 추가
+   * 새 탭 추가 (Synchronous Optimistic Update)
+   *
+   * 동기적으로 optimistic 탭을 생성하고 ID를 반환합니다.
+   * 호출자가 flushSync와 함께 사용하여 iOS User Gesture 체인을 유지할 수 있습니다.
+   * 서버 동기화는 백그라운드에서 비동기로 처리합니다.
+   *
+   * @returns 생성된 탭의 optimistic ID
    */
-  const addTab = async (title: string = 'New Tab') => {
-    // Optimistic: 임시 탭 추가
+  const addTab = (title: string = 'New Tab'): number => {
     const optimisticTab: Tab = {
       id: -Date.now(),
       title,
       created_at: new Date().toISOString(),
     };
 
+    // 동기적 state update — 호출자의 flushSync에 의해 즉시 DOM에 반영됨
     setTabs((prev) => [...prev, optimisticTab]);
     setSelectedTabId(optimisticTab.id);
 
-    try {
-      const { data, error } = await supabase
-        .from('tabs')
-        .insert([{ title }])
-        .select();
+    // 서버 동기화 (fire-and-forget — User Gesture 체인 유지를 위해 await하지 않음)
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tabs')
+          .insert([{ title }])
+          .select();
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data && data[0]) {
-        setTabs((prev) =>
-          prev.map((tab) => (tab.id === optimisticTab.id ? data[0] : tab))
-        );
-        setSelectedTabId(data[0].id);
+        if (data && data[0]) {
+          setTabs((prev) =>
+            prev.map((tab) => (tab.id === optimisticTab.id ? data[0] : tab))
+          );
+          setSelectedTabId(data[0].id);
+        }
+      } catch (err) {
+        console.error('탭 추가 에러:', err);
+        // 롤백
+        setTabs((prev) => prev.filter((tab) => tab.id !== optimisticTab.id));
+        // 이전 탭으로 복귀
+        setSelectedTabId((prev) => {
+          const remaining = tabs.filter((t) => t.id !== optimisticTab.id);
+          return remaining.length > 0 ? remaining[0].id : prev;
+        });
       }
-    } catch (err) {
-      console.error('탭 추가 에러:', err);
-      // 롤백
-      setTabs((prev) => prev.filter((tab) => tab.id !== optimisticTab.id));
-      // 이전 탭으로 복귀
-      setSelectedTabId((prev) => {
-        const remaining = tabs.filter((t) => t.id !== optimisticTab.id);
-        return remaining.length > 0 ? remaining[0].id : prev;
-      });
-    }
+    })();
+
+    return optimisticTab.id;
   };
 
   /**
