@@ -36,6 +36,7 @@ function App() {
     toggleTask,
     updateTask,
     deleteTask,
+    reorderTasks,
     stats,
   } = useTasks(selectedTabId);
 
@@ -112,6 +113,7 @@ function App() {
                   onToggle={toggleTask}
                   onUpdate={updateTask}
                   onDelete={deleteTask}
+                  onReorder={reorderTasks}
                 />
               </div>
             )}

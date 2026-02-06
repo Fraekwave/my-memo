@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { Pencil, X } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical, Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -12,16 +14,17 @@ interface TaskItemProps {
 
 /**
  * 개별 Task 아이템 컴포넌트
- * 
- * ✨ 인라인 편집 기능 추가:
+ *
+ * ✨ 인라인 편집 기능:
  * - Pencil 아이콘 클릭 → 텍스트가 input으로 변경
- * - Enter 키 → 저장
- * - Esc 키 → 취소
- * - Blur (포커스 해제) → 저장
- * 
- * ✨ 커스텀 삭제 확인 모달:
- * - X 버튼 클릭 시 ConfirmModal 표시
- * - 확인 시에만 실제 삭제 실행
+ * - Enter 키 → 저장 / Esc 키 → 취소 / Blur → 저장
+ *
+ * ✨ Drag & Drop:
+ * - GripVertical 핸들로만 드래그 활성화 (setActivatorNodeRef)
+ * - 체크박스, 텍스트 클릭, 편집과 충돌 없음
+ * - 드래그 중 시각적 피드백 (opacity, shadow)
+ *
+ * ✨ 커스텀 삭제 확인 모달
  */
 export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -29,11 +32,32 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // ── @dnd-kit Sortable ──
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition: sortableTransition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  // 드래그 중에는 transition 비활성화 (CSS .task-item의 transition: all과 충돌 방지)
+  // 비드래그 아이템은 useSortable의 reorder 애니메이션 transition 사용
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? 'none' : sortableTransition,
+    opacity: isDragging ? 0.5 : undefined,
+    zIndex: isDragging ? 50 : undefined,
+    position: isDragging ? 'relative' as const : undefined,
+  };
+
   // 편집 모드 진입 시 자동 포커스
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
-      inputRef.current.select(); // 전체 텍스트 선택
+      inputRef.current.select();
     }
   }, [isEditing]);
 
@@ -70,14 +94,36 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
   };
 
   return (
-    <div className="task-item flex items-center gap-3 p-4 bg-zinc-50 rounded-xl border border-zinc-100 hover:border-zinc-200 hover:shadow-sm transition-all">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`
+        task-item flex items-center gap-3 p-4 bg-zinc-50 rounded-xl border border-zinc-100
+        hover:border-zinc-200 hover:shadow-sm
+        ${isDragging ? 'shadow-lg ring-1 ring-zinc-200 !bg-white' : ''}
+      `}
+    >
+      {/* 드래그 핸들 — 이 요소만 드래그를 활성화 */}
+      {!isEditing && (
+        <button
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          className="touch-none flex-shrink-0 text-zinc-300 hover:text-zinc-500 cursor-grab active:cursor-grabbing p-0.5 -ml-1"
+          aria-label="순서 변경"
+          tabIndex={-1}
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      )}
+
       {/* 체크박스 */}
       <input
         type="checkbox"
         className="task-checkbox"
         checked={task.is_completed}
         onChange={(e) => onToggle(task.id, e.target.checked)}
-        disabled={isEditing} // 편집 중에는 체크박스 비활성화
+        disabled={isEditing || isDragging}
       />
 
       {/* 텍스트 or 입력창 */}
@@ -88,7 +134,7 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
             type="text"
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
-            onBlur={saveEdit} // 포커스 해제 시 저장
+            onBlur={saveEdit}
             onKeyDown={handleKeyDown}
             className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 outline-none focus:border-zinc-900 transition-colors"
           />
@@ -105,7 +151,7 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
 
       {/* 액션 버튼들 */}
       <div className="flex items-center gap-2">
-        {!isEditing && (
+        {!isEditing && !isDragging && (
           <>
             {/* 수정 버튼 (Pencil 아이콘) */}
             <button

@@ -18,6 +18,7 @@ export interface Task {
   is_completed: boolean;
   created_at: string;
   tab_id: number | null; // 소속 탭 ID
+  order_index: number;
   user_id?: string; // Phase 2에서 활성화 예정
 }
 

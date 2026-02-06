@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/lib/types';
+import { arrayMove } from '@dnd-kit/sortable';
 
 /**
  * Task CRUD 로직을 관리하는 커스텀 훅
@@ -42,7 +43,7 @@ export const useTasks = (selectedTabId: number | null) => {
         .from('mytask')
         .select('*')
         .eq('tab_id', selectedTabId)
-        .order('created_at', { ascending: false });
+        .order('order_index', { ascending: true });
 
       if (error) throw error;
       setTasks(data || []);
@@ -68,12 +69,18 @@ export const useTasks = (selectedTabId: number | null) => {
     setError(null);
 
     // 1️⃣ 임시 Task 생성 (음수 ID로 임시 표시)
+    // 새 Task는 맨 위에 추가 — 기존 최소 order_index - 1
+    const nextOrderIndex = tasks.length > 0
+      ? Math.min(...tasks.map((t) => t.order_index ?? 0)) - 1
+      : 0;
+
     const optimisticTask: Task = {
       id: -Date.now(), // 임시 고유 ID (음수로 구분)
       text: text.trim(),
       is_completed: false,
       created_at: new Date().toISOString(),
       tab_id: selectedTabId,
+      order_index: nextOrderIndex,
     };
 
     // 2️⃣ 즉시 UI에 반영 (Optimistic Update)
@@ -83,7 +90,7 @@ export const useTasks = (selectedTabId: number | null) => {
       // 3️⃣ 백그라운드에서 서버에 저장
       const { data, error } = await supabase
         .from('mytask')
-        .insert([{ text: text.trim(), is_completed: false, tab_id: selectedTabId }])
+        .insert([{ text: text.trim(), is_completed: false, tab_id: selectedTabId, order_index: nextOrderIndex }])
         .select();
 
       if (error) throw error;
@@ -222,16 +229,54 @@ export const useTasks = (selectedTabId: number | null) => {
 
       // 5️⃣ 실패 시: 삭제한 Task 다시 복원 (Rollback)
       setTasks((prev) => {
-        // 원래 위치에 복원 (created_at 기준 정렬)
+        // 원래 위치에 복원 (order_index 기준 정렬)
         const restored = [...prev, taskToDelete].sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
         );
         return restored;
       });
 
       // 사용자에게 실패 알림
       alert('⚠️ 서버 연결 실패. 삭제가 취소되었습니다.');
+    }
+  };
+
+  /**
+   * 6. Reorder: Task 순서 변경 (Drag & Drop)
+   *
+   * ✨ Optimistic UI:
+   * - arrayMove로 즉시 로컬 배열 재정렬
+   * - 백그라운드에서 각 Task의 order_index를 서버에 동기화
+   * - 실패 시 이전 순서로 롤백
+   */
+  const reorderTasks = async (activeId: number, overId: number) => {
+    const oldIndex = tasks.findIndex((t) => t.id === activeId);
+    const newIndex = tasks.findIndex((t) => t.id === overId);
+
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+    const previousTasks = tasks;
+    const reordered = arrayMove(tasks, oldIndex, newIndex);
+
+    // Optimistic Update — order_index도 로컬에서 재계산
+    const reorderedWithIndex = reordered.map((task, i) => ({
+      ...task,
+      order_index: i,
+    }));
+    setTasks(reorderedWithIndex);
+
+    // 서버 동기화 — 각 Task의 order_index 개별 업데이트
+    try {
+      const results = await Promise.all(
+        reorderedWithIndex.map(({ id, order_index }) =>
+          supabase.from('mytask').update({ order_index }).eq('id', id)
+        )
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    } catch (err) {
+      console.error('Task 순서 변경 에러:', err);
+      setTasks(previousTasks);
     }
   };
 
@@ -258,6 +303,7 @@ export const useTasks = (selectedTabId: number | null) => {
     toggleTask,
     updateTask,
     deleteTask,
+    reorderTasks,
     stats,
   };
 };
