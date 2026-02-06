@@ -40,8 +40,8 @@ const restrictToVerticalAxis: Modifier = ({ transform }) => ({
 // 1차: pointerWithin — 포인터가 아이템 위에 있을 때 정밀 타겟팅
 // 2차: closestCorners — 포인터가 갭(빈 공간)에 있을 때 가장 가까운 이웃 반환
 //
-// ⚠️ 반드시 MeasuringStrategy.BeforeDragging과 함께 사용해야 함.
-//    (드래그 중 재측정 → CSS Transform 피드백 루프 → index 0 점프 방지)
+// MeasuringStrategy.Always와 함께 사용하여 실시간 좌표 정확성 보장.
+// hybridCollision은 포인터 기반이므로 Always에서도 피드백 루프가 발생하지 않음.
 const hybridCollision: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
   if (pointerCollisions.length > 0) {
@@ -174,7 +174,7 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
     <DndContext
       sensors={sensors}
       collisionDetection={hybridCollision}
-      measuring={{ droppable: { strategy: MeasuringStrategy.BeforeDragging } }}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       modifiers={[restrictToVerticalAxis]}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}

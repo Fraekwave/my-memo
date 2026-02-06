@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
+import {
+  useSortable,
+  defaultAnimateLayoutChanges,
+  type AnimateLayoutChanges,
+} from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
@@ -27,6 +31,20 @@ interface TaskItemProps {
  *
  * ✨ 커스텀 삭제 확인 모달
  */
+// ──────────────────────────────────────────────
+// Custom animateLayoutChanges
+// ──────────────────────────────────────────────
+// 드래그 종료 직후(wasDragging) 아이템이 "하늘에서 떨어지는" 애니메이션 방지.
+// - 정렬 중(isSorting): 기본 애니메이션 유지 (다른 아이템이 부드럽게 이동)
+// - 드롭 직후(wasDragging): 애니메이션 비활성화 (즉시 최종 위치에 스냅)
+const animateLayoutChanges: AnimateLayoutChanges = (args) => {
+  const { isSorting, wasDragging } = args;
+  if (isSorting || wasDragging) {
+    return false;
+  }
+  return defaultAnimateLayoutChanges(args);
+};
+
 export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
@@ -41,7 +59,7 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
     transform,
     transition: sortableTransition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({ id: task.id, animateLayoutChanges });
 
   // DragOverlay 패턴:
   // - isDragging인 아이템은 "플레이스홀더"로 표시 (dimmed)
