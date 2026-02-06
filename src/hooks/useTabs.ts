@@ -2,17 +2,31 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Tab } from '@/lib/types';
 
+const STORAGE_KEY = 'active_tab_id';
+
 /**
  * Tab CRUD 로직을 관리하는 커스텀 훅
  *
  * - 탭 목록 조회, 추가, 이름 변경, 삭제
  * - 기본 탭 자동 생성 (탭이 하나도 없을 때)
  * - 활성 탭 ID 관리
+ * - localStorage로 선택된 탭 유지 (새로고침 시 복원)
  */
 export const useTabs = () => {
   const [tabs, setTabs] = useState<Tab[]>([]);
-  const [selectedTabId, setSelectedTabId] = useState<number | null>(null);
+  const [selectedTabId, _setSelectedTabId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // selectedTabId 변경 시 localStorage에도 저장하는 래퍼
+  const setSelectedTabId = useCallback((value: number | null | ((prev: number | null) => number | null)) => {
+    _setSelectedTabId((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      if (next !== null) {
+        localStorage.setItem(STORAGE_KEY, String(next));
+      }
+      return next;
+    });
+  }, []);
 
   /**
    * 탭 목록 가져오기
@@ -44,13 +58,22 @@ export const useTabs = () => {
 
       setTabs(tabsList);
 
-      // 활성 탭이 없거나, 현재 활성 탭이 목록에 존재하지 않으면 첫 번째 탭 선택
+      // localStorage에서 이전에 선택했던 탭 ID 복원
       if (tabsList.length > 0) {
+        const savedId = localStorage.getItem(STORAGE_KEY);
+        const savedTabId = savedId ? Number(savedId) : null;
+
         setSelectedTabId((prev) => {
-          if (prev === null || !tabsList.some((t) => t.id === prev)) {
-            return tabsList[0].id;
+          // 1) 저장된 ID가 유효하면 복원
+          if (savedTabId !== null && tabsList.some((t) => t.id === savedTabId)) {
+            return savedTabId;
           }
-          return prev;
+          // 2) 이미 선택된 탭이 유효하면 유지
+          if (prev !== null && tabsList.some((t) => t.id === prev)) {
+            return prev;
+          }
+          // 3) 둘 다 아니면 첫 번째 탭
+          return tabsList[0].id;
         });
       }
     } catch (err) {
@@ -134,10 +157,6 @@ export const useTabs = () => {
    * Cascade로 해당 탭의 task도 함께 삭제됨
    */
   const deleteTab = async (id: number) => {
-    if (!confirm('정말 이 탭을 삭제하시겠습니까?\n탭에 포함된 모든 할 일도 함께 삭제됩니다.')) {
-      return;
-    }
-
     const previousTabs = tabs;
     const previousSelectedTabId = selectedTabId;
     const remaining = tabs.filter((tab) => tab.id !== id);

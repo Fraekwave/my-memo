@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Tab } from '@/lib/types';
+import { ConfirmModal } from './ConfirmModal';
 
 interface TabBarProps {
   tabs: Tab[];
@@ -31,8 +32,12 @@ export const TabBar = ({
 }: TabBarProps) => {
   const [editingTabId, setEditingTabId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [deleteTabId, setDeleteTabId] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 삭제 대상 탭 이름 가져오기
+  const deleteTargetTab = deleteTabId !== null ? tabs.find((t) => t.id === deleteTabId) : null;
 
   // 편집 모드 진입 시 자동 포커스
   useEffect(() => {
@@ -119,12 +124,12 @@ export const TabBar = ({
                 </span>
               )}
 
-              {/* 닫기(X) 버튼 — 활성 탭은 항상 표시, 비활성 탭은 hover 가능 기기에서만 hover로 표시 */}
+              {/* 닫기(X) 버튼 — 모달로 확인 후 삭제 */}
               {!isEditing && tabs.length > 1 && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDelete(tab.id);
+                    setDeleteTabId(tab.id);
                   }}
                   className={`
                     flex-shrink-0 rounded-full p-0.5
@@ -153,6 +158,22 @@ export const TabBar = ({
       >
         <Plus className="w-4 h-4" />
       </button>
+
+      {/* 탭 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={deleteTabId !== null}
+        title="탭 삭제"
+        message={`"${deleteTargetTab?.title ?? ''}" 탭을 삭제하시겠습니까?\n탭에 포함된 모든 할 일도 함께 삭제됩니다.`}
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        onConfirm={() => {
+          if (deleteTabId !== null) {
+            onDelete(deleteTabId);
+          }
+          setDeleteTabId(null);
+        }}
+        onCancel={() => setDeleteTabId(null)}
+      />
     </div>
   );
 };

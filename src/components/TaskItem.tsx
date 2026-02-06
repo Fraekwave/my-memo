@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
+import { ConfirmModal } from './ConfirmModal';
 
 interface TaskItemProps {
   task: Task;
@@ -18,14 +19,14 @@ interface TaskItemProps {
  * - Esc 키 → 취소
  * - Blur (포커스 해제) → 저장
  * 
- * 미니멀 디자인:
- * - 작고 심플한 Pencil 아이콘 (gray-400 → hover:gray-600)
- * - 테두리 없는 인라인 입력창
- * - 시선을 방해하지 않는 디자인
+ * ✨ 커스텀 삭제 확인 모달:
+ * - X 버튼 클릭 시 ConfirmModal 표시
+ * - 확인 시에만 실제 삭제 실행
  */
 export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 편집 모드 진입 시 자동 포커스
@@ -115,9 +116,9 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
               <Pencil className="w-4 h-4" />
             </button>
 
-            {/* 삭제 버튼 */}
+            {/* 삭제 버튼 — 모달로 확인 */}
             <button
-              onClick={() => onDelete(task.id)}
+              onClick={() => setShowDeleteModal(true)}
               className="text-zinc-400 hover:text-red-500 transition-colors p-1"
               aria-label="삭제"
             >
@@ -126,6 +127,20 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
           </>
         )}
       </div>
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="할 일 삭제"
+        message={`"${task.text}"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        onConfirm={() => {
+          setShowDeleteModal(false);
+          onDelete(task.id);
+        }}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 };

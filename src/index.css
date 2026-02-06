@@ -97,6 +97,31 @@ html, body {
   animation: fadeIn 0.2s ease-out;
 }
 
+/* 커스텀 모달 애니메이션 */
+@keyframes modalBackdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalCard {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-backdrop {
+  animation: modalBackdrop 0.15s ease-out;
+}
+
+.animate-modal-card {
+  animation: modalCard 0.2s ease-out;
+}
+
 /* 가로 스크롤바 숨김 (탭 바) */
 .scrollbar-hide {
   -ms-overflow-style: none;

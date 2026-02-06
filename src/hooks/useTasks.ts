@@ -202,8 +202,6 @@ export const useTasks = (selectedTabId: number | null) => {
    * - 실패 시 다시 복원
    */
   const deleteTask = async (id: number) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return;
-
     // 1️⃣ 롤백을 위해 삭제할 Task 백업
     const taskToDelete = tasks.find((task) => task.id === id);
     if (!taskToDelete) return;
