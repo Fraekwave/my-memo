@@ -132,11 +132,29 @@ export const TabBar = ({
   }, [tabs, editingTabId, selectedTabId]);
 
   // 편집 모드 진입 시 자동 포커스 + 전체 선택
+  // 모바일: 키보드 애니메이션이 뷰포트를 리사이즈하면서 selection이 해제될 수 있음
+  // → 단계적 재시도 (즉시 + 80ms + 200ms)로 선택 상태를 보장
   useEffect(() => {
-    if (editingTabId !== null && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
+    if (editingTabId === null) return;
+
+    const selectInput = () => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.select();
+      }
+    };
+
+    // 즉시 시도
+    selectInput();
+
+    // 키보드 올라오는 중 재시도 (모바일 대응)
+    const t1 = setTimeout(selectInput, 80);
+    const t2 = setTimeout(selectInput, 200);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [editingTabId]);
 
   // ──────────────────────────────────────────────
@@ -180,16 +198,22 @@ export const TabBar = ({
   // ──────────────────────────────────────────────
   return (
     <div className="flex items-end gap-0 bg-zinc-100 pl-1 pr-1 pt-2 rounded-t-2xl overflow-hidden">
-      {/* 좌측 Chevron (오버플로 시에만 표시) */}
-      {canScrollLeft && (
-        <button
-          onClick={() => scrollByAmount('left')}
-          className="flex-shrink-0 flex items-center justify-center w-6 h-8 mb-0.5 text-zinc-400 hover:text-zinc-700 transition-colors"
-          aria-label="탭 왼쪽 스크롤"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-      )}
+      {/* 좌측 Chevron — 항상 DOM에 존재, disabled 시 투명 + 클릭 차단 */}
+      <button
+        onClick={() => scrollByAmount('left')}
+        disabled={!canScrollLeft}
+        className={`
+          flex-shrink-0 flex items-center justify-center w-6 h-8 mb-0.5
+          transition-all duration-150
+          ${canScrollLeft
+            ? 'text-zinc-400 hover:text-zinc-700 cursor-pointer'
+            : 'text-transparent cursor-default pointer-events-none'
+          }
+        `}
+        aria-label="탭 왼쪽 스크롤"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
 
       {/* 스크롤 가능한 탭 영역 */}
       <div
@@ -276,16 +300,22 @@ export const TabBar = ({
         })}
       </div>
 
-      {/* 우측 Chevron (오버플로 시에만 표시) */}
-      {canScrollRight && (
-        <button
-          onClick={() => scrollByAmount('right')}
-          className="flex-shrink-0 flex items-center justify-center w-6 h-8 mb-0.5 text-zinc-400 hover:text-zinc-700 transition-colors"
-          aria-label="탭 오른쪽 스크롤"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      )}
+      {/* 우측 Chevron — 항상 DOM에 존재, disabled 시 투명 + 클릭 차단 */}
+      <button
+        onClick={() => scrollByAmount('right')}
+        disabled={!canScrollRight}
+        className={`
+          flex-shrink-0 flex items-center justify-center w-6 h-8 mb-0.5
+          transition-all duration-150
+          ${canScrollRight
+            ? 'text-zinc-400 hover:text-zinc-700 cursor-pointer'
+            : 'text-transparent cursor-default pointer-events-none'
+          }
+        `}
+        aria-label="탭 오른쪽 스크롤"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
 
       {/* 새 탭 추가 버튼 */}
       <button
