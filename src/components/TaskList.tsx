@@ -6,6 +6,7 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  type Modifier,
   type MouseSensorOptions,
   type TouchSensorOptions,
   type DragEndEvent,
@@ -16,6 +17,15 @@ import {
 } from '@dnd-kit/sortable';
 import { Task } from '@/lib/types';
 import { TaskItem } from './TaskItem';
+
+// ──────────────────────────────────────────────
+// Vertical Axis Restriction
+// ──────────────────────────────────────────────
+// 드래그를 Y축(상하)으로만 제한합니다. (@dnd-kit/modifiers 없이 인라인 구현)
+const restrictToVerticalAxis: Modifier = ({ transform }) => ({
+  ...transform,
+  x: 0,
+});
 
 // ──────────────────────────────────────────────
 // Interactive Element Filter
@@ -128,6 +138,7 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      modifiers={[restrictToVerticalAxis]}
       onDragEnd={handleDragEnd}
     >
       <SortableContext

@@ -45,7 +45,7 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
 
   // 드래그 중에는 transition 비활성화 (CSS .task-item의 transition: all과 충돌 방지)
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition: isDragging ? 'none' : sortableTransition,
     opacity: isDragging ? 0.5 : undefined,
     zIndex: isDragging ? 50 : undefined,
