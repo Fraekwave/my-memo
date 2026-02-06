@@ -1,8 +1,23 @@
 import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
 import { flushSync } from 'react-dom';
-import { Plus, X, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  type Modifier,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tab } from '@/lib/types';
 import { ConfirmModal } from './ConfirmModal';
+import { SortableTabItem } from './SortableTabItem';
 
 interface TabBarProps {
   tabs: Tab[];
@@ -11,7 +26,17 @@ interface TabBarProps {
   onAdd: () => number;
   onUpdate: (id: number, newTitle: string) => void;
   onDelete: (id: number) => void;
+  onReorder: (activeId: number, overId: number) => void;
 }
+
+/**
+ * 수평 이동만 허용하는 커스텀 Modifier
+ * @dnd-kit/modifiers 패키지 없이 인라인으로 정의
+ */
+const restrictToHorizontalAxis: Modifier = ({ transform }) => ({
+  ...transform,
+  y: 0,
+});
 
 /**
  * 브라우저 스타일 탭 바 컴포넌트
@@ -21,6 +46,7 @@ interface TabBarProps {
  * - 새 탭 생성 시: 자동 선택 + 자동 스크롤 + 즉시 편집 모드
  * - 활성 탭에 Pencil 아이콘으로 이름 변경 기능 명시
  * - Optimistic ID 교체 시 편집 상태 자동 유지
+ * - Drag & Drop: @dnd-kit 기반 탭 순서 변경
  */
 export const TabBar = ({
   tabs,
@@ -29,6 +55,7 @@ export const TabBar = ({
   onAdd,
   onUpdate,
   onDelete,
+  onReorder,
 }: TabBarProps) => {
   // --- State ---
   const [editingTabId, setEditingTabId] = useState<number | null>(null);
@@ -44,6 +71,26 @@ export const TabBar = ({
 
   // --- Derived ---
   const deleteTargetTab = deleteTabId !== null ? tabs.find((t) => t.id === deleteTabId) : null;
+
+  // ──────────────────────────────────────────────
+  // DnD Sensors: 클릭/스크롤과 드래그를 구분
+  // ──────────────────────────────────────────────
+  // Mouse: 10px 이동해야 드래그 시작 (일반 클릭과 구분)
+  // Touch: 250ms 롱프레스 + 5px 허용 오차 (수평 스크롤과 구분)
+  const mouseSensor = useSensor(MouseSensor, {
+    activationConstraint: { distance: 10 },
+  });
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: { delay: 250, tolerance: 5 },
+  });
+  const sensors = useSensors(mouseSensor, touchSensor);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      onReorder(Number(active.id), Number(over.id));
+    }
+  };
 
   // ──────────────────────────────────────────────
   // 1. PC Scroll: Overflow 감지 + Chevron 표시
@@ -225,90 +272,43 @@ export const TabBar = ({
         <ChevronLeft className="w-4 h-4" />
       </button>
 
-      {/* 스크롤 가능한 탭 영역 */}
-      <div
-        ref={scrollRef}
-        className="flex items-end gap-1 overflow-x-auto scrollbar-hide flex-1 min-w-0"
+      {/* DnD 컨텍스트: 센서 + 수평 제한 + 드래그 종료 핸들러 */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToHorizontalAxis]}
+        onDragEnd={handleDragEnd}
       >
-        {tabs.map((tab) => {
-          const isActive = tab.id === selectedTabId;
-          const isEditing = tab.id === editingTabId;
-
-          return (
-            <div
-              key={tab.id}
-              ref={isActive ? activeTabRef : undefined}
-              onClick={() => !isEditing && onSelect(tab.id)}
-              onDoubleClick={() => startEditing(tab)}
-              className={`
-                group relative flex items-center gap-1 px-3 py-2.5
-                rounded-t-lg cursor-pointer select-none
-                transition-all duration-200 ease-out
-                min-w-[80px] max-w-[200px] flex-shrink-0
-                ${
-                  isActive
-                    ? 'bg-white text-zinc-900 shadow-sm font-medium z-10'
-                    : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300/70 hover:text-zinc-700'
-                }
-              `}
-            >
-              {/* 탭 제목 또는 편집 인풋 */}
-              {isEditing ? (
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  onBlur={saveEdit}
-                  onKeyDown={handleKeyDown}
-                  className="flex-1 min-w-0 bg-transparent border-b border-zinc-400 outline-none text-sm py-0"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <span className="flex-1 min-w-0 truncate text-sm">
-                  {tab.title}
-                </span>
-              )}
-
-              {/* 이름 변경 버튼 (Pencil) — 활성 탭에만 표시 */}
-              {!isEditing && isActive && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startEditing(tab);
-                  }}
-                  className="flex-shrink-0 text-zinc-300 hover:text-zinc-600 transition-colors p-0.5"
-                  aria-label="탭 이름 변경"
-                >
-                  <Pencil className="w-3 h-3" />
-                </button>
-              )}
-
-              {/* 닫기(X) 버튼 */}
-              {!isEditing && tabs.length > 1 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteTabId(tab.id);
-                  }}
-                  className={`
-                    flex-shrink-0 rounded-full p-0.5
-                    transition-all duration-150
-                    ${
-                      isActive
-                        ? 'text-zinc-400 hover:text-red-500 hover:bg-red-50 opacity-100'
-                        : 'text-zinc-400 hover:text-red-500 hover:bg-red-50 opacity-0 hover-hover:group-hover:opacity-100'
-                    }
-                  `}
-                  aria-label="탭 삭제"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+        <SortableContext
+          items={tabs.map((t) => t.id)}
+          strategy={horizontalListSortingStrategy}
+        >
+          {/* 스크롤 가능한 탭 영역 */}
+          <div
+            ref={scrollRef}
+            className="flex items-end gap-1 overflow-x-auto scrollbar-hide flex-1 min-w-0"
+          >
+            {tabs.map((tab) => (
+              <SortableTabItem
+                key={tab.id}
+                tab={tab}
+                isActive={tab.id === selectedTabId}
+                isEditing={tab.id === editingTabId}
+                editTitle={editTitle}
+                tabCount={tabs.length}
+                inputRef={inputRef}
+                activeTabRef={activeTabRef}
+                onSelect={onSelect}
+                onStartEditing={startEditing}
+                onEditTitleChange={setEditTitle}
+                onSaveEdit={saveEdit}
+                onKeyDown={handleKeyDown}
+                onDeleteRequest={setDeleteTabId}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {/* 우측 Chevron — 항상 DOM에 존재, disabled 시 투명 + 클릭 차단 */}
       <button

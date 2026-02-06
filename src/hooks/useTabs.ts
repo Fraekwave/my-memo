@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Tab } from '@/lib/types';
+import { arrayMove } from '@dnd-kit/sortable';
 
 const STORAGE_KEY = 'active_tab_id';
 
@@ -38,7 +39,7 @@ export const useTabs = () => {
       const { data, error } = await supabase
         .from('tabs')
         .select('*')
-        .order('created_at', { ascending: true });
+        .order('order_index', { ascending: true });
 
       if (error) throw error;
 
@@ -93,10 +94,16 @@ export const useTabs = () => {
    * @returns 생성된 탭의 optimistic ID
    */
   const addTab = (title: string = 'New Tab'): number => {
+    // 새 탭은 항상 맨 끝에 추가 — 기존 최대 order_index + 1
+    const nextOrderIndex = tabs.length > 0
+      ? Math.max(...tabs.map((t) => t.order_index ?? 0)) + 1
+      : 0;
+
     const optimisticTab: Tab = {
       id: -Date.now(),
       title,
       created_at: new Date().toISOString(),
+      order_index: nextOrderIndex,
     };
 
     // 동기적 state update — 호출자의 flushSync에 의해 즉시 DOM에 반영됨
@@ -108,7 +115,7 @@ export const useTabs = () => {
       try {
         const { data, error } = await supabase
           .from('tabs')
-          .insert([{ title }])
+          .insert([{ title, order_index: nextOrderIndex }])
           .select();
 
         if (error) throw error;
@@ -207,6 +214,45 @@ export const useTabs = () => {
   };
 
   /**
+   * 탭 순서 변경 (Drag & Drop)
+   *
+   * Optimistic UI:
+   * - arrayMove로 즉시 로컬 배열 재정렬
+   * - 백그라운드에서 각 탭의 order_index를 서버에 동기화
+   * - 실패 시 이전 순서로 롤백
+   */
+  const reorderTabs = async (activeId: number, overId: number) => {
+    const oldIndex = tabs.findIndex((t) => t.id === activeId);
+    const newIndex = tabs.findIndex((t) => t.id === overId);
+
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+    const previousTabs = tabs;
+    const reordered = arrayMove(tabs, oldIndex, newIndex);
+
+    // Optimistic Update — order_index도 로컬에서 재계산
+    const reorderedWithIndex = reordered.map((tab, i) => ({
+      ...tab,
+      order_index: i,
+    }));
+    setTabs(reorderedWithIndex);
+
+    // 서버 동기화 — 각 탭의 order_index 개별 업데이트
+    try {
+      const results = await Promise.all(
+        reorderedWithIndex.map(({ id, order_index }) =>
+          supabase.from('tabs').update({ order_index }).eq('id', id)
+        )
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    } catch (err) {
+      console.error('탭 순서 변경 에러:', err);
+      setTabs(previousTabs);
+    }
+  };
+
+  /**
    * 초기 데이터 로드
    */
   useEffect(() => {
@@ -221,5 +267,6 @@ export const useTabs = () => {
     addTab,
     updateTab,
     deleteTab,
+    reorderTabs,
   };
 };

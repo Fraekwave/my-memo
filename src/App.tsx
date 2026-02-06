@@ -25,6 +25,7 @@ function App() {
     addTab,
     updateTab,
     deleteTab,
+    reorderTabs,
   } = useTabs();
 
   const {
@@ -78,6 +79,7 @@ function App() {
             onAdd={() => addTab()}
             onUpdate={updateTab}
             onDelete={deleteTab}
+            onReorder={reorderTabs}
           />
           <div className="bg-white border-x border-zinc-200 shadow-lg shadow-zinc-200/50">
             {/* 에러 메시지 */}

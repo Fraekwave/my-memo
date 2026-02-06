@@ -5,6 +5,7 @@ export interface Tab {
   id: number;
   title: string;
   created_at: string;
+  order_index: number;
   user_id?: string; // Phase 2에서 활성화 예정
 }
 
