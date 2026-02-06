@@ -177,7 +177,7 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
 
       {/* DragOverlay: 드래그 중 포인터를 따라다니는 플로팅 복사본 */}
       {/* React Portal로 렌더링되어 리스트 DOM 플로우와 완전히 분리됨 */}
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeTask ? (
           <div className="task-item flex items-center gap-3 p-4 bg-white rounded-xl border border-zinc-200 shadow-xl select-none cursor-grabbing">
             <input
