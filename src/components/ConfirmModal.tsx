@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -54,7 +55,8 @@ export const ConfirmModal = ({
 
   if (!isOpen) return null;
 
-  return (
+  // Portal: body 레벨에 렌더링하여 sticky/z-index stacking context 문제 해결
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onCancel}
@@ -73,7 +75,7 @@ export const ConfirmModal = ({
         </h3>
 
         {/* 메시지 */}
-        <p className="text-sm text-zinc-500 leading-relaxed mb-6">
+        <p className="text-sm text-zinc-500 leading-relaxed mb-6 whitespace-pre-line">
           {message}
         </p>
 
@@ -94,6 +96,7 @@ export const ConfirmModal = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
