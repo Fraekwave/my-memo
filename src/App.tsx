@@ -49,7 +49,7 @@ function App() {
   // 초기 로딩 중 화면 (탭 로딩)
   if (isTabsLoading) {
     return (
-      <div className="bg-zinc-50 min-h-screen flex items-center justify-center p-4 sm:p-8">
+      <div className="h-full bg-zinc-50 flex items-center justify-center p-4 sm:p-8">
         <div className="text-center">
           <div className="inline-block w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4" />
           <p className="text-zinc-500 font-light">데이터를 불러오는 중...</p>
@@ -59,7 +59,7 @@ function App() {
   }
 
   return (
-    <div className="bg-zinc-50 min-h-screen">
+    <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
         {/* 헤더 — 스크롤하면 자연스럽게 올라감 */}
         <div className="text-center mb-8">
@@ -94,7 +94,7 @@ function App() {
 
         {/* 스크롤 콘텐츠: Task 목록 */}
         <div className="bg-white rounded-b-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 border-t-0">
-          {/* Task 목록 — 내부 스크롤 없이 자연스럽게 늘어남 */}
+          {/* Task 목록 — 컨테이너 내에서 자연스럽게 늘어남 */}
           <div className="p-6 sm:p-8 min-h-[400px] flex flex-col">
             {isTasksLoading ? (
               <div className="flex-1 flex items-center justify-center min-h-[300px]">
@@ -127,7 +127,7 @@ function App() {
         </div>
 
         {/* 푸터 */}
-        <div className="text-center mt-8">
+        <div className="text-center mt-8 pb-[env(safe-area-inset-bottom)]">
           <p className="text-zinc-400 text-sm font-light">
             Premium Minimalism © {new Date().getFullYear()}
           </p>
