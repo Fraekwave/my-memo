@@ -2,7 +2,6 @@ import { useState, type MouseEvent, type TouchEvent } from 'react';
 import {
   DndContext,
   DragOverlay,
-  pointerWithin,
   MeasuringStrategy,
   MouseSensor,
   TouchSensor,
@@ -32,44 +31,41 @@ const restrictToVerticalAxis: Modifier = ({ transform }) => ({
 });
 
 // ──────────────────────────────────────────────
-// Pointer-Tracking Collision Detection
+// Pure Pointer-Y Collision Detection (Final Fix)
 // ──────────────────────────────────────────────
-// 드래그 아이템의 크기/위치(Bounding Box)를 완전히 무시하고,
-// 오직 마우스/터치 포인터의 Y 좌표만으로 충돌을 판정합니다.
-//
-// 1차: pointerWithin — 포인터가 아이템 영역 안에 있으면 즉시 반환
-// 2차: Pointer-Y 최근접 Center — 포인터가 갭(빈 공간)에 있을 때,
-//      각 droppable의 수직 중심(centerY)과 포인터 Y의 거리를 비교하여
-//      가장 가까운 아이템 반환. closestCorners/closestCenter와 달리
-//      dragged rect를 참조하지 않으므로 아이템 높이에 무관하게 안정적.
+// REPLACED: Removed pointerWithin logic to prevent jitter.
+// Logic: Purely compares Pointer Y vs. Item Center Y.
+// This ensures the drop target only changes when the mouse physically crosses
+// the midpoint of a task, regardless of the task's height or gap.
 const pointerTrackingCollision: CollisionDetection = (args) => {
-  // 1차: 포인터가 아이템 위에 있으면 정밀 타겟팅
-  const pointerCollisions = pointerWithin(args);
-  if (pointerCollisions.length > 0) {
-    return pointerCollisions;
-  }
-
-  // 2차: 갭에 있을 때 — 포인터 Y와 가장 가까운 droppable center 탐색
   const { pointerCoordinates, droppableRects, droppableContainers } = args;
+
+  // No pointer coordinates? No collision.
   if (!pointerCoordinates) return [];
 
   const pointerY = pointerCoordinates.y;
   let closestId: string | number | null = null;
   let closestDistance = Infinity;
 
+  // Iterate over all droppable containers (tasks)
   for (const container of droppableContainers) {
     const rect = droppableRects.get(container.id);
     if (!rect) continue;
 
+    // Calculate vertical center of the item
     const centerY = rect.top + rect.height / 2;
+
+    // Calculate absolute distance from pointer Y to item center Y
     const distance = Math.abs(pointerY - centerY);
 
+    // Find the closest item
     if (distance < closestDistance) {
       closestDistance = distance;
       closestId = container.id;
     }
   }
 
+  // Return the single closest match
   return closestId !== null ? [{ id: closestId }] : [];
 };
 
