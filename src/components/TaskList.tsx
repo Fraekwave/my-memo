@@ -27,7 +27,7 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete }: TaskListProps)
   }
 
   return (
-    <div className="space-y-3 max-h-[500px] overflow-y-auto">
+    <div className="space-y-3">
       {tasks.map((task) => (
         <TaskItem
           key={task.id}

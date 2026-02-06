@@ -59,9 +59,9 @@ function App() {
   }
 
   return (
-    <div className="bg-zinc-50 min-h-screen flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-2xl">
-        {/* 헤더 */}
+    <div className="bg-zinc-50 min-h-screen">
+      <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-4 sm:pb-8">
+        {/* 헤더 — 스크롤하면 자연스럽게 올라감 */}
         <div className="text-center mb-8">
           <h1 className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2">
             Today's Tasks
@@ -69,32 +69,35 @@ function App() {
           <p className="text-zinc-500 font-light">{currentDate}</p>
         </div>
 
-        {/* 탭 바 */}
-        <TabBar
-          tabs={tabs}
-          selectedTabId={selectedTabId}
-          onSelect={setSelectedTabId}
-          onAdd={() => addTab()}
-          onUpdate={updateTab}
-          onDelete={deleteTab}
-        />
+        {/* Sticky 영역: 탭 바 + 입력 폼 (항상 상단 고정) */}
+        <div className="sticky top-0 z-10 bg-zinc-50 -mx-4 sm:-mx-8 px-4 sm:px-8">
+          <TabBar
+            tabs={tabs}
+            selectedTabId={selectedTabId}
+            onSelect={setSelectedTabId}
+            onAdd={() => addTab()}
+            onUpdate={updateTab}
+            onDelete={deleteTab}
+          />
+          <div className="bg-white border-x border-zinc-200 shadow-lg shadow-zinc-200/50">
+            {/* 에러 메시지 */}
+            {error && (
+              <div className="p-4 bg-red-50 border-b border-red-200 text-red-600 text-sm">
+                ⚠️ {error}
+              </div>
+            )}
+            <TaskForm onSubmit={addTask} />
+          </div>
+          {/* 스크롤 시 헤더-리스트 경계선 + 미세 그림자 */}
+          <div className="h-0 border-x border-zinc-200 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.06)]" />
+        </div>
 
-        {/* 메인 카드 — 탭 바 아래에 연결되도록 rounded-t 제거 */}
-        <div className="bg-white rounded-b-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 border-t-0 overflow-hidden">
-          {/* 에러 메시지 */}
-          {error && (
-            <div className="p-4 bg-red-50 border-b border-red-200 text-red-600 text-sm">
-              ⚠️ {error}
-            </div>
-          )}
-
-          {/* Task 입력 폼 */}
-          <TaskForm onSubmit={addTask} />
-
-             {/* Task 목록 — 고정 최소 높이로 레이아웃 점프 완전 방지 */}
-          <div className="p-6 sm:p-8 min-h-[500px] flex flex-col">
+        {/* 스크롤 콘텐츠: Task 목록 */}
+        <div className="bg-white rounded-b-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 border-t-0">
+          {/* Task 목록 — 내부 스크롤 없이 자연스럽게 늘어남 */}
+          <div className="p-6 sm:p-8 min-h-[400px] flex flex-col">
             {isTasksLoading ? (
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex-1 flex items-center justify-center min-h-[300px]">
                 <div className="inline-block w-8 h-8 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
               </div>
             ) : (
@@ -113,7 +116,7 @@ function App() {
           </div>
 
           {/* 통계 푸터 */}
-          <div className="px-6 sm:px-8 py-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-sm">
+          <div className="px-6 sm:px-8 py-4 bg-zinc-50 border-t border-zinc-100 rounded-b-3xl flex items-center justify-between text-sm">
             <span className="text-zinc-500 font-light">
               전체 <span className="font-medium text-zinc-900">{stats.total}</span>개
             </span>
