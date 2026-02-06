@@ -2,6 +2,7 @@ import { useState, type MouseEvent, type TouchEvent } from 'react';
 import {
   DndContext,
   DragOverlay,
+  pointerWithin,
   closestCorners,
   MeasuringStrategy,
   MouseSensor,
@@ -9,6 +10,7 @@ import {
   useSensor,
   useSensors,
   type Modifier,
+  type CollisionDetection,
   type MouseSensorOptions,
   type TouchSensorOptions,
   type DragStartEvent,
@@ -29,6 +31,24 @@ const restrictToVerticalAxis: Modifier = ({ transform }) => ({
   ...transform,
   x: 0,
 });
+
+// ──────────────────────────────────────────────
+// Hybrid Collision Detection (Variable-Height + Gaps)
+// ──────────────────────────────────────────────
+// 가변 높이 아이템 + 12px 갭 환경에서 안정적인 드래그를 위한 복합 충돌 감지.
+//
+// 1차: pointerWithin — 포인터가 아이템 위에 있을 때 정밀 타겟팅
+// 2차: closestCorners — 포인터가 갭(빈 공간)에 있을 때 가장 가까운 이웃 반환
+//
+// ⚠️ 반드시 MeasuringStrategy.BeforeDragging과 함께 사용해야 함.
+//    (드래그 중 재측정 → CSS Transform 피드백 루프 → index 0 점프 방지)
+const hybridCollision: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions;
+  }
+  return closestCorners(args);
+};
 
 // ──────────────────────────────────────────────
 // Interactive Element Filter
@@ -153,8 +173,8 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
-      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+      collisionDetection={hybridCollision}
+      measuring={{ droppable: { strategy: MeasuringStrategy.BeforeDragging } }}
       modifiers={[restrictToVerticalAxis]}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
