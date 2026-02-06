@@ -119,7 +119,7 @@ export const TabBar = ({
                 </span>
               )}
 
-              {/* 닫기(X) 버튼 — 편집 중이 아니고 탭이 2개 이상일 때만 표시 */}
+              {/* 닫기(X) 버튼 — 활성 탭은 항상 표시, 비활성 탭은 hover 가능 기기에서만 hover로 표시 */}
               {!isEditing && tabs.length > 1 && (
                 <button
                   onClick={(e) => {
@@ -132,7 +132,7 @@ export const TabBar = ({
                     ${
                       isActive
                         ? 'text-zinc-400 hover:text-red-500 hover:bg-red-50 opacity-100'
-                        : 'text-zinc-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100'
+                        : 'text-zinc-400 hover:text-red-500 hover:bg-red-50 opacity-0 hover-hover:group-hover:opacity-100'
                     }
                   `}
                   aria-label="탭 삭제"
