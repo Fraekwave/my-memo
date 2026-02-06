@@ -83,14 +83,14 @@ export const ConfirmModal = ({
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 transition-colors"
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 transition-colors outline-none"
           >
             {cancelLabel}
           </button>
           <button
             ref={confirmBtnRef}
             onClick={onConfirm}
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all"
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all outline-none"
           >
             {confirmLabel}
           </button>
