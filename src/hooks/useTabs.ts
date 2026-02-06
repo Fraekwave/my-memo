@@ -166,18 +166,27 @@ export const useTabs = () => {
   /**
    * 탭 삭제
    * Cascade로 해당 탭의 task도 함께 삭제됨
+   *
+   * Nearest Neighbor 전략:
+   * - 비활성 탭 삭제: 현재 선택 유지 (Passive Delete)
+   * - 활성 탭 삭제: 왼쪽 탭 → 오른쪽 탭 → null 순으로 fallback
    */
   const deleteTab = async (id: number) => {
     const previousTabs = tabs;
     const previousSelectedTabId = selectedTabId;
+    const deletedIndex = tabs.findIndex((tab) => tab.id === id);
     const remaining = tabs.filter((tab) => tab.id !== id);
 
     // Optimistic Update
     setTabs(remaining);
 
-    // 삭제한 탭이 활성 탭이면 다른 탭 선택
-    if (selectedTabId === id) {
-      setSelectedTabId(remaining.length > 0 ? remaining[0].id : null);
+    // 활성 탭을 삭제한 경우에만 선택 변경 (Passive Delete: 비활성 탭 삭제 시 유지)
+    if (selectedTabId === id && remaining.length > 0) {
+      // 왼쪽 탭 우선, 첫 번째 탭이었으면 오른쪽(새 index 0)으로 fallback
+      const nextIndex = deletedIndex > 0 ? deletedIndex - 1 : 0;
+      setSelectedTabId(remaining[nextIndex].id);
+    } else if (selectedTabId === id) {
+      setSelectedTabId(null);
     }
 
     try {
