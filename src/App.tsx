@@ -59,7 +59,7 @@ function App() {
   }
 
   return (
-    <div className="bg-zinc-50 min-h-[100dvh]">
+    <div className="bg-zinc-50 min-h-screen">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
         {/* 헤더 — 스크롤하면 자연스럽게 올라감 */}
         <div className="text-center mb-8">
