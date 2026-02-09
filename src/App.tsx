@@ -133,7 +133,7 @@ function App() {
         {/* 푸터 */}
         <div className="text-center mt-8 pb-[env(safe-area-inset-bottom)]">
           <p className="text-zinc-400 text-sm font-light">
-            Premium Minimalism © {new Date().getFullYear()}
+            Premium Minimalism © {new Date().getFullYear()} · v260210-AutoComplete
           </p>
         </div>
       </div>
