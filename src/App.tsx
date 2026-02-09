@@ -62,6 +62,9 @@ function App() {
   }
 
   return (
+    <>
+    {/* 버전 표시 — scroll container 밖, DOM 최상위에 배치 */}
+    <VersionIndicator />
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
         {/* 헤더 — 스크롤하면 자연스럽게 올라감 */}
@@ -138,10 +141,9 @@ function App() {
           </p>
         </div>
 
-        {/* 버전 표시 (고정 위치, 우측 하단) */}
-        <VersionIndicator />
       </div>
     </div>
+    </>
   );
 }
 
