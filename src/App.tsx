@@ -3,6 +3,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { TabBar } from '@/components/TabBar';
+import { VersionIndicator } from '@/components/VersionIndicator';
 
 /**
  * 메인 애플리케이션 컴포넌트
@@ -133,9 +134,12 @@ function App() {
         {/* 푸터 */}
         <div className="text-center mt-8 pb-[env(safe-area-inset-bottom)]">
           <p className="text-zinc-400 text-sm font-light">
-            Premium Minimalism © {new Date().getFullYear()} · v260210-AutoComplete
+            Premium Minimalism © {new Date().getFullYear()}
           </p>
         </div>
+
+        {/* 버전 표시 (고정 위치, 우측 하단) */}
+        <VersionIndicator />
       </div>
     </div>
   );

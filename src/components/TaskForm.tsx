@@ -23,8 +23,10 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
   const [isComposing, setIsComposing] = useState(false);
   const { record, suggest } = useTaskAutocomplete();
 
-  // ── 자동완성 제안 (IME 조합 중에는 비활성) ──
-  const suggestion = !isComposing ? suggest(input) : null;
+  // ── 자동완성 제안 ──
+  // IME 조합 중이라도 입력이 2글자 이상이면 제안 허용 (한국어 "핫라" 등)
+  // 1글자 조합 중(ㅋ→커)일 때만 차단하여 깜빡임 방지
+  const suggestion = isComposing && input.length < 2 ? null : suggest(input);
   const suffix =
     suggestion && suggestion.length > input.length
       ? suggestion.slice(input.length)
