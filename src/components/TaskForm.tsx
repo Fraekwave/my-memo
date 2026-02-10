@@ -1,4 +1,4 @@
-import { useState, FormEvent, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, FormEvent, KeyboardEvent, TouchEvent } from 'react';
 import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
 
 interface TaskFormProps {
@@ -13,41 +13,112 @@ interface TaskFormProps {
  * - 입력창은 항상 활성화
  * - 서버 응답 기다리지 않고 즉시 추가
  *
- * ✨ Local-First Autocomplete (v260210):
+ * ✨ Local-First Autocomplete:
  * - Ghost Text: 입력 중 회색 접미사로 자동완성 후보 표시
- * - Tab / ArrowRight(커서 끝)로 제안 수락
+ * - Desktop: Tab / ArrowRight(커서 끝)로 제안 수락
+ * - Mobile: Swipe Right (50px+) 제스처로 제안 수락
  * - IME Composition Guard: 한국어 조합 중 깜빡임 방지
+ *
+ * ✨ One-Time Coach Mark:
+ * - 모바일에서 첫 제안 출현 시 "→ 밀어서 완성" 힌트 1회 표시
+ * - 3초 후 자동 소멸 또는 스와이프 시 즉시 소멸
+ * - localStorage로 영구 dismiss 관리
  */
+
+const HINT_STORAGE_KEY = 'has_seen_swipe_hint';
+const SWIPE_THRESHOLD = 50; // px — 의도적 스와이프와 탭/미세 터치 구분
+
 export const TaskForm = ({ onSubmit }: TaskFormProps) => {
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const { record, suggest } = useTaskAutocomplete();
 
   // ── 자동완성 제안 ──
-  // IME 조합 중이라도 입력이 2글자 이상이면 제안 허용 (한국어 "핫라" 등)
-  // 1글자 조합 중(ㅋ→커)일 때만 차단하여 깜빡임 방지
   const suggestion = isComposing && input.length < 2 ? null : suggest(input);
   const suffix =
     suggestion && suggestion.length > input.length
       ? suggestion.slice(input.length)
       : '';
 
+  // ── Swipe Detection ──
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  const handleTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
+    if (!touchStartRef.current || !suggestion) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const deltaY = Math.abs(e.changedTouches[0].clientY - touchStartRef.current.y);
+
+    // Swipe Right: 수평 이동 > 50px AND 수평 > 수직 (스크롤 아닌 의도적 스와이프)
+    if (deltaX > SWIPE_THRESHOLD && deltaX > deltaY) {
+      setInput(suggestion);
+      dismissHint();
+    }
+
+    touchStartRef.current = null;
+  };
+
+  // ── One-Time Coach Mark ──
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+  const hasSeenHint = useRef(
+    typeof window !== 'undefined' &&
+      localStorage.getItem(HINT_STORAGE_KEY) === 'true'
+  );
+
+  const dismissHint = () => {
+    setShowSwipeHint(false);
+    if (!hasSeenHint.current) {
+      localStorage.setItem(HINT_STORAGE_KEY, 'true');
+      hasSeenHint.current = true;
+    }
+  };
+
+  useEffect(() => {
+    // 제안이 사라지면 힌트도 숨김
+    if (!suggestion) {
+      setShowSwipeHint(false);
+      return;
+    }
+
+    // 이미 본 유저에게는 다시 표시하지 않음
+    if (hasSeenHint.current) return;
+
+    // 터치 디바이스에서만 표시
+    const isTouch =
+      'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isTouch) return;
+
+    setShowSwipeHint(true);
+
+    // 3초 후 자동 dismiss (CSS 애니메이션과 동기화)
+    const timer = setTimeout(() => {
+      dismissHint();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [suggestion]);
+
   // ── 폼 제출 ──
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    // Optimistic UI: 입력창을 먼저 초기화 (즉시 반응)
     const taskText = input;
     setInput('');
 
-    // 자동완성 히스토리에 기록
     record(taskText);
 
-    // 백그라운드에서 서버 전송
     const success = await onSubmit(taskText);
-
-    // 실패 시 입력창에 텍스트 복원
     if (!success) {
       setInput(taskText);
     }
@@ -64,7 +135,6 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
 
     if (e.key === 'ArrowRight') {
       const target = e.currentTarget;
-      // 커서가 입력 끝에 있을 때만 수락 (중간이면 일반 커서 이동)
       if (target.selectionStart === target.value.length) {
         e.preventDefault();
         setInput(suggestion);
@@ -73,38 +143,49 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
   };
 
   // ── IME Composition Guard ──
-  // 한국어/일본어/중국어 조합 중 suggest() 호출을 차단하여
-  // ㅋ→커→컵 같은 중간 상태에서 Ghost Text가 깜빡이는 현상 방지
   const handleCompositionStart = () => {
     setIsComposing(true);
   };
 
   const handleCompositionEnd = () => {
     setIsComposing(false);
-    // React 18 automatic batching: 이 setState와 다음 onChange의 setInput이
-    // 단일 렌더로 병합되어 suggestion이 올바르게 재계산됨
   };
 
   return (
     <form onSubmit={handleSubmit} className="p-6 sm:p-8 border-b border-zinc-100">
       <div className="flex gap-3">
         {/* ── Autocomplete Wrapper ── */}
-        {/* background/border를 wrapper에서 관리, input은 bg-transparent */}
-        <div className="relative flex-1 bg-zinc-50 rounded-xl border border-zinc-200 transition-colors focus-within:bg-white focus-within:border-zinc-900">
+        {/* Touch handlers on wrapper for swipe detection */}
+        <div
+          className="relative flex-1 bg-zinc-50 rounded-xl border border-zinc-200 transition-colors focus-within:bg-white focus-within:border-zinc-900"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           {/* Ghost Text Overlay */}
           {suffix && (
             <div
               className="absolute inset-0 pointer-events-none overflow-hidden px-4 py-3"
               aria-hidden="true"
             >
-              {/* 입력 텍스트만큼 투명 공간 확보 → 접미사를 정확한 위치에 배치 */}
               <span className="invisible whitespace-pre">{input}</span>
-              {/* 자동완성 접미사 (회색) */}
               <span className="text-zinc-300 whitespace-pre">{suffix}</span>
             </div>
           )}
 
-          {/* Actual Input — bg-transparent로 Ghost Text 노출 */}
+          {/* One-Time Swipe Coach Mark */}
+          {showSwipeHint && (
+            <div
+              className="absolute inset-y-0 right-3 flex items-center pointer-events-none animate-swipe-hint"
+              aria-hidden="true"
+            >
+              <span className="text-[11px] text-zinc-400 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
+                <span className="animate-nudge-right">→</span>
+                밀어서 완성
+              </span>
+            </div>
+          )}
+
+          {/* Actual Input */}
           <input
             type="text"
             value={input}

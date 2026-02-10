@@ -162,3 +162,28 @@ html, body, #root {
 .app-scroll-container::-webkit-scrollbar-thumb:hover {
   background: #a1a1aa;
 }
+
+/* ──────────────────────────────────────────────
+   Swipe Hint (One-Time Coach Mark)
+   ────────────────────────────────────────────── */
+/* 전체 힌트: 페이드인 → 유지 → 페이드아웃 (3초) */
+@keyframes swipeHintLife {
+  0%   { opacity: 0; transform: translateX(-6px); }
+  12%  { opacity: 1; transform: translateX(0); }
+  75%  { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(0); }
+}
+
+/* 화살표: 우측으로 반복 슬라이드 */
+@keyframes nudgeRight {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(5px); }
+}
+
+.animate-swipe-hint {
+  animation: swipeHintLife 3s ease-in-out forwards;
+}
+
+.animate-nudge-right {
+  animation: nudgeRight 0.8s ease-in-out infinite;
+}
