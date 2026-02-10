@@ -109,8 +109,8 @@ function App() {
               </div>
             ) : (
               <div
-                key={selectedTabId}
-                className="animate-fade-in flex-1 flex flex-col"
+                className="flex-1 flex flex-col transition-opacity duration-150 ease-out"
+                style={{ opacity: tasks.length > 0 || !selectedTabId ? 1 : 0.6 }}
               >
                 <TaskList
                   tasks={tasks}

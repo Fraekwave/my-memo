@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { memo, useState, useRef, useEffect, KeyboardEvent } from 'react';
 import {
   useSortable,
   defaultAnimateLayoutChanges,
@@ -45,7 +45,13 @@ const animateLayoutChanges: AnimateLayoutChanges = (args) => {
   return defaultAnimateLayoutChanges(args);
 };
 
-export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) => {
+// ──────────────────────────────────────────────
+// React.memo: 불변 Task의 불필요한 리렌더 방지
+// ──────────────────────────────────────────────
+// useTasks의 setTasks(.map(...))는 변경되지 않은 task에도 새 객체 참조를 생성.
+// 커스텀 비교 함수로 실제 데이터 필드만 비교하여 불필요한 렌더를 차단.
+// 핸들러는 useCallback으로 안정화되어 있으므로 비교에 포함.
+export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -197,4 +203,15 @@ export const TaskItem = ({ task, onToggle, onUpdate, onDelete }: TaskItemProps) 
       />
     </div>
   );
-};
+}, (prev, next) => {
+  // 커스텀 비교: task 데이터 필드 + 핸들러 참조 비교
+  return (
+    prev.task.id === next.task.id &&
+    prev.task.text === next.task.text &&
+    prev.task.is_completed === next.task.is_completed &&
+    prev.task.order_index === next.task.order_index &&
+    prev.onToggle === next.onToggle &&
+    prev.onUpdate === next.onUpdate &&
+    prev.onDelete === next.onDelete
+  );
+});

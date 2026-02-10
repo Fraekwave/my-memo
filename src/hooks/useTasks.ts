@@ -1,44 +1,56 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
 
 /**
  * Task CRUD 로직을 관리하는 커스텀 훅
- * 
+ *
  * ✨ Optimistic UI Updates 패턴 적용:
  * - 즉시 로컬 상태 변경 → 빠른 사용자 피드백
  * - 백그라운드에서 서버 동기화
  * - 실패 시 이전 상태로 롤백
- * 
+ *
  * ✨ Tab 연동:
  * - selectedTabId에 해당하는 task만 조회
  * - task 추가 시 tab_id 포함
- * 
- * 비즈니스 로직을 컴포넌트에서 분리하여:
- * - 재사용성 향상
- * - 테스트 용이성 증가
- * - 컴포넌트 코드 간결화
+ *
+ * ✨ Performance Optimization:
+ * - 핸들러를 useCallback으로 안정화 (React.memo 호환)
+ * - tasksRef로 최신 tasks 참조 (useCallback 내 stale closure 방지)
+ * - 첫 로드와 탭 전환을 분리 (탭 전환 시 스피너 표시 안 함)
  */
 export const useTasks = (selectedTabId: number | null) => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [isInitialLoading, setIsInitialLoading] = useState(true); // 초기 로딩만 추적
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Performance: 최신 tasks를 ref로 참조 ──
+  // useCallback 핸들러 내에서 stale closure 없이 tasks에 접근
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+
+  // ── 첫 로드 추적 ──
+  // 첫 로드: 스피너 표시 / 탭 전환: 즉시 데이터 교체 (스피너 없음)
+  const isFirstLoadRef = useRef(true);
 
   /**
    * 1. Read: 선택된 탭의 Task 가져오기
-   * 
-   * 초기 로드 시에만 로딩 스피너 표시
    */
   const fetchTasks = useCallback(async () => {
     if (selectedTabId === null) {
       setTasks([]);
+      isFirstLoadRef.current = false;
       setIsInitialLoading(false);
       return;
     }
 
     try {
-      setIsInitialLoading(true);
+      // 첫 로드에서만 스피너 표시 — 탭 전환 시에는 기존 콘텐츠 유지
+      if (isFirstLoadRef.current) {
+        setIsInitialLoading(true);
+      }
+
       const { data, error } = await supabase
         .from('mytask')
         .select('*')
@@ -52,30 +64,30 @@ export const useTasks = (selectedTabId: number | null) => {
       setError(err instanceof Error ? err.message : '알 수 없는 에러');
     } finally {
       setIsInitialLoading(false);
+      isFirstLoadRef.current = false;
     }
   }, [selectedTabId]);
 
   /**
    * 2. Create: 새로운 Task 추가
-   * 
-   * ✨ Optimistic UI:
-   * - 임시 Task를 즉시 UI에 추가 (임시 ID 사용)
-   * - 서버 응답 후 실제 ID로 교체
-   * - 실패 시 임시 Task 제거
+   *
+   * ✨ Optimistic UI: 임시 Task를 즉시 UI에 추가
+   *
+   * NOTE: addTask는 selectedTabId를 참조하므로 useCallback으로 감싸지 않음.
+   * (selectedTabId가 변경될 때마다 새 함수 필요)
    */
   const addTask = async (text: string): Promise<boolean> => {
     if (!text.trim()) return false;
 
     setError(null);
 
-    // 1️⃣ 임시 Task 생성 (음수 ID로 임시 표시)
-    // 새 Task는 맨 위에 추가 — 기존 최소 order_index - 1
-    const nextOrderIndex = tasks.length > 0
-      ? Math.min(...tasks.map((t) => t.order_index ?? 0)) - 1
+    const currentTasks = tasksRef.current;
+    const nextOrderIndex = currentTasks.length > 0
+      ? Math.min(...currentTasks.map((t) => t.order_index ?? 0)) - 1
       : 0;
 
     const optimisticTask: Task = {
-      id: -Date.now(), // 임시 고유 ID (음수로 구분)
+      id: -Date.now(),
       text: text.trim(),
       is_completed: false,
       created_at: new Date().toISOString(),
@@ -83,11 +95,9 @@ export const useTasks = (selectedTabId: number | null) => {
       order_index: nextOrderIndex,
     };
 
-    // 2️⃣ 즉시 UI에 반영 (Optimistic Update)
     setTasks((prev) => [optimisticTask, ...prev]);
 
     try {
-      // 3️⃣ 백그라운드에서 서버에 저장
       const { data, error } = await supabase
         .from('mytask')
         .insert([{ text: text.trim(), is_completed: false, tab_id: selectedTabId, order_index: nextOrderIndex }])
@@ -95,7 +105,6 @@ export const useTasks = (selectedTabId: number | null) => {
 
       if (error) throw error;
 
-      // 4️⃣ 성공 시: 임시 Task를 실제 Task로 교체
       if (data && data[0]) {
         setTasks((prev) =>
           prev.map((task) =>
@@ -108,27 +117,18 @@ export const useTasks = (selectedTabId: number | null) => {
     } catch (err) {
       console.error('추가 에러:', err);
       setError(err instanceof Error ? err.message : '추가 실패');
-
-      // 5️⃣ 실패 시: 임시 Task 제거 (Rollback)
       setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
-
       return false;
     }
   };
 
   /**
    * 3. Update: Task 완료 상태 토글
-   * 
-   * ✨ Optimistic UI:
-   * - 즉시 로컬 상태 변경 (체크박스 즉각 반응)
-   * - 백그라운드에서 서버 동기화
-   * - 실패 시 이전 상태로 롤백
+   * ✨ useCallback으로 안정화 — React.memo(TaskItem)과 호환
    */
-  const toggleTask = async (id: number, isCompleted: boolean) => {
-    // 1️⃣ 롤백을 위해 이전 상태 백업
-    const previousTasks = tasks;
+  const toggleTask = useCallback(async (id: number, isCompleted: boolean) => {
+    const previousTasks = tasksRef.current;
 
-    // 2️⃣ 즉시 UI 업데이트 (Optimistic Update)
     setTasks((prev) =>
       prev.map((task) =>
         task.id === id ? { ...task, is_completed: isCompleted } : task
@@ -136,42 +136,28 @@ export const useTasks = (selectedTabId: number | null) => {
     );
 
     try {
-      // 3️⃣ 백그라운드에서 서버 동기화
       const { error } = await supabase
         .from('mytask')
         .update({ is_completed: isCompleted })
         .eq('id', id);
 
       if (error) throw error;
-
-      // 4️⃣ 성공 시: 아무것도 안 함 (이미 UI 업데이트 완료)
     } catch (err) {
       console.error('수정 에러:', err);
       setError(err instanceof Error ? err.message : '수정 실패');
-
-      // 5️⃣ 실패 시: 이전 상태로 롤백
       setTasks(previousTasks);
-
-      // 사용자에게 실패 알림 (선택사항)
-      alert('⚠️ 서버 연결 실패. 변경사항이 저장되지 않았습니다.');
     }
-  };
+  }, []);
 
   /**
    * 4. Update: Task 텍스트 수정
-   * 
-   * ✨ Optimistic UI:
-   * - 즉시 로컬 상태 변경 (인라인 편집 즉각 반응)
-   * - 백그라운드에서 서버 동기화
-   * - 실패 시 이전 텍스트로 롤백
+   * ✨ useCallback으로 안정화
    */
-  const updateTask = async (id: number, newText: string) => {
+  const updateTask = useCallback(async (id: number, newText: string) => {
     if (!newText.trim()) return;
 
-    // 1️⃣ 롤백을 위해 이전 상태 백업
-    const previousTasks = tasks;
+    const previousTasks = tasksRef.current;
 
-    // 2️⃣ 즉시 UI 업데이트 (Optimistic Update)
     setTasks((prev) =>
       prev.map((task) =>
         task.id === id ? { ...task, text: newText.trim() } : task
@@ -179,93 +165,67 @@ export const useTasks = (selectedTabId: number | null) => {
     );
 
     try {
-      // 3️⃣ 백그라운드에서 서버 동기화
       const { error } = await supabase
         .from('mytask')
         .update({ text: newText.trim() })
         .eq('id', id);
 
       if (error) throw error;
-
-      // 4️⃣ 성공 시: 아무것도 안 함 (이미 UI 업데이트 완료)
     } catch (err) {
       console.error('수정 에러:', err);
       setError(err instanceof Error ? err.message : '수정 실패');
-
-      // 5️⃣ 실패 시: 이전 상태로 롤백
       setTasks(previousTasks);
-
-      // 사용자에게 실패 알림
-      alert('⚠️ 서버 연결 실패. 변경사항이 저장되지 않았습니다.');
     }
-  };
+  }, []);
 
   /**
    * 5. Delete: Task 삭제
-   * 
-   * ✨ Optimistic UI:
-   * - 즉시 UI에서 제거 (부드러운 삭제 애니메이션)
-   * - 백그라운드에서 서버 동기화
-   * - 실패 시 다시 복원
+   * ✨ useCallback으로 안정화
    */
-  const deleteTask = async (id: number) => {
-    // 1️⃣ 롤백을 위해 삭제할 Task 백업
-    const taskToDelete = tasks.find((task) => task.id === id);
+  const deleteTask = useCallback(async (id: number) => {
+    const currentTasks = tasksRef.current;
+    const taskToDelete = currentTasks.find((task) => task.id === id);
     if (!taskToDelete) return;
 
-    // 2️⃣ 즉시 UI에서 제거 (Optimistic Update)
     setTasks((prev) => prev.filter((task) => task.id !== id));
 
     try {
-      // 3️⃣ 백그라운드에서 서버에서 삭제
       const { error } = await supabase.from('mytask').delete().eq('id', id);
 
       if (error) throw error;
-
-      // 4️⃣ 성공 시: 아무것도 안 함 (이미 UI에서 제거 완료)
     } catch (err) {
       console.error('삭제 에러:', err);
       setError(err instanceof Error ? err.message : '삭제 실패');
 
-      // 5️⃣ 실패 시: 삭제한 Task 다시 복원 (Rollback)
       setTasks((prev) => {
-        // 원래 위치에 복원 (order_index 기준 정렬)
         const restored = [...prev, taskToDelete].sort(
           (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
         );
         return restored;
       });
-
-      // 사용자에게 실패 알림
-      alert('⚠️ 서버 연결 실패. 삭제가 취소되었습니다.');
     }
-  };
+  }, []);
 
   /**
    * 6. Reorder: Task 순서 변경 (Drag & Drop)
-   *
-   * ✨ Optimistic UI:
-   * - arrayMove로 즉시 로컬 배열 재정렬
-   * - 백그라운드에서 각 Task의 order_index를 서버에 동기화
-   * - 실패 시 이전 순서로 롤백
+   * ✨ useCallback으로 안정화
    */
-  const reorderTasks = async (activeId: number, overId: number) => {
-    const oldIndex = tasks.findIndex((t) => t.id === activeId);
-    const newIndex = tasks.findIndex((t) => t.id === overId);
+  const reorderTasks = useCallback(async (activeId: number, overId: number) => {
+    const currentTasks = tasksRef.current;
+    const oldIndex = currentTasks.findIndex((t) => t.id === activeId);
+    const newIndex = currentTasks.findIndex((t) => t.id === overId);
 
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
 
-    const previousTasks = tasks;
-    const reordered = arrayMove(tasks, oldIndex, newIndex);
+    const previousTasks = currentTasks;
+    const reordered = arrayMove(currentTasks, oldIndex, newIndex);
 
-    // Optimistic Update — order_index도 로컬에서 재계산
     const reorderedWithIndex = reordered.map((task, i) => ({
       ...task,
       order_index: i,
     }));
     setTasks(reorderedWithIndex);
 
-    // 서버 동기화 — 각 Task의 order_index 개별 업데이트
     try {
       const results = await Promise.all(
         reorderedWithIndex.map(({ id, order_index }) =>
@@ -278,7 +238,7 @@ export const useTasks = (selectedTabId: number | null) => {
       console.error('Task 순서 변경 에러:', err);
       setTasks(previousTasks);
     }
-  };
+  }, []);
 
   /**
    * 탭 변경 시 데이터 로드
@@ -297,7 +257,7 @@ export const useTasks = (selectedTabId: number | null) => {
 
   return {
     tasks,
-    isInitialLoading, // 초기 로딩만 추적 (수정/삭제 시 스피너 없음)
+    isInitialLoading,
     error,
     addTask,
     toggleTask,
