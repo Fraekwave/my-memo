@@ -151,7 +151,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       />
 
       {/* 텍스트 or 입력창 */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
         {isEditing ? (
           <input
             ref={inputRef}
@@ -170,6 +170,13 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
             {task.text}
           </span>
         )}
+        {/* Debug: Continuous aging verification — 12h ago ≈ 0.50 days, 2.5% darkness */}
+        <span
+          className="text-[10px] text-red-500/80 font-mono tabular-nums"
+          aria-hidden
+        >
+          {aging.daysOld.toFixed(2)} days / {aging.darknessPercent.toFixed(1)}%
+        </span>
       </div>
 
       {/* 액션 버튼들 */}
