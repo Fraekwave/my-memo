@@ -19,6 +19,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Task } from '@/lib/types';
+import { getTaskAgingStyles } from '@/lib/visualAging';
 import { TaskItem } from './TaskItem';
 
 // ──────────────────────────────────────────────
@@ -218,26 +219,32 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
 
       {/* DragOverlay: 드래그 중 포인터를 따라다니는 플로팅 복사본 */}
       {/* React Portal로 렌더링되어 리스트 DOM 플로우와 완전히 분리됨 */}
+      {/* Visual Aging: TaskItem과 동일한 배경/텍스트 스타일 적용 */}
       <DragOverlay dropAnimation={null}>
-        {activeTask ? (
-          <div className="task-item flex items-center gap-3 p-4 bg-white rounded-xl border border-zinc-200 shadow-xl select-none cursor-grabbing">
-            <input
-              type="checkbox"
-              className="task-checkbox"
-              checked={activeTask.is_completed}
-              readOnly
-            />
-            <div className="flex-1 min-w-0">
-              <span
-                className={`block text-zinc-900 select-none ${
-                  activeTask.is_completed ? 'completed' : ''
-                }`}
-              >
-                {activeTask.text}
-              </span>
+        {activeTask ? (() => {
+          const aging = getTaskAgingStyles(activeTask.created_at);
+          return (
+            <div
+              className="task-item flex items-center gap-3 p-4 rounded-xl border border-zinc-200 shadow-xl select-none cursor-grabbing"
+              style={{ backgroundColor: aging.backgroundColor }}
+            >
+              <input
+                type="checkbox"
+                className="task-checkbox"
+                checked={activeTask.is_completed}
+                readOnly
+              />
+              <div className="flex-1 min-w-0">
+                <span
+                  className={`block select-none ${activeTask.is_completed ? 'completed' : ''}`}
+                  style={{ color: aging.textColor }}
+                >
+                  {activeTask.text}
+                </span>
+              </div>
             </div>
-          </div>
-        ) : null}
+          );
+        })() : null}
       </DragOverlay>
     </DndContext>
   );

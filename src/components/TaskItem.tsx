@@ -7,6 +7,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
+import { getTaskAgingStyles } from '@/lib/visualAging';
 import { ConfirmModal } from './ConfirmModal';
 
 interface TaskItemProps {
@@ -71,10 +72,12 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   // - isDragging인 아이템은 "플레이스홀더"로 표시 (dimmed)
   // - 실제 드래그 비주얼은 TaskList의 DragOverlay에서 렌더링
   // - 플레이스홀더는 리스트 레이아웃을 유지하면서 부드럽게 이동
+  const aging = getTaskAgingStyles(task.created_at);
   const style = {
     transform: CSS.Translate.toString(transform),
     transition: sortableTransition,
     opacity: isDragging ? 0.3 : undefined,
+    backgroundColor: aging.backgroundColor,
   };
 
   // 편집 중에는 드래그 리스너 비활성화
@@ -120,13 +123,20 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     }
   };
 
+  const iconClass = aging.isDark
+    ? 'text-white/80 hover:text-white transition-colors p-1'
+    : 'text-zinc-400 hover:text-zinc-600 transition-colors p-1';
+  const deleteIconClass = aging.isDark
+    ? 'text-white/80 hover:text-red-300 transition-colors p-1'
+    : 'text-zinc-400 hover:text-red-500 transition-colors p-1';
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...dragProps}
       className={`
-        task-item flex items-center gap-3 p-4 bg-zinc-50 rounded-xl border border-zinc-100
+        task-item flex items-center gap-3 p-4 rounded-xl border border-zinc-100
         hover:border-zinc-200 hover:shadow-sm select-none
         ${isEditing ? 'cursor-auto' : 'cursor-grab'}
       `}
@@ -154,9 +164,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
           />
         ) : (
           <span
-            className={`block text-zinc-900 select-none ${
-              task.is_completed ? 'completed' : ''
-            }`}
+            className={`block select-none ${task.is_completed ? 'completed' : ''}`}
+            style={{ color: aging.textColor }}
           >
             {task.text}
           </span>
@@ -170,7 +179,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
             {/* 수정 버튼 (Pencil 아이콘) */}
             <button
               onClick={startEditing}
-              className="text-zinc-400 hover:text-zinc-600 transition-colors p-1"
+              className={iconClass}
               aria-label="수정"
             >
               <Pencil className="w-4 h-4" />
@@ -179,7 +188,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
             {/* 삭제 버튼 — 모달로 확인 */}
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="text-zinc-400 hover:text-red-500 transition-colors p-1"
+              className={deleteIconClass}
               aria-label="삭제"
             >
               <X className="w-5 h-5" />
@@ -205,11 +214,14 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   );
 }, (prev, next) => {
   // 커스텀 비교: task 데이터 필드 + 핸들러 참조 비교
+  // created_at 포함 — Visual Aging 스타일 계산에 사용
   return (
     prev.task.id === next.task.id &&
     prev.task.text === next.task.text &&
     prev.task.is_completed === next.task.is_completed &&
     prev.task.order_index === next.task.order_index &&
+    prev.task.created_at === next.task.created_at &&
+    prev.task.completed_at === next.task.completed_at &&
     prev.onToggle === next.onToggle &&
     prev.onUpdate === next.onUpdate &&
     prev.onDelete === next.onDelete

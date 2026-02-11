@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
+
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Task CRUD 로직을 관리하는 커스텀 훅
@@ -91,6 +93,7 @@ export const useTasks = (selectedTabId: number | null) => {
       text: text.trim(),
       is_completed: false,
       created_at: new Date().toISOString(),
+      completed_at: null,
       tab_id: selectedTabId,
       order_index: nextOrderIndex,
     };
@@ -125,20 +128,24 @@ export const useTasks = (selectedTabId: number | null) => {
   /**
    * 3. Update: Task 완료 상태 토글
    * ✨ useCallback으로 안정화 — React.memo(TaskItem)과 호환
+   * ✨ Digital Detox: 완료 시 completed_at 저장, 미완료 시 null
    */
   const toggleTask = useCallback(async (id: number, isCompleted: boolean) => {
     const previousTasks = tasksRef.current;
+    const completedAt = isCompleted ? new Date().toISOString() : null;
 
     setTasks((prev) =>
       prev.map((task) =>
-        task.id === id ? { ...task, is_completed: isCompleted } : task
+        task.id === id
+          ? { ...task, is_completed: isCompleted, completed_at: completedAt ?? undefined }
+          : task
       )
     );
 
     try {
       const { error } = await supabase
         .from('mytask')
-        .update({ is_completed: isCompleted })
+        .update({ is_completed: isCompleted, completed_at: completedAt })
         .eq('id', id);
 
       if (error) throw error;
@@ -248,15 +255,33 @@ export const useTasks = (selectedTabId: number | null) => {
   }, [fetchTasks]);
 
   /**
-   * 통계 계산
+   * Digital Detox: 완료된 Task 중 24시간 경과분 필터링
+   * - 미완료: 항상 표시
+   * - 완료: (now - completed_at) < 24h 인 경우만 표시
+   * - completed_at 없음: 기존 데이터, 숨김 (null = 오래됨으로 간주)
    */
-  const stats = {
-    total: tasks.length,
-    completed: tasks.filter((t) => t.is_completed).length,
-  };
+  const visibleTasks = useMemo(() => {
+    const now = Date.now();
+    return tasks.filter((t) => {
+      if (!t.is_completed) return true;
+      const completedAt = t.completed_at ? new Date(t.completed_at).getTime() : 0;
+      return now - completedAt < TWENTY_FOUR_HOURS_MS;
+    });
+  }, [tasks]);
+
+  /**
+   * 통계 계산 (노출되는 Task 기준)
+   */
+  const stats = useMemo(
+    () => ({
+      total: visibleTasks.length,
+      completed: visibleTasks.filter((t) => t.is_completed).length,
+    }),
+    [visibleTasks]
+  );
 
   return {
-    tasks,
+    tasks: visibleTasks,
     isInitialLoading,
     error,
     addTask,
