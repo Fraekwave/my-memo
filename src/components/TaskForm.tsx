@@ -185,10 +185,11 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
             </div>
           )}
 
-          {/* Actual Input — iOS: non-PII name + autocomplete off suppresses Autofill Accessory Bar */}
+          {/* Actual Input — type="search" = iOS Autofill Bar suppression (industry workaround)
+              CSS in index.css hides WebKit search decorations (cancel button, etc.) */}
           <input
-            type="text"
-            name="new-task"
+            type="search"
+            name="searchTerm"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

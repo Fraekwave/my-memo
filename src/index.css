@@ -187,3 +187,20 @@ html, body, #root {
 .animate-nudge-right {
   animation: nudgeRight 0.8s ease-in-out infinite;
 }
+
+/* ──────────────────────────────────────────────
+   type="search" — iOS Autofill Bar Suppression
+   ────────────────────────────────────────────── */
+/* WebKit search input decorations: hide cancel (×) and decoration so it looks like text */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+/* Reset search input to plain text field appearance */
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}

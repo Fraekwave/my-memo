@@ -155,8 +155,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         {isEditing ? (
           <input
             ref={inputRef}
-            type="text"
-            name="edit-task"
+            type="search"
+            name="searchTerm"
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             onBlur={saveEdit}
