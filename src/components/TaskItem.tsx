@@ -156,11 +156,17 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
           <input
             ref={inputRef}
             type="text"
+            name="edit-task"
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             onBlur={saveEdit}
             onKeyDown={handleKeyDown}
             className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 outline-none focus:border-zinc-900 transition-colors select-text"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            enterKeyHint="done"
           />
         ) : (
           <span

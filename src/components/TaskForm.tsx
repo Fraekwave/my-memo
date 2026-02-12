@@ -185,9 +185,10 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
             </div>
           )}
 
-          {/* Actual Input */}
+          {/* Actual Input — iOS: non-PII name + autocomplete off suppresses Autofill Accessory Bar */}
           <input
             type="text"
+            name="new-task"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -196,6 +197,10 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
             placeholder="새로운 할 일을 입력하세요..."
             className="relative w-full px-4 py-3 bg-transparent text-zinc-900 placeholder-zinc-400 outline-none rounded-xl"
             autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            enterKeyHint="done"
           />
         </div>
 
