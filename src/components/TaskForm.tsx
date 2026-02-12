@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, FormEvent, KeyboardEvent, TouchEvent } from 'react';
 import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
+import { memoInputProps } from '@/lib/inputAttributes';
 
 interface TaskFormProps {
   onSubmit: (text: string) => Promise<boolean>;
@@ -152,7 +153,7 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 sm:p-8 border-b border-zinc-100">
+    <form onSubmit={handleSubmit} autoComplete="off" className="p-6 sm:p-8 border-b border-zinc-100">
       <div className="flex gap-3">
         {/* ── Autocomplete Wrapper ── */}
         {/* Touch handlers on wrapper for swipe detection */}
@@ -185,11 +186,9 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
             </div>
           )}
 
-          {/* Actual Input — type="search" = iOS Autofill Bar suppression (industry workaround)
-              CSS in index.css hides WebKit search decorations (cancel button, etc.) */}
+          {/* Actual Input — Strict Attribute Strategy (memoInputProps) for iOS Autofill Bar */}
           <input
-            type="search"
-            name="searchTerm"
+            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -197,11 +196,8 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
             onCompositionEnd={handleCompositionEnd}
             placeholder="새로운 할 일을 입력하세요..."
             className="relative w-full px-4 py-3 bg-transparent text-zinc-900 placeholder-zinc-400 outline-none rounded-xl"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
             enterKeyHint="done"
+            {...memoInputProps}
           />
         </div>
 

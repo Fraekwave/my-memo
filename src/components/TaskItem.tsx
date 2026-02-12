@@ -7,6 +7,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
+import { memoInputProps } from '@/lib/inputAttributes';
 import { getTaskAgingStyles } from '@/lib/visualAging';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -155,18 +156,14 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         {isEditing ? (
           <input
             ref={inputRef}
-            type="search"
-            name="searchTerm"
+            type="text"
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             onBlur={saveEdit}
             onKeyDown={handleKeyDown}
             className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 outline-none focus:border-zinc-900 transition-colors select-text"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
             enterKeyHint="done"
+            {...memoInputProps}
           />
         ) : (
           <span
