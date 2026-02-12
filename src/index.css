@@ -187,3 +187,11 @@ html, body, #root {
 .animate-nudge-right {
   animation: nudgeRight 0.8s ease-in-out infinite;
 }
+
+/* ──────────────────────────────────────────────
+   ContentEditableInput — placeholder when empty
+   ────────────────────────────────────────────── */
+.content-editable-input:empty::before {
+  content: attr(data-placeholder);
+  @apply text-zinc-400 pointer-events-none block;
+}

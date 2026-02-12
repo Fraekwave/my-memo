@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent, TouchEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, KeyboardEvent, TouchEvent } from 'react';
 import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
-import { memoInputProps } from '@/lib/inputAttributes';
+import { ContentEditableInput } from './ContentEditableInput';
 
 interface TaskFormProps {
   onSubmit: (text: string) => Promise<boolean>;
@@ -110,8 +110,7 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
   }, [suggestion]);
 
   // ── 폼 제출 ──
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = useCallback(async () => {
     if (!input.trim()) return;
 
     const taskText = input;
@@ -123,10 +122,10 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
     if (!success) {
       setInput(taskText);
     }
-  };
+  }, [input, onSubmit, record]);
 
   // ── 키보드: Tab / ArrowRight로 제안 수락 ──
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
     if (!suggestion) return;
 
     if (e.key === 'Tab') {
@@ -135,13 +134,18 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
     }
 
     if (e.key === 'ArrowRight') {
-      const target = e.currentTarget;
-      if (target.selectionStart === target.value.length) {
-        e.preventDefault();
-        setInput(suggestion);
+      const sel = window.getSelection();
+      if (sel?.rangeCount) {
+        const range = sel.getRangeAt(0);
+        const container = range.endContainer;
+        const len = container.textContent?.length ?? 0;
+        if (range.collapsed && range.endOffset === len) {
+          e.preventDefault();
+          setInput(suggestion);
+        }
       }
     }
-  };
+  }, [suggestion]);
 
   // ── IME Composition Guard ──
   const handleCompositionStart = () => {
@@ -153,7 +157,7 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} autoComplete="off" className="p-6 sm:p-8 border-b border-zinc-100">
+    <div className="p-6 sm:p-8 border-b border-zinc-100">
       <div className="flex gap-3">
         {/* ── Autocomplete Wrapper ── */}
         {/* Touch handlers on wrapper for swipe detection */}
@@ -186,29 +190,28 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
             </div>
           )}
 
-          {/* Actual Input — Strict Attribute Strategy (memoInputProps) for iOS Autofill Bar */}
-          <input
-            type="text"
+          {/* ContentEditable — removes iOS Autofill Bar; Korean IME safe */}
+          <ContentEditableInput
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={setInput}
+            onSubmit={handleSubmit}
             onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             placeholder="새로운 할 일을 입력하세요..."
-            className="relative w-full px-4 py-3 bg-transparent text-zinc-900 placeholder-zinc-400 outline-none rounded-xl"
-            enterKeyHint="done"
-            {...memoInputProps}
+            className="relative w-full px-4 py-3 bg-transparent text-zinc-900 rounded-xl"
           />
         </div>
 
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit}
           disabled={!input.trim()}
           className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all active:scale-95 whitespace-nowrap flex-shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>추가</span>
         </button>
       </div>
-    </form>
+    </div>
   );
 };
