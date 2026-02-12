@@ -108,40 +108,32 @@ export const SortableTabItem = ({
         </span>
       )}
 
-      {/* 이름 변경 버튼 (Pencil) — 활성 탭에만 표시 */}
+      {/* Active-Only Actions: Edit/Delete는 활성 탭에만 표시 — 모바일 오탭 방지 */}
       {!isEditing && isActive && !isDragging && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onStartEditing(tab);
-          }}
-          className="flex-shrink-0 text-zinc-300 hover:text-zinc-600 transition-colors p-0.5"
-          aria-label="탭 이름 변경"
-        >
-          <Pencil className="w-3 h-3" />
-        </button>
-      )}
-
-      {/* 닫기(X) 버튼 */}
-      {!isEditing && tabCount > 1 && !isDragging && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeleteRequest(tab.id);
-          }}
-          className={`
-            flex-shrink-0 rounded-full p-0.5
-            transition-all duration-150
-            ${
-              isActive
-                ? 'text-zinc-400 hover:text-red-500 hover:bg-red-50 opacity-100'
-                : 'text-zinc-400 hover:text-red-500 hover:bg-red-50 opacity-0 hover-hover:group-hover:opacity-100'
-            }
-          `}
-          aria-label="탭 삭제"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartEditing(tab);
+            }}
+            className="flex-shrink-0 text-zinc-300 hover:text-zinc-600 transition-colors p-0.5"
+            aria-label="탭 이름 변경"
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
+          {tabCount > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteRequest(tab.id);
+              }}
+              className="flex-shrink-0 rounded-full p-0.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-all duration-150"
+              aria-label="탭 삭제"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </>
       )}
     </div>
   );
