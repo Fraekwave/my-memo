@@ -8,11 +8,13 @@ export default defineConfig({
   define: {
     __BUILD_TIME__: JSON.stringify(
       new Date().toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false,
       })
     ),
   },

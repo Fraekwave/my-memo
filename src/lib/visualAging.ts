@@ -1,14 +1,13 @@
 /**
  * Visual Aging: Task 컨테이너의 시각적 "노화" 효과
  *
- * - Day 0: Light Gray (#f4f4f5 / zinc-100)
- * - Day 20: Pure Black (#000000)
+ * ✨ Grace Period (3 days): 생성 후 72시간 동안 Day 0 색상 유지
+ * ✨ Aging Phase (Day 4–23): grace 이후 20일 동안 Light Gray → Black
+ * ✨ Cubic Easing: Math.pow(ratio, 3) — 느린 시작, 빠른 종료
  * - Text: Black → White when background > 50% darkness
- *
- * ✨ Continuous: ageDays는 부동소수점 (예: 12시간 = 0.5 days → 2.5% darkness)
- *    Math.floor/round 없음 — 매 분/시간마다 부드럽게 어두워짐
  */
 
+const GRACE_PERIOD_DAYS = 3;
 const AGING_DAYS = 20;
 const LIGHT_GRAY = 244;
 const DARK_THRESHOLD = 128;
@@ -21,24 +20,36 @@ export interface AgingStyles {
   isDark: boolean;
   /** Debug: 나이 (일 단위, float) */
   daysOld: number;
+  /** Debug: grace 이후 경과일 (effectiveDays) */
+  effectiveDaysOld: number;
   /** Debug: darkness 비율 (0–100%) */
   darknessPercent: number;
+  /** Debug: grace period 내 여부 */
+  isInGracePeriod: boolean;
 }
 
 export function getTaskAgingStyles(createdAt: string): AgingStyles {
   const ageMs = Date.now() - new Date(createdAt).getTime();
-  const ageDays = Math.max(0, ageMs / MS_PER_DAY); // float — no floor/round
-  const ratio = Math.min(1, ageDays / AGING_DAYS);
-  const gray = LIGHT_GRAY - ratio * LIGHT_GRAY; // float — no rounding for smooth interpolation
-  const darknessPercent = ratio * 100;
+  const ageDays = Math.max(0, ageMs / MS_PER_DAY);
+  const effectiveDaysOld = Math.max(0, ageDays - GRACE_PERIOD_DAYS);
+  const isInGracePeriod = ageDays < GRACE_PERIOD_DAYS;
+
+  const linearRatio = Math.min(1, effectiveDaysOld / AGING_DAYS);
+  const easedRatio = Math.pow(linearRatio, 3); // cubic — slow start, fast end
+
+  const gray = LIGHT_GRAY - easedRatio * LIGHT_GRAY;
+  const darknessPercent = easedRatio * 100;
   const backgroundColor = `rgb(${gray},${gray},${gray})`;
   const isDark = gray < DARK_THRESHOLD;
   const textColor = isDark ? '#ffffff' : '#18181b';
+
   return {
     backgroundColor,
     textColor,
     isDark,
     daysOld: ageDays,
+    effectiveDaysOld,
     darknessPercent,
+    isInGracePeriod,
   };
 }

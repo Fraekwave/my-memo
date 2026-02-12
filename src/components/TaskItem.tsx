@@ -170,12 +170,14 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
             {task.text}
           </span>
         )}
-        {/* Debug: Continuous aging verification — 12h ago ≈ 0.50 days, 2.5% darkness */}
+        {/* Debug: Grace period + effective days + cubic easing */}
         <span
           className="text-[10px] text-red-500/80 font-mono tabular-nums"
           aria-hidden
         >
-          {aging.daysOld.toFixed(2)} days / {aging.darknessPercent.toFixed(1)}%
+          {aging.isInGracePeriod
+            ? `Fresh (Grace Period)`
+            : `Age: ${aging.daysOld.toFixed(1)} / Effective: ${aging.effectiveDaysOld.toFixed(1)} / Dark: ${aging.darknessPercent.toFixed(1)}%`}
         </span>
       </div>
 
