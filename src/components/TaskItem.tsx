@@ -1,4 +1,4 @@
-import { memo, useState, KeyboardEvent } from 'react';
+import { memo, useState, useRef, useEffect, KeyboardEvent } from 'react';
 import {
   useSortable,
   defaultAnimateLayoutChanges,
@@ -7,7 +7,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
-import { ContentEditableInput } from './ContentEditableInput';
 import { getTaskAgingStyles } from '@/lib/visualAging';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -57,6 +56,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // ── @dnd-kit Sortable ──
   const {
@@ -83,6 +83,14 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   // 편집 중에는 드래그 리스너 비활성화
   const dragProps = isEditing ? {} : { ...attributes, ...listeners };
 
+  // 편집 모드 진입 시 자동 포커스
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
   // 편집 시작
   const startEditing = () => {
     setEditText(task.text);
@@ -104,9 +112,12 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     setIsEditing(false);
   };
 
-  // 키보드 이벤트 처리 (Enter → ContentEditableInput onSubmit)
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') {
+  // 키보드 이벤트 처리
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
       e.preventDefault();
       cancelEdit();
     }
@@ -142,14 +153,19 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       {/* 텍스트 or 입력창 */}
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
         {isEditing ? (
-          <ContentEditableInput
+          <input
+            ref={inputRef}
+            type="text"
+            name="task_text"
             value={editText}
-            onChange={setEditText}
-            onSubmit={saveEdit}
+            onChange={(e) => setEditText(e.target.value)}
             onBlur={saveEdit}
             onKeyDown={handleKeyDown}
-            className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:border-zinc-900 transition-colors select-text"
-            autoFocus
+            className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 outline-none focus:border-zinc-900 transition-colors select-text"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
           />
         ) : (
           <span

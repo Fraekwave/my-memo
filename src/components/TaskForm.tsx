@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect, useCallback, KeyboardEvent, TouchEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, FormEvent, KeyboardEvent, TouchEvent } from 'react';
 import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
-import { ContentEditableInput } from './ContentEditableInput';
 
 interface TaskFormProps {
   onSubmit: (text: string) => Promise<boolean>;
@@ -110,42 +109,44 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
   }, [suggestion]);
 
   // ── 폼 제출 ──
-  const handleSubmit = useCallback(async () => {
-    if (!input.trim()) return;
+  const handleSubmit = useCallback(
+    async (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (!input.trim()) return;
 
-    const taskText = input;
-    setInput('');
+      const taskText = input;
+      setInput('');
 
-    record(taskText);
+      record(taskText);
 
-    const success = await onSubmit(taskText);
-    if (!success) {
-      setInput(taskText);
-    }
-  }, [input, onSubmit, record]);
+      const success = await onSubmit(taskText);
+      if (!success) {
+        setInput(taskText);
+      }
+    },
+    [input, onSubmit, record]
+  );
 
   // ── 키보드: Tab / ArrowRight로 제안 수락 ──
-  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
-    if (!suggestion) return;
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (!suggestion) return;
 
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      setInput(suggestion);
-    }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        setInput(suggestion);
+      }
 
-    if (e.key === 'ArrowRight') {
-      const sel = window.getSelection();
-      if (sel?.rangeCount) {
-        const range = sel.getRangeAt(0);
-        const container = range.endContainer;
-        const len = container.textContent?.length ?? 0;
-        if (range.collapsed && range.endOffset === len) {
+      if (e.key === 'ArrowRight') {
+        const target = e.currentTarget;
+        if (target.selectionStart === target.value.length) {
           e.preventDefault();
           setInput(suggestion);
         }
       }
-    }
-  }, [suggestion]);
+    },
+    [suggestion]
+  );
 
   // ── IME Composition Guard ──
   const handleCompositionStart = () => {
@@ -157,7 +158,7 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
   };
 
   return (
-    <div className="p-6 sm:p-8 border-b border-zinc-100">
+    <form onSubmit={handleSubmit} autoComplete="off" className="p-6 sm:p-8 border-b border-zinc-100">
       <div className="flex gap-3">
         {/* ── Autocomplete Wrapper ── */}
         {/* Touch handlers on wrapper for swipe detection */}
@@ -190,28 +191,32 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
             </div>
           )}
 
-          {/* ContentEditable — removes iOS Autofill Bar; Korean IME safe */}
-          <ContentEditableInput
+          {/* Standard input — basic clean attributes */}
+          <input
+            type="text"
+            name="task_text"
             value={input}
-            onChange={setInput}
-            onSubmit={handleSubmit}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             placeholder="새로운 할 일을 입력하세요..."
-            className="relative w-full px-4 py-3 bg-transparent text-zinc-900 rounded-xl"
+            className="relative w-full px-4 py-3 bg-transparent text-zinc-900 placeholder-zinc-400 outline-none rounded-xl"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
           />
         </div>
 
         <button
-          type="button"
-          onClick={handleSubmit}
+          type="submit"
           disabled={!input.trim()}
           className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all active:scale-95 whitespace-nowrap flex-shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>추가</span>
         </button>
       </div>
-    </div>
+    </form>
   );
 };
