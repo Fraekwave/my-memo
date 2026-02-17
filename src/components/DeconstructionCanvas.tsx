@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import Matter from 'matter-js';
+import Hangul from 'hangul-js';
 import { decomposeToJamoGrouped } from '@/lib/hangulUtils';
 
 const FONT_SIZE = 14;
@@ -8,10 +9,17 @@ const BODY_HEIGHT = 14;
 const FLOOR_THICKNESS = 4;
 const WALL_THICKNESS = 20;
 const DURATION_MS = 4500;
+const STAGGER_MS_PER_PX = 0.5;
 const FONT = '"Inter", system-ui, -apple-system, sans-serif';
 
 /** Set to true to visualize physics bodies (floor, walls, body outlines) */
 const DEBUG_PHYSICS = false;
+
+function getDensityForChar(char: string): number {
+  if (Hangul.isVowel(char)) return 0.001;
+  if (Hangul.isConsonant(char)) return 0.002;
+  return 0.0015;
+}
 
 interface DeconstructionCanvasProps {
   text: string;
@@ -137,19 +145,28 @@ export const DeconstructionCanvas = ({
 
     Matter.Composite.add(world, [floor, leftWall, rightWall]);
 
+    interface PendingBody {
+      body: Matter.Body;
+      activationTime: number;
+    }
+    const pendingBodies: PendingBody[] = [];
+
     const jamoBodies: Matter.Body[] = positions.map(({ char, x, y }) => {
+      const activationDelay = x * STAGGER_MS_PER_PX;
       const body = Matter.Bodies.rectangle(x, y, BODY_WIDTH, BODY_HEIGHT, {
         label: char,
         chamfer: { radius: 2 },
-        density: 0.0015,
+        density: getDensityForChar(char),
         friction: 0.08,
         frictionStatic: 0.1,
-        restitution: 0.82,
+        restitution: 0.88,
         frictionAir: 0.003,
-        angularVelocity: randomInRange(-0.3, 0.3),
+        angularVelocity: randomInRange(-0.55, 0.55),
         sleepThreshold: 30,
+        isStatic: true,
       });
       Matter.Composite.add(world, body);
+      pendingBodies.push({ body, activationTime: activationDelay });
       return body;
     });
 
@@ -173,6 +190,18 @@ export const DeconstructionCanvas = ({
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const elapsed = timestamp - startTime;
+
+      for (let i = pendingBodies.length - 1; i >= 0; i--) {
+        const { body, activationTime } = pendingBodies[i];
+        if (elapsed >= activationTime) {
+          Matter.Body.setStatic(body, false);
+          Matter.Body.applyForce(body, body.position, {
+            x: randomInRange(-0.02, 0.02),
+            y: randomInRange(-0.05, -0.1),
+          });
+          pendingBodies.splice(i, 1);
+        }
+      }
 
       Matter.Engine.update(engine, 1000 / 60);
 
