@@ -1,11 +1,14 @@
 import { useRef, useEffect } from 'react';
+import { decomposeToJamoGrouped } from '@/lib/hangulUtils';
 
-const GRAVITY = 0.45;
+const GRAVITY = 0.5;
 const COLUMN_COUNT = 10;
 const FONT_SIZE = 14;
 const ROW_HEIGHT = 16;
 const FLOOR_MARGIN = 4;
 const DURATION_MS = 3500;
+const DRIFT_AMOUNT = 0.25;
+const FONT = '"Inter", system-ui, -apple-system, sans-serif';
 
 interface Particle {
   char: string;
@@ -21,7 +24,7 @@ interface Particle {
 }
 
 interface DeconstructionCanvasProps {
-  jamo: string[];
+  text: string;
   width: number;
   height: number;
   textColor: string;
@@ -32,8 +35,45 @@ function randomInRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
+/**
+ * Compute initial (x, y) positions for each jamo using measureText.
+ * Jamo start at their exact rendered positions within the text.
+ */
+function computeJamoPositions(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  groupedJamo: string[][],
+  height: number
+): { char: string; x: number; y: number }[] {
+  ctx.font = `${FONT_SIZE}px ${FONT}`;
+  const baselineY = Math.min(14, height * 0.4);
+  const result: { char: string; x: number; y: number }[] = [];
+
+  let charIndex = 0;
+  for (const group of groupedJamo) {
+    if (charIndex >= text.length) break;
+
+    const char = text[charIndex];
+    const beforeWidth = ctx.measureText(text.substring(0, charIndex)).width;
+    const charWidth = ctx.measureText(char).width;
+    const charCenterX = beforeWidth + charWidth / 2;
+
+    group.forEach((jamo, j) => {
+      const spread = group.length > 1 ? (j - (group.length - 1) / 2) * 6 : 0;
+      result.push({
+        char: jamo,
+        x: charCenterX + spread + randomInRange(-2, 2),
+        y: baselineY + randomInRange(-1, 1),
+      });
+    });
+    charIndex++;
+  }
+
+  return result;
+}
+
 export const DeconstructionCanvas = ({
-  jamo,
+  text,
   width,
   height,
   textColor,
@@ -44,7 +84,9 @@ export const DeconstructionCanvas = ({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (jamo.length === 0 || width < 10 || height < 10) {
+    const groupedJamo = decomposeToJamoGrouped(text);
+    const flatJamo = groupedJamo.flat();
+    if (flatJamo.length === 0 || width < 10 || height < 10) {
       onComplete();
       return;
     }
@@ -55,23 +97,28 @@ export const DeconstructionCanvas = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const positions = computeJamoPositions(ctx, text, groupedJamo, height);
     const columnWidth = width / COLUMN_COUNT;
     const floorY = height - FLOOR_MARGIN;
     const stackHeights: number[] = new Array(COLUMN_COUNT).fill(0);
 
-    const particles: Particle[] = jamo.map((char) => ({
+    const particles: Particle[] = positions.map(({ char, x, y }) => ({
       char,
-      x: randomInRange(width * 0.15, width * 0.85),
-      y: randomInRange(0, height * 0.35),
-      vx: randomInRange(-0.8, 0.8),
-      vy: randomInRange(0, 0.5),
-      rotation: randomInRange(-0.3, 0.3),
-      rotationSpeed: randomInRange(-0.08, 0.08),
+      x,
+      y,
+      vx: randomInRange(-DRIFT_AMOUNT, DRIFT_AMOUNT),
+      vy: 0,
+      rotation: randomInRange(-0.1, 0.1),
+      rotationSpeed: randomInRange(-0.04, 0.04),
       settled: false,
     }));
 
     let startTime: number | null = null;
     let opacity = 1;
+
+    function colCenterX(col: number): number {
+      return (col + 0.5) * columnWidth;
+    }
 
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
@@ -97,12 +144,13 @@ export const DeconstructionCanvas = ({
         }
 
         const drawY = p.settled ? (p.stackY ?? floorY) : p.y;
-        const drawX = p.settled ? (p.columnIndex !== undefined ? colCenterX(p.columnIndex) : p.x) : p.x;
+        const drawX =
+          p.settled && p.columnIndex !== undefined ? colCenterX(p.columnIndex) : p.x;
 
         ctx.save();
         ctx.translate(drawX, drawY);
         ctx.rotate(p.rotation);
-        ctx.font = `${FONT_SIZE}px "Inter", system-ui, sans-serif`;
+        ctx.font = `${FONT_SIZE}px ${FONT}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = textColor;
@@ -121,10 +169,6 @@ export const DeconstructionCanvas = ({
         onComplete();
       }
     };
-
-    function colCenterX(col: number): number {
-      return (col + 0.5) * columnWidth;
-    }
 
     rafRef.current = requestAnimationFrame(animate);
 
@@ -146,7 +190,7 @@ export const DeconstructionCanvas = ({
         timeoutRef.current = null;
       }
     };
-  }, [jamo, width, height, textColor, onComplete]);
+  }, [text, width, height, textColor, onComplete]);
 
   return (
     <canvas

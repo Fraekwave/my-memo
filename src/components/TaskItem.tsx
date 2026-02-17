@@ -8,7 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
 import { tryHaptic } from '@/lib/haptic';
-import { decomposeToJamo } from '@/lib/hangulUtils';
+import { decomposeToJamoGrouped } from '@/lib/hangulUtils';
 import { getTaskAgingStyles } from '@/lib/visualAging';
 import { ConfirmModal } from './ConfirmModal';
 import { DeconstructionCanvas } from './DeconstructionCanvas';
@@ -64,7 +64,6 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   const [justCompleted, setJustCompleted] = useState(false);
   const [usePopFallback, setUsePopFallback] = useState(false);
   const [showDeconstruction, setShowDeconstruction] = useState(false);
-  const [deconstructedJamo, setDeconstructedJamo] = useState<string[]>([]);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
@@ -129,9 +128,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         const hapticSucceeded = tryHaptic();
         setJustCompleted(true);
         setUsePopFallback(!hapticSucceeded); // iOS: shake + scale pop
-        const jamo = decomposeToJamo(task.text);
-        if (jamo.length > 0) {
-          setDeconstructedJamo(jamo);
+        const grouped = decomposeToJamoGrouped(task.text);
+        if (grouped.flat().length > 0) {
           setShowDeconstruction(true);
         }
       }
@@ -151,7 +149,6 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
 
   const handleDeconstructionComplete = useCallback(() => {
     setShowDeconstruction(false);
-    setDeconstructedJamo([]);
     setCanvasSize(null);
   }, []);
 
@@ -249,11 +246,13 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         ) : (
           <>
             <span
-              className={`block select-none transition-opacity duration-300 ${task.is_completed ? 'completed' : ''}`}
+              className={`block select-none ${task.is_completed ? 'completed' : ''}`}
               style={{
                 color: aging.textColor,
                 opacity: showDeconstruction ? 0 : 1,
+                visibility: showDeconstruction ? 'hidden' : 'visible',
               }}
+              aria-hidden={showDeconstruction}
             >
               {task.text}
             </span>
@@ -261,7 +260,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
               canvasSize &&
               task.is_completed && (
                 <DeconstructionCanvas
-                  jamo={deconstructedJamo}
+                  text={task.text}
                   width={Math.round(canvasSize.width)}
                   height={Math.round(canvasSize.height)}
                   textColor={aging.textColor}
