@@ -1,6 +1,6 @@
 import Hangul from 'hangul-js';
 
-const MAX_JAMO = 100;
+const MAX_JAMO = 500;
 
 /**
  * Decompose text into Hangul jamo (초성, 중성, 종성).

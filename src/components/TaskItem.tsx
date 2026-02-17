@@ -261,8 +261,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
               className={`block select-none ${task.is_completed ? 'completed' : ''}`}
               style={{
                 color: aging.textColor,
-                opacity: showDeconstruction ? 0 : 1,
-                visibility: showDeconstruction ? 'hidden' : 'visible',
+                opacity: showDeconstruction ? 0.12 : 1,
+                filter: showDeconstruction ? 'blur(1px)' : 'none',
               }}
               aria-hidden={showDeconstruction}
             >

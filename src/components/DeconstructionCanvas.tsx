@@ -7,6 +7,7 @@ const FONT_SIZE = 14;
 const BODY_WIDTH = 12;
 const BODY_HEIGHT = 14;
 const FLOOR_THICKNESS = 4;
+const FLOOR_INSET = 5;
 const WALL_THICKNESS = 20;
 const DURATION_MS = 4500;
 const STAGGER_MS_PER_PX = 0.5;
@@ -96,6 +97,11 @@ export const DeconstructionCanvas = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
     const positions = computeJamoPositions(ctx, text, groupedJamo, height);
 
     const engine = Matter.Engine.create({
@@ -107,14 +113,15 @@ export const DeconstructionCanvas = ({
     engineRef.current = engine;
     const { world } = engine;
 
+    const floorY = height - FLOOR_INSET;
     const floor = Matter.Bodies.rectangle(
       width / 2,
-      height + FLOOR_THICKNESS,
+      floorY + FLOOR_THICKNESS,
       width + 100,
       FLOOR_THICKNESS * 2,
       {
         isStatic: true,
-        restitution: 0.8,
+        restitution: 0.85,
         friction: 0.05,
       }
     );
@@ -157,11 +164,11 @@ export const DeconstructionCanvas = ({
         label: char,
         chamfer: { radius: 2 },
         density: getDensityForChar(char),
-        friction: 0.08,
-        frictionStatic: 0.1,
+        friction: 0.05,
+        frictionStatic: 0.08,
         restitution: 0.88,
         frictionAir: 0.003,
-        angularVelocity: randomInRange(-0.55, 0.55),
+        angularVelocity: randomInRange(-0.7, 0.7),
         sleepThreshold: 30,
         isStatic: true,
       });
@@ -184,6 +191,7 @@ export const DeconstructionCanvas = ({
         timeoutRef.current = null;
       }
       Matter.Composite.clear(world, false);
+      Matter.Engine.clear(engine);
       engineRef.current = null;
     };
 
@@ -270,10 +278,13 @@ export const DeconstructionCanvas = ({
   return (
     <canvas
       ref={canvasRef}
-      width={width}
-      height={height}
       className="absolute inset-0 pointer-events-none"
-      style={{ left: 0, top: 0 }}
+      style={{
+        left: 0,
+        top: 0,
+        width: width,
+        height: height,
+      }}
       aria-hidden
     />
   );
