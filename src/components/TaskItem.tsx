@@ -8,8 +8,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
 import { tryHaptic } from '@/lib/haptic';
+import { decomposeToJamo } from '@/lib/hangulUtils';
 import { getTaskAgingStyles } from '@/lib/visualAging';
 import { ConfirmModal } from './ConfirmModal';
+import { DeconstructionCanvas } from './DeconstructionCanvas';
 
 const COMPLETION_ANIMATION_MS = 400;
 
@@ -61,7 +63,11 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [usePopFallback, setUsePopFallback] = useState(false);
+  const [showDeconstruction, setShowDeconstruction] = useState(false);
+  const [deconstructedJamo, setDeconstructedJamo] = useState<string[]>([]);
+  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── @dnd-kit Sortable ──
@@ -115,7 +121,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     };
   }, [justCompleted]);
 
-  // Physical satisfaction: haptic + shake on complete (pop fallback on iOS)
+  // Physical satisfaction: haptic + shake + deconstruction on complete
   const handleToggle = useCallback(
     (checked: boolean) => {
       onToggle(task.id, checked);
@@ -123,10 +129,31 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         const hapticSucceeded = tryHaptic();
         setJustCompleted(true);
         setUsePopFallback(!hapticSucceeded); // iOS: shake + scale pop
+        const jamo = decomposeToJamo(task.text);
+        if (jamo.length > 0) {
+          setDeconstructedJamo(jamo);
+          setShowDeconstruction(true);
+        }
       }
     },
-    [task.id, onToggle]
+    [task.id, task.text, onToggle]
   );
+
+  // Measure text container for canvas when deconstruction triggers
+  useEffect(() => {
+    if (showDeconstruction && textContainerRef.current) {
+      const rect = textContainerRef.current.getBoundingClientRect();
+      setCanvasSize({ width: rect.width, height: rect.height });
+    } else {
+      setCanvasSize(null);
+    }
+  }, [showDeconstruction]);
+
+  const handleDeconstructionComplete = useCallback(() => {
+    setShowDeconstruction(false);
+    setDeconstructedJamo([]);
+    setCanvasSize(null);
+  }, []);
 
   // 편집 시작
   const startEditing = () => {
@@ -200,7 +227,10 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       />
 
       {/* 텍스트 or 입력창 */}
-      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+      <div
+        ref={textContainerRef}
+        className="relative flex-1 min-w-0 flex flex-col gap-0.5 min-h-[2rem]"
+      >
         {isEditing ? (
           <input
             ref={inputRef}
@@ -217,12 +247,28 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
             spellCheck={false}
           />
         ) : (
-          <span
-            className={`block select-none ${task.is_completed ? 'completed' : ''}`}
-            style={{ color: aging.textColor }}
-          >
-            {task.text}
-          </span>
+          <>
+            <span
+              className={`block select-none transition-opacity duration-300 ${task.is_completed ? 'completed' : ''}`}
+              style={{
+                color: aging.textColor,
+                opacity: showDeconstruction ? 0 : 1,
+              }}
+            >
+              {task.text}
+            </span>
+            {showDeconstruction &&
+              canvasSize &&
+              task.is_completed && (
+                <DeconstructionCanvas
+                  jamo={deconstructedJamo}
+                  width={Math.round(canvasSize.width)}
+                  height={Math.round(canvasSize.height)}
+                  textColor={aging.textColor}
+                  onComplete={handleDeconstructionComplete}
+                />
+              )}
+          </>
         )}
         {/* Debug: Grace period + effective days + cubic easing */}
         <span
