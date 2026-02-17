@@ -7,8 +7,11 @@ const BODY_WIDTH = 12;
 const BODY_HEIGHT = 14;
 const FLOOR_THICKNESS = 4;
 const WALL_THICKNESS = 20;
-const DURATION_MS = 4000;
+const DURATION_MS = 4500;
 const FONT = '"Inter", system-ui, -apple-system, sans-serif';
+
+/** Set to true to visualize physics bodies (floor, walls, body outlines) */
+const DEBUG_PHYSICS = false;
 
 interface DeconstructionCanvasProps {
   text: string;
@@ -90,8 +93,8 @@ export const DeconstructionCanvas = ({
     const engine = Matter.Engine.create({
       gravity: { x: 0, y: 1, scale: 0.002 },
       enableSleeping: true,
-      positionIterations: 6,
-      velocityIterations: 4,
+      positionIterations: 8,
+      velocityIterations: 6,
     });
     engineRef.current = engine;
     const { world } = engine;
@@ -101,7 +104,11 @@ export const DeconstructionCanvas = ({
       height + FLOOR_THICKNESS,
       width + 100,
       FLOOR_THICKNESS * 2,
-      { isStatic: true }
+      {
+        isStatic: true,
+        restitution: 0.8,
+        friction: 0.05,
+      }
     );
 
     const leftWall = Matter.Bodies.rectangle(
@@ -109,7 +116,11 @@ export const DeconstructionCanvas = ({
       height / 2,
       WALL_THICKNESS,
       height + 100,
-      { isStatic: true }
+      {
+        isStatic: true,
+        restitution: 0.7,
+        friction: 0.05,
+      }
     );
 
     const rightWall = Matter.Bodies.rectangle(
@@ -117,7 +128,11 @@ export const DeconstructionCanvas = ({
       height / 2,
       WALL_THICKNESS,
       height + 100,
-      { isStatic: true }
+      {
+        isStatic: true,
+        restitution: 0.7,
+        friction: 0.05,
+      }
     );
 
     Matter.Composite.add(world, [floor, leftWall, rightWall]);
@@ -125,11 +140,13 @@ export const DeconstructionCanvas = ({
     const jamoBodies: Matter.Body[] = positions.map(({ char, x, y }) => {
       const body = Matter.Bodies.rectangle(x, y, BODY_WIDTH, BODY_HEIGHT, {
         label: char,
+        chamfer: { radius: 2 },
         density: 0.0015,
-        friction: 0.4,
-        frictionStatic: 0.6,
-        restitution: 0.15,
-        frictionAir: 0.01,
+        friction: 0.08,
+        frictionStatic: 0.1,
+        restitution: 0.82,
+        frictionAir: 0.003,
+        angularVelocity: randomInRange(-0.3, 0.3),
       });
       Matter.Composite.add(world, body);
       return body;
@@ -160,8 +177,8 @@ export const DeconstructionCanvas = ({
 
       ctx.clearRect(0, 0, width, height);
 
-      if (elapsed > DURATION_MS * 0.55) {
-        opacity = Math.max(0, 1 - (elapsed - DURATION_MS * 0.55) / (DURATION_MS * 0.45));
+      if (elapsed > DURATION_MS * 0.5) {
+        opacity = Math.max(0, 1 - (elapsed - DURATION_MS * 0.5) / (DURATION_MS * 0.5));
       }
 
       jamoBodies.forEach((body) => {
@@ -178,6 +195,19 @@ export const DeconstructionCanvas = ({
         ctx.globalAlpha = opacity;
         ctx.fillText(char, 0, 0);
         ctx.restore();
+
+        if (DEBUG_PHYSICS) {
+          const verts = body.vertices;
+          ctx.strokeStyle = 'rgba(255,0,0,0.6)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(verts[0].x, verts[0].y);
+          for (let i = 1; i < verts.length; i++) {
+            ctx.lineTo(verts[i].x, verts[i].y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+        }
       });
 
       if (elapsed < DURATION_MS) {

@@ -1,42 +1,53 @@
 import Hangul from 'hangul-js';
 
-const MAX_JAMO = 20;
+const MAX_CHARS = 30;
 
 /**
  * Decompose text into Hangul jamo (초성, 중성, 종성).
  * Non-Hangul characters are kept as single units.
- * Limited to MAX_JAMO for performance.
+ * Limited to MAX_CHARS for performance.
  */
 export function decomposeToJamo(text: string): string[] {
   if (!text?.trim()) return [];
 
   const jamo = Hangul.disassemble(text);
-  return jamo.slice(0, MAX_JAMO);
+  return jamo.slice(0, MAX_CHARS);
 }
 
 /**
- * Decompose text into jamo grouped by syllable/character.
- * Each inner array contains jamo for one rendered character.
- * Used for coordinate mapping so jamo start at their original positions.
+ * Decompose text so every visible character becomes at least one physics body.
+ * - Hangul syllables (가, 나, etc.) → decomposed into jamo (ㄱㅏ, ㄴㅏ, etc.)
+ * - All other characters (letters, numbers, symbols like ( ) + - etc.) → single-item group
+ * Result: grouped array where each inner array maps to one rendered character.
+ * Total physics bodies = sum of group lengths (matches visible character count for non-Hangul).
  */
 export function decomposeToJamoGrouped(text: string): string[][] {
   if (!text?.trim()) return [];
 
-  const grouped = Hangul.disassemble(text, true) as string[][];
-  const flat: string[] = [];
   const result: string[][] = [];
+  let totalCount = 0;
 
-  for (const group of grouped) {
-    if (flat.length + group.length <= MAX_JAMO) {
-      result.push([...group]);
-      flat.push(...group);
+  for (let i = 0; i < text.length && totalCount < MAX_CHARS; i++) {
+    const char = text[i];
+    let group: string[];
+
+    if (Hangul.isHangul(char)) {
+      const decomposed = Hangul.disassemble(char, true) as string[][];
+      group = decomposed.length > 0 ? decomposed[0] : [char];
     } else {
-      const remaining = MAX_JAMO - flat.length;
-      if (remaining > 0) {
-        result.push(group.slice(0, remaining));
-      }
+      group = [char];
+    }
+
+    const remaining = MAX_CHARS - totalCount;
+    if (group.length <= remaining) {
+      result.push([...group]);
+      totalCount += group.length;
+    } else {
+      result.push(group.slice(0, remaining));
+      totalCount = MAX_CHARS;
       break;
     }
   }
+
   return result;
 }
