@@ -1,325 +1,295 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Matter from 'matter-js';
 import Hangul from 'hangul-js';
 import { decomposeToJamoGrouped } from '@/lib/hangulUtils';
 
+// ── Physics tuning ─────────────────────────────────
 const FONT_SIZE = 14;
-const BODY_WIDTH = 12;
-const BODY_HEIGHT = 14;
-const FLOOR_THICKNESS = 100;
-const FLOOR_INSET = 5;
-const WALL_THICKNESS = 20;
+const BODY_SIZE = 11;
 const DURATION_MS = 4500;
-const STAGGER_MS_PER_PX = 0.5;
+const FADE_START_RATIO = 0.55;
+const STAGGER_MS_PER_PX = 0.4;
+const FIXED_DT = 1000 / 60; // deterministic timestep
 const FONT = '"Inter", system-ui, -apple-system, sans-serif';
-
-/** Set to true to visualize physics bodies (floor, walls, body outlines) */
 const DEBUG_PHYSICS = false;
 
-function getDensityForChar(char: string): number {
-  if (Hangul.isVowel(char)) return 0.001;
-  if (Hangul.isConsonant(char)) return 0.002;
-  return 0.0015;
+function getDensityForChar(ch: string): number {
+  if (Hangul.isVowel(ch)) return 0.0008;
+  if (Hangul.isConsonant(ch)) return 0.0015;
+  return 0.001;
 }
 
-interface DeconstructionCanvasProps {
+function rand(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
+// ── Props ──────────────────────────────────────────
+export interface DeconstructionCanvasProps {
   text: string;
-  width: number;
-  height: number;
+  /** Ref to the outermost task-card div — canvas overlays the entire card */
+  cardRef: React.RefObject<HTMLDivElement | null>;
+  /** Ref to the text <span> — used to position jamo at the correct line */
+  textSpanRef: React.RefObject<HTMLSpanElement | null>;
   textColor: string;
   onComplete: () => void;
 }
 
-function randomInRange(min: number, max: number): number {
-  return min + Math.random() * (max - min);
+// ── Jamo initial positions (relative to card) ──────
+function computePositions(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  groups: string[][],
+  offsetX: number,
+  baselineY: number,
+) {
+  ctx.font = `${FONT_SIZE}px ${FONT}`;
+  const out: { ch: string; x: number; y: number }[] = [];
+  let ci = 0;
+  for (const g of groups) {
+    if (ci >= text.length) break;
+    const c = text[ci];
+    const bw = ctx.measureText(text.substring(0, ci)).width;
+    const cw = ctx.measureText(c).width;
+    const cx = offsetX + bw + cw / 2;
+    g.forEach((j, ji) => {
+      const spread = g.length > 1 ? (ji - (g.length - 1) / 2) * 5 : 0;
+      out.push({ ch: j, x: cx + spread + rand(-1.5, 1.5), y: baselineY + rand(-1, 1) });
+    });
+    ci++;
+  }
+  return out;
 }
 
 /**
- * Compute initial (x, y) positions for each jamo using measureText.
- * Jamo start at their exact rendered positions within the text.
+ * Portal-based deconstruction animation.
+ *
+ * WHY PORTAL?
+ * ──────────
+ * Previous approaches rendered the canvas inside the text container.
+ * Problem: that container is only ~20px tall (one line of text).
+ * Jamo had 7px of fall distance → animation was invisible.
+ *
+ * By overlaying the ENTIRE task card (~60-80px), jamo have real room
+ * to pop up, fall, bounce, and settle. The portal also isolates the
+ * canvas from React re-renders of the parent tree.
  */
-function computeJamoPositions(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  groupedJamo: string[][],
-  height: number
-): { char: string; x: number; y: number }[] {
-  ctx.font = `${FONT_SIZE}px ${FONT}`;
-  const baselineY = Math.min(14, height * 0.4);
-  const result: { char: string; x: number; y: number }[] = [];
-
-  let charIndex = 0;
-  for (const group of groupedJamo) {
-    if (charIndex >= text.length) break;
-
-    const char = text[charIndex];
-    const beforeWidth = ctx.measureText(text.substring(0, charIndex)).width;
-    const charWidth = ctx.measureText(char).width;
-    const charCenterX = beforeWidth + charWidth / 2;
-
-    group.forEach((jamo, j) => {
-      const spread = group.length > 1 ? (j - (group.length - 1) / 2) * 6 : 0;
-      result.push({
-        char: jamo,
-        x: charCenterX + spread + randomInRange(-2, 2),
-        y: baselineY + randomInRange(-1, 1),
-      });
-    });
-    charIndex++;
-  }
-
-  return result;
-}
-
 export const DeconstructionCanvas = ({
   text,
-  width,
-  height,
+  cardRef,
+  textSpanRef,
   textColor,
   onComplete,
 }: DeconstructionCanvasProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const engineRef = useRef<Matter.Engine | null>(null);
+  const canvasElRef = useRef<HTMLCanvasElement>(null);
+  const [overlay, setOverlay] = useState<React.CSSProperties | null>(null);
 
-  // ★ FIX 7: Capture props in refs so the useEffect doesn't re-run when
-  //    parent re-renders with new callback references or textColor changes.
-  //    The animation should run exactly once from mount to completion.
-  const textRef = useRef(text);
-  const widthRef = useRef(width);
-  const heightRef = useRef(height);
-  const textColorRef = useRef(textColor);
+  const stateRef = useRef({
+    raf: null as number | null,
+    timer: null as ReturnType<typeof setTimeout> | null,
+    engine: null as Matter.Engine | null,
+    done: false,
+  });
   const onCompleteRef = useRef(onComplete);
-
-  // Update refs on every render (but don't trigger useEffect)
-  textRef.current = text;
-  widthRef.current = width;
-  heightRef.current = height;
-  textColorRef.current = textColor;
   onCompleteRef.current = onComplete;
 
-  // ★ FIX 8: Run animation exactly once on mount, never re-trigger.
-  //    Using empty deps [] means this only runs when the component mounts.
-  //    Props are read from refs to always get the latest values.
+  // ── Phase 1: measure card + text, build overlay rect ──
   useEffect(() => {
-    const currentText = textRef.current;
-    const currentWidth = widthRef.current;
-    const currentHeight = heightRef.current;
+    const card = cardRef.current;
+    const span = textSpanRef.current;
+    if (!card || !span) { onCompleteRef.current(); return; }
 
-    const groupedJamo = decomposeToJamoGrouped(currentText);
-    const flatJamo = groupedJamo.flat();
+    const cr = card.getBoundingClientRect();
+    if (cr.width < 20 || cr.height < 20) { onCompleteRef.current(); return; }
 
-    // ★ FIX 9: More lenient size check — allow smaller canvases
-    if (flatJamo.length === 0 || currentWidth < 5 || currentHeight < 5) {
-      onCompleteRef.current();
-      return;
-    }
+    setOverlay({
+      position: 'fixed',
+      left: cr.left,
+      top: cr.top,
+      width: cr.width,
+      height: cr.height,
+      pointerEvents: 'none',
+      zIndex: 9999,
+      borderRadius: '0.75rem',
+      overflow: 'hidden',
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // ── Phase 2: once overlay is placed, run physics ──
+  useEffect(() => {
+    if (!overlay) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const card = cardRef.current;
+    const span = textSpanRef.current;
+    const cvs = canvasElRef.current;
+    if (!card || !span || !cvs) return;
 
+    const groups = decomposeToJamoGrouped(text);
+    if (groups.flat().length === 0) { onCompleteRef.current(); return; }
+
+    // ── Measurements ──
+    const cr = card.getBoundingClientRect();
+    const tr = span.getBoundingClientRect();
+    const W = Math.round(cr.width);
+    const H = Math.round(cr.height);
+    const txOff = tr.left - cr.left;
+    const tyBase = tr.top - cr.top + tr.height * 0.55; // approximate text baseline
+
+    // ── Canvas DPR ──
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = currentWidth * dpr;
-    canvas.height = currentHeight * dpr;
+    cvs.width = W * dpr;
+    cvs.height = H * dpr;
+    cvs.style.width = `${W}px`;
+    cvs.style.height = `${H}px`;
+    const ctx = cvs.getContext('2d');
+    if (!ctx) return;
     ctx.scale(dpr, dpr);
 
-    const positions = computeJamoPositions(ctx, currentText, groupedJamo, currentHeight);
+    // ── Jamo start positions ──
+    const positions = computePositions(ctx, text, groups, txOff, tyBase);
 
+    // ── Matter.js engine ──
     const engine = Matter.Engine.create({
-      gravity: { x: 0, y: 1, scale: 0.002 },
+      gravity: { x: 0, y: 0.8, scale: 0.001 },
       enableSleeping: true,
-      positionIterations: 8,
-      velocityIterations: 6,
+      positionIterations: 10,
+      velocityIterations: 8,
     });
-    engineRef.current = engine;
+    stateRef.current.engine = engine;
     const { world } = engine;
 
-    const floorY = currentHeight - FLOOR_INSET;
-    const floor = Matter.Bodies.rectangle(
-      currentWidth / 2,
-      floorY + FLOOR_THICKNESS,
-      currentWidth + 100,
-      FLOOR_THICKNESS * 2,
-      {
-        isStatic: true,
-        restitution: 0.85,
-        friction: 0.05,
-      }
-    );
+    // Boundaries — floor at card bottom, walls at card sides
+    const FLOOR_SLAB = 40;
+    Matter.Composite.add(world, [
+      Matter.Bodies.rectangle(W / 2, H + FLOOR_SLAB / 2 - 2, W + 200, FLOOR_SLAB, {
+        isStatic: true, restitution: 0.45, friction: 0.4,
+      }),
+      Matter.Bodies.rectangle(-10, H / 2, 20, H * 3, {
+        isStatic: true, restitution: 0.3, friction: 0.1,
+      }),
+      Matter.Bodies.rectangle(W + 10, H / 2, 20, H * 3, {
+        isStatic: true, restitution: 0.3, friction: 0.1,
+      }),
+    ]);
 
-    const leftWall = Matter.Bodies.rectangle(
-      -WALL_THICKNESS / 2,
-      currentHeight / 2,
-      WALL_THICKNESS,
-      currentHeight + 100,
-      {
-        isStatic: true,
-        restitution: 0.7,
-        friction: 0.05,
-      }
-    );
-
-    const rightWall = Matter.Bodies.rectangle(
-      currentWidth + WALL_THICKNESS / 2,
-      currentHeight / 2,
-      WALL_THICKNESS,
-      currentHeight + 100,
-      {
-        isStatic: true,
-        restitution: 0.7,
-        friction: 0.05,
-      }
-    );
-
-    Matter.Composite.add(world, [floor, leftWall, rightWall]);
-
-    interface PendingBody {
-      body: Matter.Body;
-      activationTime: number;
-    }
-    const pendingBodies: PendingBody[] = [];
-
-    const jamoBodies: Matter.Body[] = positions.map(({ char, x, y }) => {
-      const activationDelay = x * STAGGER_MS_PER_PX;
-      const body = Matter.Bodies.rectangle(x, y, BODY_WIDTH, BODY_HEIGHT, {
-        label: char,
-        chamfer: { radius: 2 },
-        density: getDensityForChar(char),
-        friction: 0.05,
-        frictionStatic: 0.08,
-        restitution: 0.88,
-        frictionAir: 0.003,
-        angularVelocity: randomInRange(-0.7, 0.7),
-        sleepThreshold: 30,
+    // ── Jamo bodies (start static → activate with L→R stagger) ──
+    type Pending = { body: Matter.Body; at: number };
+    const pending: Pending[] = [];
+    const allBodies: Matter.Body[] = positions.map(({ ch, x, y }) => {
+      const b = Matter.Bodies.rectangle(x, y, BODY_SIZE, BODY_SIZE, {
+        label: ch,
+        chamfer: { radius: 1.5 },
+        density: getDensityForChar(ch),
+        friction: 0.15,
+        frictionStatic: 0.1,
+        restitution: 0.45,
+        frictionAir: 0.01,
+        sleepThreshold: 40,
         isStatic: true,
       });
-      Matter.Composite.add(world, body);
-      pendingBodies.push({ body, activationTime: activationDelay });
-      return body;
+      Matter.Composite.add(world, b);
+      pending.push({ body: b, at: Math.max(0, x - txOff) * STAGGER_MS_PER_PX });
+      return b;
     });
 
-    let startTime: number | null = null;
-    let opacity = 1;
-    let completed = false;
+    // ── Loop ──
+    let t0: number | null = null;
+    let alpha = 1;
+    const S = stateRef.current;
 
     const cleanup = () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
+      if (S.raf) cancelAnimationFrame(S.raf);
+      if (S.timer) clearTimeout(S.timer);
+      S.raf = S.timer = null;
+      if (S.engine) {
+        Matter.Composite.clear(world, false);
+        Matter.Engine.clear(engine);
+        S.engine = null;
       }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      Matter.Composite.clear(world, false);
-      Matter.Engine.clear(engine);
-      engineRef.current = null;
+    };
+    const finish = () => {
+      if (S.done) return;
+      S.done = true;
+      cleanup();
+      onCompleteRef.current();
     };
 
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
+    const tick = (ts: number) => {
+      if (S.done) return;
+      if (!t0) t0 = ts;
+      const elapsed = ts - t0;
 
-      for (let i = pendingBodies.length - 1; i >= 0; i--) {
-        const { body, activationTime } = pendingBodies[i];
-        if (elapsed >= activationTime) {
-          Matter.Body.setStatic(body, false);
-          Matter.Body.applyForce(body, body.position, {
-            x: randomInRange(-0.005, 0.005),
-            y: randomInRange(-0.01, -0.02),
-          });
-          pendingBodies.splice(i, 1);
+      // Activate pending bodies
+      for (let i = pending.length - 1; i >= 0; i--) {
+        if (elapsed >= pending[i].at) {
+          const b = pending[i].body;
+          Matter.Body.setStatic(b, false);
+          Matter.Body.setVelocity(b, { x: rand(-1.5, 1.5), y: rand(-2.5, -0.8) });
+          Matter.Body.setAngularVelocity(b, rand(-0.12, 0.12));
+          pending.splice(i, 1);
         }
       }
 
-      Matter.Engine.update(engine, 1000 / 60);
+      // Fixed-step physics
+      Matter.Engine.update(engine, FIXED_DT);
 
-      // ★ Read current dimensions from refs in case they changed
-      const w = widthRef.current;
-      const h = heightRef.current;
-      ctx.clearRect(0, 0, w, h);
+      // Draw
+      ctx.clearRect(0, 0, W, H);
 
-      if (elapsed > DURATION_MS * 0.5) {
-        opacity = Math.max(0, 1 - (elapsed - DURATION_MS * 0.5) / (DURATION_MS * 0.5));
+      if (elapsed > DURATION_MS * FADE_START_RATIO) {
+        const p = (elapsed - DURATION_MS * FADE_START_RATIO) / (DURATION_MS * (1 - FADE_START_RATIO));
+        alpha = Math.max(0, 1 - p);
       }
 
-      // ★ Read current textColor from ref
-      const color = textColorRef.current;
-
-      jamoBodies.forEach((body) => {
-        const char = body.label;
-        if (!char) return;
-
+      for (const b of allBodies) {
+        const ch = b.label;
+        if (!ch || ch === 'Rectangle Body') continue;
         ctx.save();
-        ctx.translate(body.position.x, body.position.y);
-        ctx.rotate(body.angle);
+        ctx.translate(b.position.x, b.position.y);
+        ctx.rotate(b.angle);
         ctx.font = `${FONT_SIZE}px ${FONT}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = color;
-        ctx.globalAlpha = opacity;
-        ctx.fillText(char, 0, 0);
+        ctx.fillStyle = textColor;
+        ctx.globalAlpha = alpha;
+        ctx.fillText(ch, 0, 0);
         ctx.restore();
 
         if (DEBUG_PHYSICS) {
-          const verts = body.vertices;
-          ctx.strokeStyle = 'rgba(255,0,0,0.6)';
-          ctx.lineWidth = 1;
+          const v = b.vertices;
+          ctx.strokeStyle = 'rgba(255,0,0,0.5)';
+          ctx.lineWidth = 0.5;
           ctx.beginPath();
-          ctx.moveTo(verts[0].x, verts[0].y);
-          for (let i = 1; i < verts.length; i++) {
-            ctx.lineTo(verts[i].x, verts[i].y);
-          }
+          ctx.moveTo(v[0].x, v[0].y);
+          for (let k = 1; k < v.length; k++) ctx.lineTo(v[k].x, v[k].y);
           ctx.closePath();
           ctx.stroke();
         }
-      });
+      }
 
       if (elapsed < DURATION_MS) {
-        rafRef.current = requestAnimationFrame(animate);
-      } else if (!completed) {
-        completed = true;
-        cleanup();
-        onCompleteRef.current();
+        S.raf = requestAnimationFrame(tick);
+      } else {
+        finish();
       }
     };
 
-    rafRef.current = requestAnimationFrame(animate);
+    S.raf = requestAnimationFrame(tick);
+    S.timer = setTimeout(finish, DURATION_MS + 500);
 
-    timeoutRef.current = setTimeout(() => {
-      if (!completed) {
-        completed = true;
-        cleanup();
-        onCompleteRef.current();
-      }
-    }, DURATION_MS + 300);
+    return () => { if (!S.done) { S.done = true; cleanup(); } };
+  }, [overlay]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return () => {
-      if (!completed) {
-        completed = true;
-        cleanup();
-      }
-    };
-  // ★ FIX 8: Empty dependency array — animation runs exactly once on mount.
-  //    All changing values are read from refs.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  if (!overlay) return null;
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 pointer-events-none"
-      style={{
-        left: 0,
-        top: 0,
-        width: width,
-        height: height,
-      }}
-      aria-hidden
-    />
+  return createPortal(
+    <div style={overlay}>
+      <canvas
+        ref={canvasElRef}
+        style={{ display: 'block', width: '100%', height: '100%' }}
+        aria-hidden
+      />
+    </div>,
+    document.body,
   );
 };
