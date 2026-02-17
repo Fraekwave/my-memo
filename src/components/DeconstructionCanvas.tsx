@@ -6,7 +6,7 @@ import { decomposeToJamoGrouped } from '@/lib/hangulUtils';
 const FONT_SIZE = 14;
 const BODY_WIDTH = 12;
 const BODY_HEIGHT = 14;
-const FLOOR_THICKNESS = 4;
+const FLOOR_THICKNESS = 100;
 const FLOOR_INSET = 5;
 const WALL_THICKNESS = 20;
 const DURATION_MS = 4500;
@@ -229,8 +229,8 @@ export const DeconstructionCanvas = ({
         if (elapsed >= activationTime) {
           Matter.Body.setStatic(body, false);
           Matter.Body.applyForce(body, body.position, {
-            x: randomInRange(-0.02, 0.02),
-            y: randomInRange(-0.05, -0.1),
+            x: randomInRange(-0.005, 0.005),
+            y: randomInRange(-0.01, -0.02),
           });
           pendingBodies.splice(i, 1);
         }

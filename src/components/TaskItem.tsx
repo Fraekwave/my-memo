@@ -49,6 +49,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   const textSpanRef = useRef<HTMLSpanElement>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deconstructionDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── @dnd-kit Sortable ──
   const {
@@ -162,11 +163,21 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         setUsePopFallback(!hapticSucceeded);
         const grouped = decomposeToJamoGrouped(task.text);
         if (grouped.flat().length > 0) {
-          // ★ Capture color at toggle time
           deconstructionColorRef.current = aging.textColor;
-          setShowDeconstruction(true);
+          if (deconstructionDelayRef.current) {
+            clearTimeout(deconstructionDelayRef.current);
+            deconstructionDelayRef.current = null;
+          }
+          deconstructionDelayRef.current = setTimeout(() => {
+            deconstructionDelayRef.current = null;
+            setShowDeconstruction(true);
+          }, 100);
         }
       } else {
+        if (deconstructionDelayRef.current) {
+          clearTimeout(deconstructionDelayRef.current);
+          deconstructionDelayRef.current = null;
+        }
         setShowDeconstruction(false);
         setCanvasSize(null);
       }
@@ -177,6 +188,10 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   // Cancel recovery
   useEffect(() => {
     if (!task.is_completed) {
+      if (deconstructionDelayRef.current) {
+        clearTimeout(deconstructionDelayRef.current);
+        deconstructionDelayRef.current = null;
+      }
       setShowDeconstruction(false);
       setCanvasSize(null);
     }
