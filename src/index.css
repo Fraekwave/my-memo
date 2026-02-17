@@ -187,3 +187,38 @@ html, body, #root {
 .animate-nudge-right {
   animation: nudgeRight 0.8s ease-in-out infinite;
 }
+
+/* ──────────────────────────────────────────────
+   Task Completion — Physical Satisfaction
+   ────────────────────────────────────────────── */
+/* Shake: fast, short, earthquake-like (Android: with haptic) */
+@keyframes shakeComplete {
+  0%, 100% { transform: translateX(0); }
+  12% { transform: translateX(-2px); }
+  24% { transform: translateX(2px); }
+  36% { transform: translateX(-2px); }
+  48% { transform: translateX(2px); }
+  60% { transform: translateX(-1px); }
+  72% { transform: translateX(1px); }
+  84% { transform: translateX(-1px); }
+}
+
+.animate-shake-complete {
+  animation: shakeComplete 0.35s ease-in-out forwards;
+}
+
+/* Shake + Pop combined (iOS fallback when haptic unavailable) */
+@keyframes shakeAndPopComplete {
+  0%, 100% { transform: translateX(0) scale(1); }
+  12% { transform: translateX(-2px) scale(1); }
+  24% { transform: translateX(2px) scale(1); }
+  36% { transform: translateX(-2px) scale(1); }
+  48% { transform: translateX(2px) scale(1.03); }
+  60% { transform: translateX(-1px) scale(1); }
+  72% { transform: translateX(1px) scale(1); }
+  84% { transform: translateX(-1px) scale(1); }
+}
+
+.animate-shake-pop-complete {
+  animation: shakeAndPopComplete 0.4s ease-in-out forwards;
+}

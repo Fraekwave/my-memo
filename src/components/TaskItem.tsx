@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { memo, useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
 import {
   useSortable,
   defaultAnimateLayoutChanges,
@@ -7,8 +7,11 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Pencil, X } from 'lucide-react';
 import { Task } from '@/lib/types';
+import { tryHaptic } from '@/lib/haptic';
 import { getTaskAgingStyles } from '@/lib/visualAging';
 import { ConfirmModal } from './ConfirmModal';
+
+const COMPLETION_ANIMATION_MS = 400;
 
 interface TaskItemProps {
   task: Task;
@@ -56,7 +59,10 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [justCompleted, setJustCompleted] = useState(false);
+  const [usePopFallback, setUsePopFallback] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── @dnd-kit Sortable ──
   const {
@@ -90,6 +96,37 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  // Completion animation cleanup — remove temporary classes after animation ends
+  useEffect(() => {
+    if (!justCompleted) return;
+
+    completionTimeoutRef.current = setTimeout(() => {
+      setJustCompleted(false);
+      setUsePopFallback(false);
+      completionTimeoutRef.current = null;
+    }, COMPLETION_ANIMATION_MS);
+
+    return () => {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current);
+        completionTimeoutRef.current = null;
+      }
+    };
+  }, [justCompleted]);
+
+  // Physical satisfaction: haptic + shake on complete (pop fallback on iOS)
+  const handleToggle = useCallback(
+    (checked: boolean) => {
+      onToggle(task.id, checked);
+      if (checked) {
+        const hapticSucceeded = tryHaptic();
+        setJustCompleted(true);
+        setUsePopFallback(!hapticSucceeded); // iOS: shake + scale pop
+      }
+    },
+    [task.id, onToggle]
+  );
 
   // 편집 시작
   const startEditing = () => {
@@ -130,23 +167,35 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     ? 'text-white/80 hover:text-red-300 transition-colors p-1'
     : 'text-zinc-400 hover:text-red-500 transition-colors p-1';
 
+  const completionAnimClass = justCompleted
+    ? usePopFallback
+      ? 'animate-shake-pop-complete'
+      : 'animate-shake-complete'
+    : '';
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...dragProps}
       className={`
-        task-item flex items-center gap-3 p-4 rounded-xl border border-zinc-100
+        task-item rounded-xl border border-zinc-100
         hover:border-zinc-200 hover:shadow-sm select-none
         ${isEditing ? 'cursor-auto' : 'cursor-grab'}
       `}
     >
+      <div
+        className={`
+          flex items-center gap-3 p-4 w-full min-w-0
+          ${completionAnimClass}
+        `}
+      >
       {/* 체크박스 */}
       <input
         type="checkbox"
         className="task-checkbox"
         checked={task.is_completed}
-        onChange={(e) => onToggle(task.id, e.target.checked)}
+        onChange={(e) => handleToggle(e.target.checked)}
         disabled={isEditing || isDragging}
       />
 
@@ -209,6 +258,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
             </button>
           </>
         )}
+      </div>
       </div>
 
       {/* 삭제 확인 모달 */}
