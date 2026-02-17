@@ -147,6 +147,7 @@ export const DeconstructionCanvas = ({
         restitution: 0.82,
         frictionAir: 0.003,
         angularVelocity: randomInRange(-0.3, 0.3),
+        sleepThreshold: 30,
       });
       Matter.Composite.add(world, body);
       return body;

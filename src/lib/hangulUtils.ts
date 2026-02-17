@@ -1,17 +1,17 @@
 import Hangul from 'hangul-js';
 
-const MAX_CHARS = 30;
+const MAX_JAMO = 100;
 
 /**
  * Decompose text into Hangul jamo (초성, 중성, 종성).
  * Non-Hangul characters are kept as single units.
- * Limited to MAX_CHARS for performance.
+ * Limited to MAX_JAMO for performance.
  */
 export function decomposeToJamo(text: string): string[] {
   if (!text?.trim()) return [];
 
   const jamo = Hangul.disassemble(text);
-  return jamo.slice(0, MAX_CHARS);
+  return jamo.slice(0, MAX_JAMO);
 }
 
 /**
@@ -27,7 +27,7 @@ export function decomposeToJamoGrouped(text: string): string[][] {
   const result: string[][] = [];
   let totalCount = 0;
 
-  for (let i = 0; i < text.length && totalCount < MAX_CHARS; i++) {
+  for (let i = 0; i < text.length && totalCount < MAX_JAMO; i++) {
     const char = text[i];
     let group: string[];
 
@@ -38,13 +38,13 @@ export function decomposeToJamoGrouped(text: string): string[][] {
       group = [char];
     }
 
-    const remaining = MAX_CHARS - totalCount;
+    const remaining = MAX_JAMO - totalCount;
     if (group.length <= remaining) {
       result.push([...group]);
       totalCount += group.length;
     } else {
       result.push(group.slice(0, remaining));
-      totalCount = MAX_CHARS;
+      totalCount = MAX_JAMO;
       break;
     }
   }
