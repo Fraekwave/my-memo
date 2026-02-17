@@ -16,11 +16,13 @@
     "@supabase/supabase-js": "^2.39.7",
     "hangul-js": "^0.2.6",
     "lucide-react": "^0.563.0",
+    "matter-js": "^0.20.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@types/matter-js": "^0.20.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",

@@ -1,27 +1,14 @@
 import { useRef, useEffect } from 'react';
+import Matter from 'matter-js';
 import { decomposeToJamoGrouped } from '@/lib/hangulUtils';
 
-const GRAVITY = 0.5;
-const COLUMN_COUNT = 10;
 const FONT_SIZE = 14;
-const ROW_HEIGHT = 16;
-const FLOOR_MARGIN = 4;
-const DURATION_MS = 3500;
-const DRIFT_AMOUNT = 0.25;
+const BODY_WIDTH = 12;
+const BODY_HEIGHT = 14;
+const FLOOR_THICKNESS = 4;
+const WALL_THICKNESS = 20;
+const DURATION_MS = 4000;
 const FONT = '"Inter", system-ui, -apple-system, sans-serif';
-
-interface Particle {
-  char: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  rotation: number;
-  rotationSpeed: number;
-  settled: boolean;
-  columnIndex?: number;
-  stackY?: number;
-}
 
 interface DeconstructionCanvasProps {
   text: string;
@@ -82,6 +69,7 @@ export const DeconstructionCanvas = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const engineRef = useRef<Matter.Engine | null>(null);
 
   useEffect(() => {
     const groupedJamo = decomposeToJamoGrouped(text);
@@ -98,89 +86,60 @@ export const DeconstructionCanvas = ({
     if (!ctx) return;
 
     const positions = computeJamoPositions(ctx, text, groupedJamo, height);
-    const columnWidth = width / COLUMN_COUNT;
-    const floorY = height - FLOOR_MARGIN;
-    const stackHeights: number[] = new Array(COLUMN_COUNT).fill(0);
 
-    const particles: Particle[] = positions.map(({ char, x, y }) => ({
-      char,
-      x,
-      y,
-      vx: randomInRange(-DRIFT_AMOUNT, DRIFT_AMOUNT),
-      vy: 0,
-      rotation: randomInRange(-0.1, 0.1),
-      rotationSpeed: randomInRange(-0.04, 0.04),
-      settled: false,
-    }));
+    const engine = Matter.Engine.create({
+      gravity: { x: 0, y: 1, scale: 0.002 },
+      enableSleeping: true,
+      positionIterations: 6,
+      velocityIterations: 4,
+    });
+    engineRef.current = engine;
+    const { world } = engine;
+
+    const floor = Matter.Bodies.rectangle(
+      width / 2,
+      height + FLOOR_THICKNESS,
+      width + 100,
+      FLOOR_THICKNESS * 2,
+      { isStatic: true }
+    );
+
+    const leftWall = Matter.Bodies.rectangle(
+      -WALL_THICKNESS / 2,
+      height / 2,
+      WALL_THICKNESS,
+      height + 100,
+      { isStatic: true }
+    );
+
+    const rightWall = Matter.Bodies.rectangle(
+      width + WALL_THICKNESS / 2,
+      height / 2,
+      WALL_THICKNESS,
+      height + 100,
+      { isStatic: true }
+    );
+
+    Matter.Composite.add(world, [floor, leftWall, rightWall]);
+
+    const jamoBodies: Matter.Body[] = positions.map(({ char, x, y }) => {
+      const body = Matter.Bodies.rectangle(x, y, BODY_WIDTH, BODY_HEIGHT, {
+        label: char,
+        density: 0.0015,
+        friction: 0.4,
+        frictionStatic: 0.6,
+        restitution: 0.15,
+        frictionAir: 0.01,
+      });
+      Matter.Composite.add(world, body);
+      return body;
+    });
 
     let startTime: number | null = null;
     let opacity = 1;
+    let completed = false;
 
-    function colCenterX(col: number): number {
-      return (col + 0.5) * columnWidth;
-    }
-
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-
-      ctx.clearRect(0, 0, width, height);
-
-      particles.forEach((p) => {
-        if (!p.settled) {
-          p.vy += GRAVITY;
-          p.x += p.vx;
-          p.y += p.vy;
-          p.rotation += p.rotationSpeed;
-
-          if (p.y >= floorY) {
-            p.settled = true;
-            const col = Math.max(0, Math.min(COLUMN_COUNT - 1, Math.floor(p.x / columnWidth)));
-            p.columnIndex = col;
-            const stackCount = stackHeights[col];
-            p.stackY = floorY - stackCount * ROW_HEIGHT;
-            stackHeights[col]++;
-          }
-        }
-
-        const drawY = p.settled ? (p.stackY ?? floorY) : p.y;
-        const drawX =
-          p.settled && p.columnIndex !== undefined ? colCenterX(p.columnIndex) : p.x;
-
-        ctx.save();
-        ctx.translate(drawX, drawY);
-        ctx.rotate(p.rotation);
-        ctx.font = `${FONT_SIZE}px ${FONT}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = textColor;
-        ctx.globalAlpha = opacity;
-        ctx.fillText(p.char, 0, 0);
-        ctx.restore();
-      });
-
-      if (elapsed > DURATION_MS * 0.6) {
-        opacity = Math.max(0, 1 - (elapsed - DURATION_MS * 0.6) / (DURATION_MS * 0.4));
-      }
-
-      if (elapsed < DURATION_MS) {
-        rafRef.current = requestAnimationFrame(animate);
-      } else {
-        onComplete();
-      }
-    };
-
-    rafRef.current = requestAnimationFrame(animate);
-
-    timeoutRef.current = setTimeout(() => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      onComplete();
-    }, DURATION_MS + 200);
-
-    return () => {
+    const cleanup = () => {
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
@@ -188,6 +147,62 @@ export const DeconstructionCanvas = ({
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
+      }
+      Matter.Composite.clear(world, false);
+      engineRef.current = null;
+    };
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+
+      Matter.Engine.update(engine, 1000 / 60);
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (elapsed > DURATION_MS * 0.55) {
+        opacity = Math.max(0, 1 - (elapsed - DURATION_MS * 0.55) / (DURATION_MS * 0.45));
+      }
+
+      jamoBodies.forEach((body) => {
+        const char = body.label;
+        if (!char) return;
+
+        ctx.save();
+        ctx.translate(body.position.x, body.position.y);
+        ctx.rotate(body.angle);
+        ctx.font = `${FONT_SIZE}px ${FONT}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = textColor;
+        ctx.globalAlpha = opacity;
+        ctx.fillText(char, 0, 0);
+        ctx.restore();
+      });
+
+      if (elapsed < DURATION_MS) {
+        rafRef.current = requestAnimationFrame(animate);
+      } else if (!completed) {
+        completed = true;
+        cleanup();
+        onComplete();
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(animate);
+
+    timeoutRef.current = setTimeout(() => {
+      if (!completed) {
+        completed = true;
+        cleanup();
+        onComplete();
+      }
+    }, DURATION_MS + 300);
+
+    return () => {
+      if (!completed) {
+        completed = true;
+        cleanup();
       }
     };
   }, [text, width, height, textColor, onComplete]);

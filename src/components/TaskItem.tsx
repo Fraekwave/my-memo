@@ -121,6 +121,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   }, [justCompleted]);
 
   // Physical satisfaction: haptic + shake + deconstruction on complete
+  // Cancel: when unchecked during animation, restore text immediately
   const handleToggle = useCallback(
     (checked: boolean) => {
       onToggle(task.id, checked);
@@ -132,6 +133,9 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         if (grouped.flat().length > 0) {
           setShowDeconstruction(true);
         }
+      } else {
+        setShowDeconstruction(false);
+        setCanvasSize(null);
       }
     },
     [task.id, task.text, onToggle]
@@ -146,6 +150,14 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       setCanvasSize(null);
     }
   }, [showDeconstruction]);
+
+  // Cancel recovery: when task is unchecked (during or after animation), restore text
+  useEffect(() => {
+    if (!task.is_completed) {
+      setShowDeconstruction(false);
+      setCanvasSize(null);
+    }
+  }, [task.is_completed]);
 
   const handleDeconstructionComplete = useCallback(() => {
     setShowDeconstruction(false);
