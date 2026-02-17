@@ -83,11 +83,36 @@ export const DeconstructionCanvas = ({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const engineRef = useRef<Matter.Engine | null>(null);
 
+  // ★ FIX 7: Capture props in refs so the useEffect doesn't re-run when
+  //    parent re-renders with new callback references or textColor changes.
+  //    The animation should run exactly once from mount to completion.
+  const textRef = useRef(text);
+  const widthRef = useRef(width);
+  const heightRef = useRef(height);
+  const textColorRef = useRef(textColor);
+  const onCompleteRef = useRef(onComplete);
+
+  // Update refs on every render (but don't trigger useEffect)
+  textRef.current = text;
+  widthRef.current = width;
+  heightRef.current = height;
+  textColorRef.current = textColor;
+  onCompleteRef.current = onComplete;
+
+  // ★ FIX 8: Run animation exactly once on mount, never re-trigger.
+  //    Using empty deps [] means this only runs when the component mounts.
+  //    Props are read from refs to always get the latest values.
   useEffect(() => {
-    const groupedJamo = decomposeToJamoGrouped(text);
+    const currentText = textRef.current;
+    const currentWidth = widthRef.current;
+    const currentHeight = heightRef.current;
+
+    const groupedJamo = decomposeToJamoGrouped(currentText);
     const flatJamo = groupedJamo.flat();
-    if (flatJamo.length === 0 || width < 10 || height < 10) {
-      onComplete();
+
+    // ★ FIX 9: More lenient size check — allow smaller canvases
+    if (flatJamo.length === 0 || currentWidth < 5 || currentHeight < 5) {
+      onCompleteRef.current();
       return;
     }
 
@@ -98,11 +123,11 @@ export const DeconstructionCanvas = ({
     if (!ctx) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
+    canvas.width = currentWidth * dpr;
+    canvas.height = currentHeight * dpr;
     ctx.scale(dpr, dpr);
 
-    const positions = computeJamoPositions(ctx, text, groupedJamo, height);
+    const positions = computeJamoPositions(ctx, currentText, groupedJamo, currentHeight);
 
     const engine = Matter.Engine.create({
       gravity: { x: 0, y: 1, scale: 0.002 },
@@ -113,11 +138,11 @@ export const DeconstructionCanvas = ({
     engineRef.current = engine;
     const { world } = engine;
 
-    const floorY = height - FLOOR_INSET;
+    const floorY = currentHeight - FLOOR_INSET;
     const floor = Matter.Bodies.rectangle(
-      width / 2,
+      currentWidth / 2,
       floorY + FLOOR_THICKNESS,
-      width + 100,
+      currentWidth + 100,
       FLOOR_THICKNESS * 2,
       {
         isStatic: true,
@@ -128,9 +153,9 @@ export const DeconstructionCanvas = ({
 
     const leftWall = Matter.Bodies.rectangle(
       -WALL_THICKNESS / 2,
-      height / 2,
+      currentHeight / 2,
       WALL_THICKNESS,
-      height + 100,
+      currentHeight + 100,
       {
         isStatic: true,
         restitution: 0.7,
@@ -139,10 +164,10 @@ export const DeconstructionCanvas = ({
     );
 
     const rightWall = Matter.Bodies.rectangle(
-      width + WALL_THICKNESS / 2,
-      height / 2,
+      currentWidth + WALL_THICKNESS / 2,
+      currentHeight / 2,
       WALL_THICKNESS,
-      height + 100,
+      currentHeight + 100,
       {
         isStatic: true,
         restitution: 0.7,
@@ -213,11 +238,17 @@ export const DeconstructionCanvas = ({
 
       Matter.Engine.update(engine, 1000 / 60);
 
-      ctx.clearRect(0, 0, width, height);
+      // ★ Read current dimensions from refs in case they changed
+      const w = widthRef.current;
+      const h = heightRef.current;
+      ctx.clearRect(0, 0, w, h);
 
       if (elapsed > DURATION_MS * 0.5) {
         opacity = Math.max(0, 1 - (elapsed - DURATION_MS * 0.5) / (DURATION_MS * 0.5));
       }
+
+      // ★ Read current textColor from ref
+      const color = textColorRef.current;
 
       jamoBodies.forEach((body) => {
         const char = body.label;
@@ -229,7 +260,7 @@ export const DeconstructionCanvas = ({
         ctx.font = `${FONT_SIZE}px ${FONT}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = textColor;
+        ctx.fillStyle = color;
         ctx.globalAlpha = opacity;
         ctx.fillText(char, 0, 0);
         ctx.restore();
@@ -253,7 +284,7 @@ export const DeconstructionCanvas = ({
       } else if (!completed) {
         completed = true;
         cleanup();
-        onComplete();
+        onCompleteRef.current();
       }
     };
 
@@ -263,7 +294,7 @@ export const DeconstructionCanvas = ({
       if (!completed) {
         completed = true;
         cleanup();
-        onComplete();
+        onCompleteRef.current();
       }
     }, DURATION_MS + 300);
 
@@ -273,7 +304,10 @@ export const DeconstructionCanvas = ({
         cleanup();
       }
     };
-  }, [text, width, height, textColor, onComplete]);
+  // ★ FIX 8: Empty dependency array — animation runs exactly once on mount.
+  //    All changing values are read from refs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <canvas

@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
+import { memo, useState, useRef, useEffect, useCallback, useLayoutEffect, KeyboardEvent } from 'react';
 import {
   useSortable,
   defaultAnimateLayoutChanges,
@@ -22,27 +22,9 @@ interface TaskItemProps {
   onDelete: (id: number) => void;
 }
 
-/**
- * 개별 Task 아이템 컴포넌트
- *
- * ✨ 인라인 편집 기능:
- * - Pencil 아이콘 클릭 → 텍스트가 input으로 변경
- * - Enter 키 → 저장 / Esc 키 → 취소 / Blur → 저장
- *
- * ✨ Drag & Drop (Whole-Body):
- * - 아이템 전체가 드래그 대상 (핸들 없음)
- * - Mouse: 10px 이동 시 활성화 / Touch: 250ms Long Press 시 활성화
- * - Checkbox, Button, Input 클릭은 SmartSensor에서 필터링되어 드래그 미발생
- * - 편집 모드에서는 드래그 리스너 비활성화
- *
- * ✨ 커스텀 삭제 확인 모달
- */
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────
 // Custom animateLayoutChanges
-// ──────────────────────────────────────────────
-// 드래그 종료 직후(wasDragging) 아이템이 "하늘에서 떨어지는" 애니메이션 방지.
-// - 정렬 중(isSorting): 기본 애니메이션 유지 (다른 아이템이 부드럽게 이동)
-// - 드롭 직후(wasDragging): 애니메이션 비활성화 (즉시 최종 위치에 스냅)
+// ──────────────────────────────────────────────────
 const animateLayoutChanges: AnimateLayoutChanges = (args) => {
   const { isSorting, wasDragging } = args;
   if (isSorting || wasDragging) {
@@ -51,12 +33,9 @@ const animateLayoutChanges: AnimateLayoutChanges = (args) => {
   return defaultAnimateLayoutChanges(args);
 };
 
-// ──────────────────────────────────────────────
-// React.memo: 불변 Task의 불필요한 리렌더 방지
-// ──────────────────────────────────────────────
-// useTasks의 setTasks(.map(...))는 변경되지 않은 task에도 새 객체 참조를 생성.
-// 커스텀 비교 함수로 실제 데이터 필드만 비교하여 불필요한 렌더를 차단.
-// 핸들러는 useCallback으로 안정화되어 있으므로 비교에 포함.
+// ──────────────────────────────────────────────────
+// React.memo with custom comparator
+// ──────────────────────────────────────────────────
 export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
@@ -66,6 +45,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   const [showDeconstruction, setShowDeconstruction] = useState(false);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // ★ FIX 1: Separate ref for the TEXT SPAN only (not the whole container with debug line)
+  const textSpanRef = useRef<HTMLSpanElement>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -79,10 +60,6 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     isDragging,
   } = useSortable({ id: task.id, animateLayoutChanges });
 
-  // DragOverlay 패턴:
-  // - isDragging인 아이템은 "플레이스홀더"로 표시 (dimmed)
-  // - 실제 드래그 비주얼은 TaskList의 DragOverlay에서 렌더링
-  // - 플레이스홀더는 리스트 레이아웃을 유지하면서 부드럽게 이동
   const aging = getTaskAgingStyles(task.created_at);
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -91,10 +68,9 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     backgroundColor: aging.backgroundColor,
   };
 
-  // 편집 중에는 드래그 리스너 비활성화
   const dragProps = isEditing ? {} : { ...attributes, ...listeners };
 
-  // 편집 모드 진입 시 자동 포커스
+  // Auto-focus on edit mode
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
@@ -102,7 +78,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     }
   }, [isEditing]);
 
-  // Completion animation cleanup — remove temporary classes after animation ends
+  // Completion animation cleanup
   useEffect(() => {
     if (!justCompleted) return;
 
@@ -120,17 +96,74 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     };
   }, [justCompleted]);
 
-  // Physical satisfaction: haptic + shake + deconstruction on complete
-  // Cancel: when unchecked during animation, restore text immediately
+  // ★ FIX 2: Measure BEFORE paint using useLayoutEffect + measure TEXT SPAN (not container)
+  //    This eliminates the two-render-cycle gap that caused the race condition.
+  //    Also uses requestAnimationFrame as fallback for when layout isn't ready.
+  useLayoutEffect(() => {
+    if (!showDeconstruction) {
+      setCanvasSize(null);
+      return;
+    }
+
+    const measure = () => {
+      // Prefer measuring the text span; fall back to the container
+      const el = textSpanRef.current ?? textContainerRef.current;
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+      const w = Math.round(rect.width);
+      const h = Math.round(rect.height);
+
+      if (w >= 10 && h >= 10) {
+        setCanvasSize({ width: w, height: h });
+      } else {
+        // Element may not be laid out yet; retry on next frame
+        requestAnimationFrame(() => {
+          const retryRect = el.getBoundingClientRect();
+          const rw = Math.round(retryRect.width);
+          const rh = Math.round(retryRect.height);
+          if (rw >= 10 && rh >= 10) {
+            setCanvasSize({ width: rw, height: rh });
+          } else {
+            // Still too small — use the container as fallback with min dimensions
+            const containerEl = textContainerRef.current;
+            if (containerEl) {
+              const cRect = containerEl.getBoundingClientRect();
+              setCanvasSize({
+                width: Math.max(Math.round(cRect.width), 100),
+                height: Math.max(Math.round(cRect.height), 32),
+              });
+            }
+          }
+        });
+      }
+    };
+
+    measure();
+  }, [showDeconstruction]);
+
+  // ★ FIX 3: Stabilize onComplete so DeconstructionCanvas useEffect doesn't re-trigger
+  const handleDeconstructionComplete = useCallback(() => {
+    setShowDeconstruction(false);
+    setCanvasSize(null);
+  }, []);
+
+  // ★ FIX 4: Stabilize textColor to prevent DeconstructionCanvas useEffect re-trigger
+  //    aging.textColor can change between renders since it's time-based.
+  //    Capture the color at toggle time so it stays constant during animation.
+  const deconstructionColorRef = useRef<string>(aging.textColor);
+
   const handleToggle = useCallback(
     (checked: boolean) => {
       onToggle(task.id, checked);
       if (checked) {
         const hapticSucceeded = tryHaptic();
         setJustCompleted(true);
-        setUsePopFallback(!hapticSucceeded); // iOS: shake + scale pop
+        setUsePopFallback(!hapticSucceeded);
         const grouped = decomposeToJamoGrouped(task.text);
         if (grouped.flat().length > 0) {
+          // ★ Capture color at toggle time
+          deconstructionColorRef.current = aging.textColor;
           setShowDeconstruction(true);
         }
       } else {
@@ -138,20 +171,10 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         setCanvasSize(null);
       }
     },
-    [task.id, task.text, onToggle]
+    [task.id, task.text, onToggle, aging.textColor]
   );
 
-  // Measure text container for canvas when deconstruction triggers
-  useEffect(() => {
-    if (showDeconstruction && textContainerRef.current) {
-      const rect = textContainerRef.current.getBoundingClientRect();
-      setCanvasSize({ width: rect.width, height: rect.height });
-    } else {
-      setCanvasSize(null);
-    }
-  }, [showDeconstruction]);
-
-  // Cancel recovery: when task is unchecked (during or after animation), restore text
+  // Cancel recovery
   useEffect(() => {
     if (!task.is_completed) {
       setShowDeconstruction(false);
@@ -159,18 +182,12 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     }
   }, [task.is_completed]);
 
-  const handleDeconstructionComplete = useCallback(() => {
-    setShowDeconstruction(false);
-    setCanvasSize(null);
-  }, []);
-
-  // 편집 시작
+  // Edit handlers
   const startEditing = () => {
     setEditText(task.text);
     setIsEditing(true);
   };
 
-  // 편집 저장
   const saveEdit = () => {
     const trimmedText = editText.trim();
     if (trimmedText && trimmedText !== task.text) {
@@ -179,13 +196,11 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     setIsEditing(false);
   };
 
-  // 편집 취소
   const cancelEdit = () => {
     setEditText(task.text);
     setIsEditing(false);
   };
 
-  // 키보드 이벤트 처리
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -257,7 +272,9 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
           />
         ) : (
           <>
+            {/* ★ FIX 5: Added ref to the text span for accurate measurement */}
             <span
+              ref={textSpanRef}
               className={`block select-none ${task.is_completed ? 'completed' : ''}`}
               style={{
                 color: aging.textColor,
@@ -268,14 +285,17 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
             >
               {task.text}
             </span>
+            {/* ★ FIX 6: Canvas uses the container (not text span) for positioning,
+                 but gets text-span dimensions for proper physics bounds.
+                 Also uses captured textColor to prevent useEffect re-triggers. */}
             {showDeconstruction &&
               canvasSize &&
               task.is_completed && (
                 <DeconstructionCanvas
                   text={task.text}
-                  width={Math.round(canvasSize.width)}
-                  height={Math.round(canvasSize.height)}
-                  textColor={aging.textColor}
+                  width={canvasSize.width}
+                  height={canvasSize.height}
+                  textColor={deconstructionColorRef.current}
                   onComplete={handleDeconstructionComplete}
                 />
               )}
@@ -296,16 +316,13 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       <div className="flex items-center gap-2">
         {!isEditing && !isDragging && (
           <>
-            {/* 수정 버튼 (Pencil 아이콘) */}
             <button
               onClick={startEditing}
               className={iconClass}
               aria-label="수정"
             >
-              <Pencil className="w-4 h-4" />
+              <Pencil className="w-5 h-5" />
             </button>
-
-            {/* 삭제 버튼 — 모달로 확인 */}
             <button
               onClick={() => setShowDeleteModal(true)}
               className={deleteIconClass}
@@ -334,8 +351,6 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     </div>
   );
 }, (prev, next) => {
-  // 커스텀 비교: task 데이터 필드 + 핸들러 참조 비교
-  // created_at 포함 — Visual Aging 스타일 계산에 사용
   return (
     prev.task.id === next.task.id &&
     prev.task.text === next.task.text &&
