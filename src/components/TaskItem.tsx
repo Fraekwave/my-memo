@@ -22,18 +22,41 @@ interface TaskItemProps {
   onDelete: (id: number) => void;
 }
 
-// ──────────────────────────────────────────────────
+/**
+ * 개별 Task 아이템 컴포넌트
+ *
+ * ✨ 인라인 편집 기능:
+ * - Pencil 아이콘 클릭 → 텍스트가 input으로 변경
+ * - Enter 키 → 저장 / Esc 키 → 취소 / Blur → 저장
+ *
+ * ✨ Drag & Drop (Whole-Body):
+ * - 아이템 전체가 드래그 대상 (핸들 없음)
+ * - Mouse: 10px 이동 시 활성화 / Touch: 250ms Long Press 시 활성화
+ * - Checkbox, Button, Input 클릭은 SmartSensor에서 필터링되어 드래그 미발생
+ * - 편집 모드에서는 드래그 리스너 비활성화
+ *
+ * ✨ 커스텀 삭제 확인 모달
+ */
+// ──────────────────────────────────────────────
 // Custom animateLayoutChanges
-// ──────────────────────────────────────────────────
+// ──────────────────────────────────────────────
+// 드래그 종료 직후(wasDragging) 아이템이 "하늘에서 떨어지는" 애니메이션 방지.
+// - 정렬 중(isSorting): 기본 애니메이션 유지 (다른 아이템이 부드럽게 이동)
+// - 드롭 직후(wasDragging): 애니메이션 비활성화 (즉시 최종 위치에 스냅)
 const animateLayoutChanges: AnimateLayoutChanges = (args) => {
   const { isSorting, wasDragging } = args;
-  if (isSorting || wasDragging) return false;
+  if (isSorting || wasDragging) {
+    return false;
+  }
   return defaultAnimateLayoutChanges(args);
 };
 
-// ──────────────────────────────────────────────────
-// TaskItem
-// ──────────────────────────────────────────────────
+// ──────────────────────────────────────────────
+// React.memo: 불변 Task의 불필요한 리렌더 방지
+// ──────────────────────────────────────────────
+// useTasks의 setTasks(.map(...))는 변경되지 않은 task에도 새 객체 참조를 생성.
+// 커스텀 비교 함수로 실제 데이터 필드만 비교하여 불필요한 렌더를 차단.
+// 핸들러는 useCallback으로 안정화되어 있으므로 비교에 포함.
 export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
@@ -41,9 +64,9 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   const [justCompleted, setJustCompleted] = useState(false);
   const [usePopFallback, setUsePopFallback] = useState(false);
   const [showDeconstruction, setShowDeconstruction] = useState(false);
+  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const textSpanRef = useRef<HTMLSpanElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── @dnd-kit Sortable ──
@@ -56,17 +79,11 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     isDragging,
   } = useSortable({ id: task.id, animateLayoutChanges });
 
+  // DragOverlay 패턴:
+  // - isDragging인 아이템은 "플레이스홀더"로 표시 (dimmed)
+  // - 실제 드래그 비주얼은 TaskList의 DragOverlay에서 렌더링
+  // - 플레이스홀더는 리스트 레이아웃을 유지하면서 부드럽게 이동
   const aging = getTaskAgingStyles(task.created_at);
-
-  // Merge dnd-kit ref with our cardRef
-  const mergedRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-      setNodeRef(node);
-    },
-    [setNodeRef],
-  );
-
   const style = {
     transform: CSS.Translate.toString(transform),
     transition: sortableTransition,
@@ -74,9 +91,10 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     backgroundColor: aging.backgroundColor,
   };
 
+  // 편집 중에는 드래그 리스너 비활성화
   const dragProps = isEditing ? {} : { ...attributes, ...listeners };
 
-  // Auto-focus on edit mode
+  // 편집 모드 진입 시 자동 포커스
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
@@ -84,14 +102,16 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     }
   }, [isEditing]);
 
-  // Completion shake/pop cleanup
+  // Completion animation cleanup — remove temporary classes after animation ends
   useEffect(() => {
     if (!justCompleted) return;
+
     completionTimeoutRef.current = setTimeout(() => {
       setJustCompleted(false);
       setUsePopFallback(false);
       completionTimeoutRef.current = null;
     }, COMPLETION_ANIMATION_MS);
+
     return () => {
       if (completionTimeoutRef.current) {
         clearTimeout(completionTimeoutRef.current);
@@ -100,52 +120,80 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     };
   }, [justCompleted]);
 
-  // Capture textColor at toggle time (aging.textColor is time-dependent)
-  const deconstructionColorRef = useRef<string>(aging.textColor);
-
+  // Physical satisfaction: haptic + shake + deconstruction on complete
+  // Cancel: when unchecked during animation, restore text immediately
   const handleToggle = useCallback(
     (checked: boolean) => {
       onToggle(task.id, checked);
       if (checked) {
-        const hapticOk = tryHaptic();
+        const hapticSucceeded = tryHaptic();
         setJustCompleted(true);
-        setUsePopFallback(!hapticOk);
-        // Only trigger if text has decomposable content
-        const groups = decomposeToJamoGrouped(task.text);
-        if (groups.flat().length > 0) {
-          deconstructionColorRef.current = aging.textColor;
-          setShowDeconstruction(true);  // ← synchronous, no setTimeout
+        setUsePopFallback(!hapticSucceeded); // iOS: shake + scale pop
+        const grouped = decomposeToJamoGrouped(task.text);
+        if (grouped.flat().length > 0) {
+          setShowDeconstruction(true);
         }
       } else {
-        // Unchecked during animation → cancel
         setShowDeconstruction(false);
+        setCanvasSize(null);
       }
     },
-    [task.id, task.text, onToggle, aging.textColor],
+    [task.id, task.text, onToggle]
   );
 
-  // Cancel recovery: if parent sets is_completed=false
+  // Measure text container for canvas when deconstruction triggers
+  useEffect(() => {
+    if (showDeconstruction && textContainerRef.current) {
+      const rect = textContainerRef.current.getBoundingClientRect();
+      setCanvasSize({ width: rect.width, height: rect.height });
+    } else {
+      setCanvasSize(null);
+    }
+  }, [showDeconstruction]);
+
+  // Cancel recovery: when task is unchecked (during or after animation), restore text
   useEffect(() => {
     if (!task.is_completed) {
       setShowDeconstruction(false);
+      setCanvasSize(null);
     }
   }, [task.is_completed]);
 
   const handleDeconstructionComplete = useCallback(() => {
     setShowDeconstruction(false);
+    setCanvasSize(null);
   }, []);
 
-  // ── Edit handlers ──
-  const startEditing = () => { setEditText(task.text); setIsEditing(true); };
+  // 편집 시작
+  const startEditing = () => {
+    setEditText(task.text);
+    setIsEditing(true);
+  };
+
+  // 편집 저장
   const saveEdit = () => {
-    const t = editText.trim();
-    if (t && t !== task.text) onUpdate(task.id, t);
+    const trimmedText = editText.trim();
+    if (trimmedText && trimmedText !== task.text) {
+      onUpdate(task.id, trimmedText);
+    }
     setIsEditing(false);
   };
-  const cancelEdit = () => { setEditText(task.text); setIsEditing(false); };
+
+  // 편집 취소
+  const cancelEdit = () => {
+    setEditText(task.text);
+    setIsEditing(false);
+  };
+
+  // 키보드 이벤트 처리
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') { e.preventDefault(); saveEdit(); }
-    else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+    }
   };
 
   const iconClass = aging.isDark
@@ -156,12 +204,14 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     : 'text-zinc-400 hover:text-red-500 transition-colors p-1';
 
   const completionAnimClass = justCompleted
-    ? usePopFallback ? 'animate-shake-pop-complete' : 'animate-shake-complete'
+    ? usePopFallback
+      ? 'animate-shake-pop-complete'
+      : 'animate-shake-complete'
     : '';
 
   return (
     <div
-      ref={mergedRef}
+      ref={setNodeRef}
       style={style}
       {...dragProps}
       className={`
@@ -176,82 +226,97 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
           ${completionAnimClass}
         `}
       >
-        {/* 체크박스 */}
-        <input
-          type="checkbox"
-          className="task-checkbox"
-          checked={task.is_completed}
-          onChange={(e) => handleToggle(e.target.checked)}
-          disabled={isEditing || isDragging}
-        />
+      {/* 체크박스 */}
+      <input
+        type="checkbox"
+        className="task-checkbox"
+        checked={task.is_completed}
+        onChange={(e) => handleToggle(e.target.checked)}
+        disabled={isEditing || isDragging}
+      />
 
-        {/* 텍스트 or 입력창 */}
-        <div className="relative flex-1 min-w-0 flex flex-col gap-0.5 min-h-[2rem]">
-          {isEditing ? (
-            <input
-              ref={inputRef}
-              type="text"
-              name="task_text"
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              onBlur={saveEdit}
-              onKeyDown={handleKeyDown}
-              className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 outline-none focus:border-zinc-900 transition-colors select-text"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-            />
-          ) : (
+      {/* 텍스트 or 입력창 */}
+      <div
+        ref={textContainerRef}
+        className="relative flex-1 min-w-0 flex flex-col gap-0.5 min-h-[2rem]"
+      >
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            name="task_text"
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onBlur={saveEdit}
+            onKeyDown={handleKeyDown}
+            className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 outline-none focus:border-zinc-900 transition-colors select-text"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+          />
+        ) : (
+          <>
             <span
-              ref={textSpanRef}
               className={`block select-none ${task.is_completed ? 'completed' : ''}`}
               style={{
                 color: aging.textColor,
-                opacity: showDeconstruction ? 0.12 : 1,
-                filter: showDeconstruction ? 'blur(1px)' : 'none',
+                opacity: showDeconstruction ? 0 : 1,
+                visibility: showDeconstruction ? 'hidden' : 'visible',
               }}
               aria-hidden={showDeconstruction}
             >
               {task.text}
             </span>
-          )}
-          {/* Debug: aging info */}
-          <span
-            className="text-[10px] text-red-500/80 font-mono tabular-nums"
-            aria-hidden
-          >
-            {aging.isInGracePeriod
-              ? `Fresh (Grace Period)`
-              : `Age: ${aging.daysOld.toFixed(1)} / Effective: ${aging.effectiveDaysOld.toFixed(1)} / Dark: ${aging.darknessPercent.toFixed(1)}%`}
-          </span>
-        </div>
-
-        {/* 액션 버튼들 */}
-        <div className="flex items-center gap-2">
-          {!isEditing && !isDragging && (
-            <>
-              <button onClick={startEditing} className={iconClass} aria-label="수정">
-                <Pencil className="w-5 h-5" />
-              </button>
-              <button onClick={() => setShowDeleteModal(true)} className={deleteIconClass} aria-label="삭제">
-                <X className="w-5 h-5" />
-              </button>
-            </>
-          )}
-        </div>
+            {showDeconstruction &&
+              canvasSize &&
+              task.is_completed && (
+                <DeconstructionCanvas
+                  text={task.text}
+                  width={Math.round(canvasSize.width)}
+                  height={Math.round(canvasSize.height)}
+                  textColor={aging.textColor}
+                  onComplete={handleDeconstructionComplete}
+                />
+              )}
+          </>
+        )}
+        {/* Debug: Grace period + effective days + cubic easing */}
+        <span
+          className="text-[10px] text-red-500/80 font-mono tabular-nums"
+          aria-hidden
+        >
+          {aging.isInGracePeriod
+            ? `Fresh (Grace Period)`
+            : `Age: ${aging.daysOld.toFixed(1)} / Effective: ${aging.effectiveDaysOld.toFixed(1)} / Dark: ${aging.darknessPercent.toFixed(1)}%`}
+        </span>
       </div>
 
-      {/* ── Deconstruction animation (Portal-based, overlays entire card) ── */}
-      {showDeconstruction && task.is_completed && (
-        <DeconstructionCanvas
-          text={task.text}
-          cardRef={cardRef}
-          textSpanRef={textSpanRef}
-          textColor={deconstructionColorRef.current}
-          onComplete={handleDeconstructionComplete}
-        />
-      )}
+      {/* 액션 버튼들 */}
+      <div className="flex items-center gap-2">
+        {!isEditing && !isDragging && (
+          <>
+            {/* 수정 버튼 (Pencil 아이콘) */}
+            <button
+              onClick={startEditing}
+              className={iconClass}
+              aria-label="수정"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+
+            {/* 삭제 버튼 — 모달로 확인 */}
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className={deleteIconClass}
+              aria-label="삭제"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </>
+        )}
+      </div>
+      </div>
 
       {/* 삭제 확인 모달 */}
       <ConfirmModal
@@ -260,19 +325,26 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         message={`"${task.text}"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
         confirmLabel="삭제"
         cancelLabel="취소"
-        onConfirm={() => { setShowDeleteModal(false); onDelete(task.id); }}
+        onConfirm={() => {
+          setShowDeleteModal(false);
+          onDelete(task.id);
+        }}
         onCancel={() => setShowDeleteModal(false)}
       />
     </div>
   );
-}, (prev, next) => (
-  prev.task.id === next.task.id &&
-  prev.task.text === next.task.text &&
-  prev.task.is_completed === next.task.is_completed &&
-  prev.task.order_index === next.task.order_index &&
-  prev.task.created_at === next.task.created_at &&
-  prev.task.completed_at === next.task.completed_at &&
-  prev.onToggle === next.onToggle &&
-  prev.onUpdate === next.onUpdate &&
-  prev.onDelete === next.onDelete
-));
+}, (prev, next) => {
+  // 커스텀 비교: task 데이터 필드 + 핸들러 참조 비교
+  // created_at 포함 — Visual Aging 스타일 계산에 사용
+  return (
+    prev.task.id === next.task.id &&
+    prev.task.text === next.task.text &&
+    prev.task.is_completed === next.task.is_completed &&
+    prev.task.order_index === next.task.order_index &&
+    prev.task.created_at === next.task.created_at &&
+    prev.task.completed_at === next.task.completed_at &&
+    prev.onToggle === next.onToggle &&
+    prev.onUpdate === next.onUpdate &&
+    prev.onDelete === next.onDelete
+  );
+});
