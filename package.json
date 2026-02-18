@@ -14,6 +14,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.39.7",
+    "framer-motion": "^12.34.2",
     "hangul-js": "^0.2.6",
     "lucide-react": "^0.563.0",
     "matter-js": "^0.20.0",
