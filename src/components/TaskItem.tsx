@@ -16,21 +16,19 @@ import { DeconstructionCanvas } from './DeconstructionCanvas';
 const COMPLETION_ANIMATION_MS = 400;
 const DIRECTION_THRESHOLD = 10;
 const AXIS_LOCK_RATIO = 1.5; // |dx| must exceed |dy| by this factor to lock horizontal
-const DELETE_DISTANCE_RATIO = 0.38; // 38% — responsive for mobile, balanced with velocity-based flick
-const VELOCITY_THRESHOLD = 400; // px/s — lower for faster flick completion
+const DELETE_DISTANCE_RATIO = 0.38; // 38% — deliberate swipe threshold
+const MIN_INTENT_RATIO = 0.18; // 18% — minimum swipe for velocity-based delete (prevents accidental bumps)
+const VELOCITY_THRESHOLD = 400; // px/s — fast flick completion
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 30 };
 
-// Magnetic snap: ease-in curve — fluid start, terminal acceleration into zero (pulled to floor)
-const EXIT_SNAP_EASE = [0.5, 0, 0.85, 1] as const;
-const EXIT_DURATION = 0.26;
-const EXIT_TRANSITION = {
-  duration: EXIT_DURATION,
-  ease: EXIT_SNAP_EASE,
+// Single fluidic collapse: tuned spring for 120Hz — magnetic snap, no stage friction
+const EXIT_SPRING = {
+  type: 'spring' as const,
+  stiffness: 180,
+  damping: 28,
+  mass: 0.7,
 };
-
-// Lightweight sliver: start at 50% height to reduce visual weight, then magnetic snap to 0
-const EXIT_SHRINK_RATIO = 0.5;
-const EXIT_KEYFRAME_TIMES = [0, 0.06, 1] as const; // 6% rapid thin, 94% magnetic snap
+const EXIT_TRANSITION = EXIT_SPRING;
 
 function isInteractiveElement(el: EventTarget | null): boolean {
   const tags = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'LABEL']);
@@ -268,8 +266,11 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         if (dt >= 8) velocity = ((e.clientX - lastRef.current.x) / dt) * 1000;
       }
 
+      const pastDistanceThreshold = offset < -width * DELETE_DISTANCE_RATIO;
+      const pastIntentThreshold = offset < -width * MIN_INTENT_RATIO;
+      const hasFlickVelocity = velocity < -VELOCITY_THRESHOLD;
       const shouldDelete =
-        offset < -width * DELETE_DISTANCE_RATIO || velocity < -VELOCITY_THRESHOLD;
+        pastDistanceThreshold || (hasFlickVelocity && pastIntentThreshold);
 
       if (shouldDelete) {
         triggerDelete();
@@ -333,41 +334,11 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         }
         animate={
           deletingState
-            ? {
-                height: [
-                  deletingState.height,
-                  deletingState.height * EXIT_SHRINK_RATIO,
-                  0,
-                ],
-                marginTop: [
-                  0,
-                  deletingState.height * (1 - EXIT_SHRINK_RATIO) * 0.5,
-                  0,
-                ],
-                marginBottom: [
-                  0,
-                  deletingState.height * (1 - EXIT_SHRINK_RATIO) * 0.5,
-                  0,
-                ],
-              }
-            : { height: 'auto', marginTop: 0, marginBottom: 0 }
+            ? { height: 0 }
+            : { height: 'auto' }
         }
         transition={{
-          height: {
-            duration: EXIT_DURATION,
-            times: [...EXIT_KEYFRAME_TIMES],
-            ease: ['easeOut', EXIT_SNAP_EASE],
-          },
-          marginTop: {
-            duration: EXIT_DURATION,
-            times: [...EXIT_KEYFRAME_TIMES],
-            ease: ['easeOut', EXIT_SNAP_EASE],
-          },
-          marginBottom: {
-            duration: EXIT_DURATION,
-            times: [...EXIT_KEYFRAME_TIMES],
-            ease: ['easeOut', EXIT_SNAP_EASE],
-          },
+          height: EXIT_TRANSITION,
         }}
         onAnimationComplete={() => {
           if (deletingState) handleDeleteComplete();
