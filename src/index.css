@@ -50,20 +50,24 @@ html, body, #root {
   appearance: none;
   width: 20px;
   height: 20px;
-  border: 2px solid #d4d4d8;
+  border: 2px solid;
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
-.task-checkbox:checked {
+.task-checkbox-light {
+  border-color: #d4d4d8;
+}
+
+.task-checkbox-light:checked {
   background-color: #18181b;
   border-color: #18181b;
   position: relative;
 }
 
-.task-checkbox:checked::after {
+.task-checkbox-light:checked::after {
   content: '';
   position: absolute;
   top: 2px;
@@ -71,6 +75,29 @@ html, body, #root {
   width: 4px;
   height: 8px;
   border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Dark-aged cards: visible ring + inverted check for contrast */
+.task-checkbox-dark {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.task-checkbox-dark:checked {
+  background-color: white;
+  border-color: white;
+  position: relative;
+}
+
+.task-checkbox-dark:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  width: 4px;
+  height: 8px;
+  border: solid #18181b;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
