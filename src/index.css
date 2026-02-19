@@ -45,15 +45,15 @@ html, body, #root {
   opacity: 0.5;
 }
 
-/* 커스텀 체크박스: border/fill/check via inline style (aging.textColor) */
+/* Hairline checkbox: 1px ring, premium translucent fill */
 .task-checkbox {
   appearance: none;
   width: 20px;
   height: 20px;
-  border: 2px solid;
+  border: 1px solid;
   border-radius: 50%;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   flex-shrink: 0;
 }
 
@@ -69,7 +69,7 @@ html, body, #root {
   width: 4px;
   height: 8px;
   border: solid var(--checkbox-check, white);
-  border-width: 0 2px 2px 0;
+  border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
 }
 

@@ -30,6 +30,13 @@ const EXIT_SPRING = {
 };
 const EXIT_TRANSITION = EXIT_SPRING;
 
+function colorWithOpacity(hex: string, opacity: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${opacity})`;
+}
+
 function isInteractiveElement(el: EventTarget | null): boolean {
   const tags = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'LABEL']);
   let cur = el as HTMLElement | null;
@@ -289,8 +296,8 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
   );
 
   const iconClass = aging.isDark
-    ? 'text-white/80 hover:text-white transition-colors p-1'
-    : 'text-zinc-400 hover:text-zinc-600 transition-colors p-1';
+    ? 'text-white/20 hover:text-white transition-colors duration-300 p-1'
+    : 'text-zinc-400/20 hover:text-zinc-600 transition-colors duration-300 p-1';
 
   const completionAnimClass = justCompleted
     ? usePopFallback
@@ -391,9 +398,9 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
             type="checkbox"
             className="task-checkbox"
             style={{
-              borderColor: aging.textColor,
+              borderColor: colorWithOpacity(aging.textColor, 0.3),
               ...(task.is_completed && {
-                backgroundColor: aging.textColor,
+                backgroundColor: colorWithOpacity(aging.textColor, 0.5),
                 '--checkbox-check': aging.isDark ? '#18181b' : 'white',
               }),
             }}
@@ -463,10 +470,10 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
                 className={`
                   hidden hover-hover:inline-flex shrink-0 w-0 overflow-hidden opacity-0
                   group-hover:w-6 group-hover:opacity-100
-                  transition-all duration-200 ease-out
+                  transition-all duration-300 ease-out
                   pointer-events-none group-hover:pointer-events-auto
                   p-1 rounded items-center justify-center
-                  ${aging.isDark ? 'text-white/80 hover:text-white' : 'text-zinc-400 hover:text-red-500'}
+                  ${aging.isDark ? 'text-white/20 hover:text-white' : 'text-zinc-400/20 hover:text-red-500'}
                 `}
                 aria-label="삭제"
               >
