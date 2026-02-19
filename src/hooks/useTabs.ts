@@ -165,7 +165,7 @@ export const useTabs = (userId: string | null) => {
    * System "All" 탭(id=-1)은 변경 불가
    */
   const updateTab = async (id: number, newTitle: string) => {
-    if (id === ALL_TAB_ID || !newTitle.trim()) return;
+    if (id === ALL_TAB_ID || !newTitle.trim() || userId === null) return;
 
     const previousTabs = tabs;
 
@@ -180,7 +180,8 @@ export const useTabs = (userId: string | null) => {
       const { error } = await supabase
         .from('tabs')
         .update({ title: newTitle.trim() })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', userId);
 
       if (error) throw error;
     } catch (err) {
@@ -200,7 +201,8 @@ export const useTabs = (userId: string | null) => {
    * - 활성 탭 삭제: 왼쪽 탭 → 오른쪽 탭 → null 순으로 fallback
    */
   const deleteTab = async (id: number) => {
-    if (id === ALL_TAB_ID) return;
+    if (id === ALL_TAB_ID || userId === null) return;
+
     const previousTabs = tabs;
     const previousSelectedTabId = selectedTabId;
     const deletedIndex = tabs.findIndex((tab) => tab.id === id);
@@ -219,7 +221,11 @@ export const useTabs = (userId: string | null) => {
     }
 
     try {
-      const { error } = await supabase.from('tabs').delete().eq('id', id);
+      const { error } = await supabase
+        .from('tabs')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -263,10 +269,16 @@ export const useTabs = (userId: string | null) => {
     setTabs(reorderedWithIndex);
 
     // 서버 동기화 — 각 탭의 order_index 개별 업데이트
+    if (userId === null) return;
+
     try {
       const results = await Promise.all(
         reorderedWithIndex.map(({ id, order_index }) =>
-          supabase.from('tabs').update({ order_index }).eq('id', id)
+          supabase
+            .from('tabs')
+            .update({ order_index })
+            .eq('id', id)
+            .eq('user_id', userId)
         )
       );
       const failed = results.find((r) => r.error);

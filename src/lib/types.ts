@@ -1,16 +1,16 @@
 /**
- * Tab 데이터 타입 정의
+ * Tab: tabs 테이블 (title 컬럼)
  */
 export interface Tab {
   id: number;
   title: string;
   created_at: string;
   order_index: number;
-  user_id?: string; // Phase 2에서 활성화 예정
+  user_id?: string;
 }
 
 /**
- * Task 데이터 타입 정의
+ * Task: mytask 테이블 (text 컬럼)
  */
 export interface Task {
   id: number;
@@ -20,7 +20,7 @@ export interface Task {
   completed_at?: string | null; // 완료 시점
   tab_id: number | null; // 소속 탭 ID
   order_index: number;
-  user_id?: string; // Phase 2에서 활성화 예정
+  user_id?: string;
   deleted_at?: string | null; // Soft Delete
 }
 

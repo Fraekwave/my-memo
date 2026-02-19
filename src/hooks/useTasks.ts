@@ -10,7 +10,10 @@ export const ALL_TAB_ID = -1;
 export const TRASH_RETENTION_DAYS = 30;
 
 /**
- * Task CRUD 로직을 관리하는 커스텀 훅
+ * Task CRUD 로직 (mytask 테이블)
+ *
+ * Schema: mytask(text, tab_id, user_id, ...) | tabs(title, user_id, ...)
+ * - All queries scoped to user_id for RLS + explicit defense-in-depth
  *
  * ✨ Optimistic UI Updates 패턴 적용:
  * - 즉시 로컬 상태 변경 → 빠른 사용자 피드백
@@ -86,6 +89,7 @@ export const useTasks = (
           const { data, error } = await supabase
             .from('mytask')
             .select('*')
+            .eq('user_id', userId)
             .in('tab_id', tabIds)
             .is('deleted_at', null)
             .order('order_index', { ascending: true });
@@ -98,6 +102,7 @@ export const useTasks = (
         const { data, error } = await supabase
           .from('mytask')
           .select('*')
+          .eq('user_id', userId)
           .eq('tab_id', selectedTabId)
           .is('deleted_at', null)
           .order('order_index', { ascending: true });
@@ -187,6 +192,7 @@ export const useTasks = (
    * ✨ Digital Detox: 완료 시 completed_at 저장, 미완료 시 null
    */
   const toggleTask = useCallback(async (id: number, isCompleted: boolean) => {
+    if (userId === null) return;
     const previousTasks = tasksRef.current;
     const completedAt = isCompleted ? new Date().toISOString() : null;
 
@@ -202,7 +208,8 @@ export const useTasks = (
       const { error } = await supabase
         .from('mytask')
         .update({ is_completed: isCompleted, completed_at: completedAt })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', userId);
 
       if (error) throw error;
     } catch (err) {
@@ -210,14 +217,14 @@ export const useTasks = (
       setError(err instanceof Error ? err.message : '수정 실패');
       setRawTasks(previousTasks);
     }
-  }, []);
+  }, [userId]);
 
   /**
    * 4. Update: Task 텍스트 수정
    * ✨ useCallback으로 안정화
    */
   const updateTask = useCallback(async (id: number, newText: string) => {
-    if (!newText.trim()) return;
+    if (!newText.trim() || userId === null) return;
 
     const previousTasks = tasksRef.current;
 
@@ -231,7 +238,8 @@ export const useTasks = (
       const { error } = await supabase
         .from('mytask')
         .update({ text: newText.trim() })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', userId);
 
       if (error) throw error;
     } catch (err) {
@@ -239,12 +247,14 @@ export const useTasks = (
       setError(err instanceof Error ? err.message : '수정 실패');
       setRawTasks(previousTasks);
     }
-  }, []);
+  }, [userId]);
 
   /**
    * 5. Delete: Soft Delete (deleted_at 설정)
    */
   const deleteTask = useCallback(async (id: number) => {
+    if (userId === null) return;
+
     const currentTasks = tasksRef.current;
     const taskToDelete = currentTasks.find((task) => task.id === id);
     if (!taskToDelete) return;
@@ -255,7 +265,8 @@ export const useTasks = (
       const { error } = await supabase
         .from('mytask')
         .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', userId);
 
       if (error) throw error;
     } catch (err) {
@@ -268,7 +279,7 @@ export const useTasks = (
         return restored;
       });
     }
-  }, []);
+  }, [userId]);
 
   /**
    * 6. Reorder: Task 순서 변경 (Drag & Drop)
@@ -290,10 +301,12 @@ export const useTasks = (
     }));
     setRawTasks(reorderedWithIndex);
 
+    if (userId === null) return;
+
     try {
       const results = await Promise.all(
         reorderedWithIndex.map(({ id, order_index }) =>
-          supabase.from('mytask').update({ order_index }).eq('id', id)
+          supabase.from('mytask').update({ order_index }).eq('id', id).eq('user_id', userId)
         )
       );
       const failed = results.find((r) => r.error);
@@ -302,7 +315,7 @@ export const useTasks = (
       console.error('Task 순서 변경 에러:', err);
       setRawTasks(previousTasks);
     }
-  }, []);
+  }, [userId]);
 
   /**
    * 탭 변경 시 데이터 로드
@@ -334,7 +347,7 @@ export const useTasks = (
   const [deletedTasks, setDeletedTasks] = useState<Task[]>([]);
   const [deletedLoading, setDeletedLoading] = useState(false);
 
-  /** Trash: deleted_at IS NOT NULL. UI hides 30+ day items (permanently purged). */
+  /** Trash: deleted_at IS NOT NULL, user-scoped. UI hides 30+ day items (permanently purged). */
   const fetchDeletedTasks = useCallback(async () => {
     if (userId === null) return;
     setDeletedLoading(true);
@@ -342,6 +355,7 @@ export const useTasks = (
       const { data, error } = await supabase
         .from('mytask')
         .select('*')
+        .eq('user_id', userId)
         .not('deleted_at', 'is', null)
         .order('deleted_at', { ascending: false });
 
@@ -356,11 +370,13 @@ export const useTasks = (
 
   const restoreTask = useCallback(
     async (id: number, tabTitle: string): Promise<string | null> => {
+      if (userId === null) return null;
       try {
         const { error } = await supabase
           .from('mytask')
           .update({ deleted_at: null })
-          .eq('id', id);
+          .eq('id', id)
+          .eq('user_id', userId);
 
         if (error) throw error;
         setDeletedTasks((prev) => prev.filter((t) => t.id !== id));
@@ -371,7 +387,7 @@ export const useTasks = (
         return null;
       }
     },
-    [selectedTabId, fetchTasks]
+    [selectedTabId, fetchTasks, userId]
   );
 
   return {
