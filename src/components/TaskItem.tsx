@@ -389,7 +389,14 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
         >
           <input
             type="checkbox"
-            className={`task-checkbox ${aging.isDark ? 'task-checkbox-dark' : 'task-checkbox-light'}`}
+            className="task-checkbox"
+            style={{
+              borderColor: aging.textColor,
+              ...(task.is_completed && {
+                backgroundColor: aging.textColor,
+                '--checkbox-check': aging.isDark ? '#18181b' : 'white',
+              }),
+            }}
             checked={task.is_completed}
             onChange={(e) => handleToggle(e.target.checked)}
             disabled={isEditing || isDragging}

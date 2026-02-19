@@ -45,7 +45,7 @@ html, body, #root {
   opacity: 0.5;
 }
 
-/* 커스텀 체크박스 스타일 */
+/* 커스텀 체크박스: border/fill/check via inline style (aging.textColor) */
 .task-checkbox {
   appearance: none;
   width: 20px;
@@ -57,47 +57,18 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.task-checkbox-light {
-  border-color: #d4d4d8;
-}
-
-.task-checkbox-light:checked {
-  background-color: #18181b;
-  border-color: #18181b;
+.task-checkbox:checked {
   position: relative;
 }
 
-.task-checkbox-light:checked::after {
+.task-checkbox:checked::after {
   content: '';
   position: absolute;
   top: 2px;
   left: 6px;
   width: 4px;
   height: 8px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-/* Dark-aged cards: visible ring + inverted check for contrast */
-.task-checkbox-dark {
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.task-checkbox-dark:checked {
-  background-color: white;
-  border-color: white;
-  position: relative;
-}
-
-.task-checkbox-dark:checked::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 6px;
-  width: 4px;
-  height: 8px;
-  border: solid #18181b;
+  border: solid var(--checkbox-check, white);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
