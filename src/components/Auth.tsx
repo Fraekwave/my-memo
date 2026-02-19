@@ -1,5 +1,5 @@
 import { useState, FormEvent, useCallback } from 'react';
-import { Globe, Apple, MessageCircle } from 'lucide-react';
+import { Globe, Apple, MessageCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type AuthMode = 'login' | 'signup';
@@ -15,7 +15,7 @@ const iconClass = 'w-5 h-5 text-zinc-500';
 /**
  * Tesla-style Auth: Extreme minimalism, Zinc/Stone monochrome
  * - Professional typography, no brand colors
- * - Social login (mockup: Coming soon)
+ * - Social login via Supabase OAuth
  */
 export const Auth = ({ onSuccess }: AuthProps) => {
   const [mode, setMode] = useState<AuthMode>('login');
@@ -23,7 +23,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [socialLoadingProvider, setSocialLoadingProvider] = useState<SocialProvider | null>(null);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -55,9 +55,23 @@ export const Auth = ({ onSuccess }: AuthProps) => {
     setError(null);
   }, []);
 
-  const handleSocialLogin = useCallback((_provider: SocialProvider) => {
-    setToast('현재 준비 중인 기능입니다.');
-    setTimeout(() => setToast(null), 2500);
+  const handleSocialLogin = useCallback(async (provider: SocialProvider) => {
+    setError(null);
+    setSocialLoadingProvider(provider);
+
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (oauthError) throw oauthError;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '소셜 로그인 실패');
+    } finally {
+      setSocialLoadingProvider(null);
+    }
   }, []);
 
   return (
@@ -116,26 +130,47 @@ export const Auth = ({ onSuccess }: AuthProps) => {
           <button
             type="button"
             onClick={() => handleSocialLogin('google')}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-transparent border border-zinc-200 rounded-xl text-zinc-700 hover:bg-zinc-50 transition-colors duration-200"
+            disabled={socialLoadingProvider !== null}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-transparent border border-zinc-200 rounded-xl text-zinc-700 hover:bg-zinc-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
-            <Globe className={iconClass} strokeWidth={1.5} />
-            <span className="text-sm font-medium">Google로 계속하기</span>
+            {socialLoadingProvider === 'google' ? (
+              <Loader2 className={`${iconClass} animate-spin`} strokeWidth={1.5} />
+            ) : (
+              <Globe className={iconClass} strokeWidth={1.5} />
+            )}
+            <span className="text-sm font-medium">
+              {socialLoadingProvider === 'google' ? '연결 중...' : 'Google로 계속하기'}
+            </span>
           </button>
           <button
             type="button"
             onClick={() => handleSocialLogin('apple')}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-transparent border border-zinc-200 rounded-xl text-zinc-700 hover:bg-zinc-50 transition-colors duration-200"
+            disabled={socialLoadingProvider !== null}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-transparent border border-zinc-200 rounded-xl text-zinc-700 hover:bg-zinc-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
-            <Apple className={iconClass} strokeWidth={1.5} />
-            <span className="text-sm font-medium">Apple로 계속하기</span>
+            {socialLoadingProvider === 'apple' ? (
+              <Loader2 className={`${iconClass} animate-spin`} strokeWidth={1.5} />
+            ) : (
+              <Apple className={iconClass} strokeWidth={1.5} />
+            )}
+            <span className="text-sm font-medium">
+              {socialLoadingProvider === 'apple' ? '연결 중...' : 'Apple로 계속하기'}
+            </span>
           </button>
           <button
             type="button"
             onClick={() => handleSocialLogin('kakao')}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-transparent border border-zinc-200 rounded-xl text-zinc-700 hover:bg-zinc-50 transition-colors duration-200"
+            disabled={socialLoadingProvider !== null}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-transparent border border-zinc-200 rounded-xl text-zinc-700 hover:bg-zinc-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
-            <MessageCircle className={iconClass} strokeWidth={1.5} />
-            <span className="text-sm font-medium">카카오로 계속하기</span>
+            {socialLoadingProvider === 'kakao' ? (
+              <Loader2 className={`${iconClass} animate-spin`} strokeWidth={1.5} />
+            ) : (
+              <MessageCircle className={iconClass} strokeWidth={1.5} />
+            )}
+            <span className="text-sm font-medium">
+              {socialLoadingProvider === 'kakao' ? '연결 중...' : '카카오로 계속하기'}
+            </span>
           </button>
         </div>
 
@@ -146,16 +181,6 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         >
           {mode === 'login' ? '계정이 없으신가요? 가입하기' : '이미 계정이 있으신가요? 로그인'}
         </button>
-
-        {/* Toast */}
-        {toast && (
-          <div
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 py-3 px-5 bg-zinc-800 text-white text-sm font-light rounded-lg text-center animate-fade-in shadow-lg z-50"
-            role="status"
-          >
-            {toast}
-          </div>
-        )}
       </div>
     </div>
   );
