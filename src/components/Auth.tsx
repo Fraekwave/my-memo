@@ -1,5 +1,5 @@
 import { useState, FormEvent, useCallback, useMemo } from 'react';
-import { Globe, Apple, MessageCircle, Loader2, Check } from 'lucide-react';
+import { Globe, Apple, MessageCircle, Loader2, Check, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type AuthMode = 'login' | 'signup';
@@ -29,8 +29,13 @@ export const Auth = ({ onSuccess }: AuthProps) => {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showResetFlow, setShowResetFlow] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [socialLoadingProvider, setSocialLoadingProvider] = useState<SocialProvider | null>(null);
 
   const handleSubmit = useCallback(
@@ -61,7 +66,38 @@ export const Auth = ({ onSuccess }: AuthProps) => {
   const toggleMode = useCallback(() => {
     setMode((m) => (m === 'login' ? 'signup' : 'login'));
     setError(null);
+    setConfirmPassword('');
+    setShowResetFlow(false);
+    setResetSuccess(false);
   }, []);
+
+  const toggleShowPassword = useCallback(() => setShowPassword((p) => !p), []);
+
+  const passwordsMatch = useMemo(
+    () => confirmPassword === '' || password === confirmPassword,
+    [password, confirmPassword]
+  );
+
+  const handleResetPassword = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!email.trim()) return;
+      setError(null);
+      setResetLoading(true);
+      try {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: window.location.origin,
+        });
+        if (resetError) throw resetError;
+        setResetSuccess(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '재설정 메일 발송 실패');
+      } finally {
+        setResetLoading(false);
+      }
+    },
+    [email]
+  );
 
   const passwordChecks = useMemo(
     () => PASSWORD_CRITERIA.map(({ label, test }) => ({ label, met: test(password) })),
@@ -70,6 +106,14 @@ export const Auth = ({ onSuccess }: AuthProps) => {
   const allPasswordCriteriaMet = useMemo(
     () => passwordChecks.every((c) => c.met),
     [passwordChecks]
+  );
+
+  const canSignUp = useMemo(
+    () =>
+      allPasswordCriteriaMet &&
+      confirmPassword.length > 0 &&
+      password === confirmPassword,
+    [allPasswordCriteriaMet, password, confirmPassword]
   );
 
   const handleSocialLogin = useCallback(async (provider: SocialProvider) => {
@@ -98,9 +142,53 @@ export const Auth = ({ onSuccess }: AuthProps) => {
           Today&apos;s Tasks
         </h1>
         <p className="text-stone-500 text-sm font-light text-center mb-8 tracking-wide">
-          {mode === 'login' ? '로그인하여 시작하세요' : '새 계정 만들기'}
+          {showResetFlow
+            ? '비밀번호 재설정'
+            : mode === 'login'
+              ? '로그인하여 시작하세요'
+              : '새 계정 만들기'}
         </p>
 
+        {showResetFlow ? (
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="가입한 이메일 주소"
+              required
+              autoComplete="email"
+              className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
+            />
+            {error && <p className="text-zinc-600 text-sm font-light">{error}</p>}
+            {resetSuccess && (
+              <p className="text-zinc-800 text-sm font-medium">
+                비밀번호 재설정 메일이 발송되었습니다.
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowResetFlow(false);
+                  setResetSuccess(false);
+                  setError(null);
+                }}
+                className="flex items-center justify-center gap-1.5 px-4 py-3 border border-zinc-200 rounded-xl text-zinc-600 text-sm font-medium hover:bg-zinc-50 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
+                뒤로
+              </button>
+              <button
+                type="submit"
+                disabled={resetLoading || resetSuccess}
+                className="flex-1 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resetLoading ? '발송 중...' : resetSuccess ? '발송 완료' : '재설정 메일 받기'}
+              </button>
+            </div>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="email"
@@ -111,15 +199,30 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             autoComplete="email"
             className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
           />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="비밀번호"
-            required
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="비밀번호"
+              required
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              className="w-full px-4 py-3 pr-10 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
+            />
+            <button
+              type="button"
+              onClick={toggleShowPassword}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 transition-colors"
+              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <EyeOff className="w-4 h-4" strokeWidth={1.5} />
+              ) : (
+                <Eye className="w-4 h-4" strokeWidth={1.5} />
+              )}
+            </button>
+          </div>
 
           {mode === 'signup' && (
             <ul
@@ -146,27 +249,74 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             </ul>
           )}
 
+          {mode === 'signup' && (
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="비밀번호 확인"
+                required
+                autoComplete="new-password"
+                className={`w-full px-4 py-3 pr-10 bg-white border rounded-xl text-zinc-900 placeholder-stone-400 outline-none transition-colors duration-200 ${
+                  confirmPassword && !passwordsMatch
+                    ? 'border-zinc-400 focus:border-zinc-500'
+                    : 'border-zinc-200 focus:border-zinc-400'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={toggleShowPassword}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 transition-colors"
+                aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" strokeWidth={1.5} />
+                ) : (
+                  <Eye className="w-4 h-4" strokeWidth={1.5} />
+                )}
+              </button>
+            </div>
+          )}
+
+          {confirmPassword && !passwordsMatch && (
+            <p className="text-zinc-600 text-sm font-light">비밀번호가 일치하지 않습니다</p>
+          )}
+
           {error && (
             <p className="text-zinc-600 text-sm font-light">{error}</p>
           )}
 
           <button
             type="submit"
-            disabled={loading || (mode === 'signup' && !allPasswordCriteriaMet)}
+            disabled={loading || (mode === 'signup' && !canSignUp)}
             className="w-full py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? '처리 중...' : mode === 'login' ? '로그인' : '가입하기'}
           </button>
-        </form>
 
-        {/* OR Divider */}
+          {mode === 'login' && !showResetFlow && (
+            <button
+              type="button"
+              onClick={() => setShowResetFlow(true)}
+              className="w-full py-1.5 text-zinc-500 text-xs font-light hover:text-zinc-700 transition-colors"
+            >
+              비밀번호를 잊으셨나요?
+            </button>
+          )}
+        </form>
+        )}
+
+        {/* OR Divider & Social Login — 숨김 when reset flow */}
+        {!showResetFlow && (
+        <>
         <div className="flex items-center gap-4 my-6">
           <div className="flex-1 h-px bg-zinc-200" />
           <span className="text-stone-400 text-xs font-light tracking-widest uppercase">또는</span>
           <div className="flex-1 h-px bg-zinc-200" />
         </div>
 
-        {/* Social Login */}
         <div className="space-y-3">
           <button
             type="button"
@@ -214,7 +364,10 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             </span>
           </button>
         </div>
+        </>
+        )}
 
+        {!showResetFlow && (
         <button
           type="button"
           onClick={toggleMode}
@@ -222,6 +375,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         >
           {mode === 'login' ? '계정이 없으신가요? 가입하기' : '이미 계정이 있으신가요? 로그인'}
         </button>
+        )}
       </div>
     </div>
   );
