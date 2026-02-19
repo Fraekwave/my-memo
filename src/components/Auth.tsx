@@ -122,18 +122,23 @@ export const Auth = ({ onSuccess }: AuthProps) => {
           />
 
           {mode === 'signup' && (
-            <ul className="mt-1.5 space-y-0.5" aria-live="polite" aria-atomic="true">
+            <ul
+              className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1"
+              aria-live="polite"
+              aria-atomic="true"
+              role="status"
+            >
               {passwordChecks.map(({ label, met }) => (
                 <li
                   key={label}
-                  className={`flex items-center gap-1.5 text-[10px] font-light transition-colors duration-150 ${
-                    met ? 'text-zinc-900' : 'text-zinc-300'
+                  className={`flex items-center gap-1.5 text-xs transition-colors duration-150 ${
+                    met ? 'text-zinc-800 font-medium' : 'text-zinc-400'
                   }`}
                 >
                   {met ? (
-                    <Check className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={2.5} stroke="currentColor" />
+                    <Check className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} stroke="currentColor" />
                   ) : (
-                    <span className="w-2.5 h-2.5 flex-shrink-0 rounded-full border border-zinc-300" aria-hidden />
+                    <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-zinc-300" aria-hidden />
                   )}
                   {label}
                 </li>
