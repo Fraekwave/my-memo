@@ -22,6 +22,7 @@ export interface Task {
   order_index: number;
   user_id?: string;
   deleted_at?: string | null; // Soft Delete
+  last_tab_title?: string | null; // Tab 삭제 시 저장, 복구 시 탭 재생성용
 }
 
 /**

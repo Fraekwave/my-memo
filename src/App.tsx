@@ -32,6 +32,7 @@ function App() {
     updateTab,
     deleteTab,
     reorderTabs,
+    ensureTabExists,
   } = useTabs(userId);
 
   const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
@@ -50,7 +51,7 @@ function App() {
     deletedLoading,
     fetchDeletedTasks,
     restoreTask,
-  } = useTasks(selectedTabId, userId, tabIds);
+  } = useTasks(selectedTabId, userId, tabIds, { ensureTabExists, tabs });
 
   const [showTrashView, setShowTrashView] = useState(false);
 

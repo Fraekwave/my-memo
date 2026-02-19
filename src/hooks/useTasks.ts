@@ -29,11 +29,20 @@ export const TRASH_RETENTION_DAYS = 30;
  * - tasksRef로 최신 tasks 참조 (useCallback 내 stale closure 방지)
  * - 첫 로드와 탭 전환을 분리 (탭 전환 시 스피너 표시 안 함)
  */
+import { Tab } from '@/lib/types';
+
+export interface UseTasksOptions {
+  ensureTabExists?: (title: string) => Promise<number>;
+  tabs?: Tab[];
+}
+
 export const useTasks = (
   selectedTabId: number | null,
   userId: string | null,
-  tabIds: number[] = []
+  tabIds: number[] = [],
+  options: UseTasksOptions = {}
 ) => {
+  const { ensureTabExists, tabs = [] } = options;
   const [rawTasks, setRawTasks] = useState<Task[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -326,6 +335,50 @@ export const useTasks = (
   }, [fetchTasks]);
 
   /**
+   * Orphan Rescue: tab_id가 존재하지 않는 tab을 가리키는 task를 휴지통으로 이동
+   * (기존 19개 등 orphan 데이터 복구)
+   */
+  const orphanRescueRunRef = useRef(false);
+  const rescueOrphans = useCallback(async () => {
+    if (userId === null || tabIds.length === 0 || orphanRescueRunRef.current) return;
+
+    orphanRescueRunRef.current = true;
+
+    try {
+      const { data: allActive, error } = await supabase
+        .from('mytask')
+        .select('id, tab_id')
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      if (error) throw error;
+
+      const orphanIds = (allActive || [])
+        .filter((t) => t.tab_id == null || !tabIds.includes(t.tab_id))
+        .map((t) => t.id);
+
+      if (orphanIds.length === 0) return;
+
+      const deletedAt = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from('mytask')
+        .update({ deleted_at: deletedAt, last_tab_title: 'Recovered' })
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .in('id', orphanIds);
+
+      if (updateError) throw updateError;
+    } catch (err) {
+      console.error('Orphan rescue 에러:', err);
+      orphanRescueRunRef.current = false;
+    }
+  }, [userId, tabIds]);
+
+  useEffect(() => {
+    rescueOrphans();
+  }, [rescueOrphans]);
+
+  /**
    * Data Retention: Active notes (deleted_at IS NULL) are PERMANENT.
    * No time-based filters. Main/All tab show all active notes.
    * Trash (deleted_at IS NOT NULL) uses 30-day purge → TrashView.
@@ -369,31 +422,49 @@ export const useTasks = (
   }, [userId]);
 
   /**
-   * 복구: deleted_at = null. 탭이 삭제된 task는 fallbackTabId로 재배치.
+   * Intelligent Restoration:
+   * 1. If tab_id exists in tabs → restore to it
+   * 2. Else: ensureTabExists(last_tab_title || 'Recovered') → reconstruct tab
+   * 3. Update task: deleted_at=null, tab_id=resolved
    */
   const restoreTask = useCallback(
-    async (id: number, tabTitle: string, fallbackTabId?: number | null): Promise<string | null> => {
+    async (task: Task): Promise<string | null> => {
       if (userId === null) return null;
-      try {
-        const payload: { deleted_at: null; tab_id?: number } = { deleted_at: null };
-        if (fallbackTabId != null) payload.tab_id = fallbackTabId;
 
+      let targetTabId: number;
+      let tabTitleForFeedback: string;
+
+      if (task.tab_id != null && tabIds.includes(task.tab_id)) {
+        targetTabId = task.tab_id;
+        tabTitleForFeedback = tabs.find((t) => t.id === task.tab_id)?.title ?? '알 수 없는 탭';
+      } else if (ensureTabExists) {
+        const titleToUse = task.last_tab_title?.trim() || 'Recovered';
+        targetTabId = await ensureTabExists(titleToUse);
+        tabTitleForFeedback = titleToUse;
+      } else {
+        const fallback = tabIds[0];
+        if (fallback == null) return null;
+        targetTabId = fallback;
+        tabTitleForFeedback = tabs.find((t) => t.id === fallback)?.title ?? '첫 번째 탭';
+      }
+
+      try {
         const { error } = await supabase
           .from('mytask')
-          .update(payload)
-          .eq('id', id)
+          .update({ deleted_at: null, tab_id: targetTabId })
+          .eq('id', task.id)
           .eq('user_id', userId);
 
         if (error) throw error;
-        setDeletedTasks((prev) => prev.filter((t) => t.id !== id));
+        setDeletedTasks((prev) => prev.filter((t) => t.id !== task.id));
         if (selectedTabId !== null) fetchTasks();
-        return tabTitle;
+        return tabTitleForFeedback;
       } catch (err) {
         console.error('복구 에러:', err);
         return null;
       }
     },
-    [selectedTabId, fetchTasks, userId]
+    [selectedTabId, fetchTasks, userId, tabIds, tabs, ensureTabExists]
   );
 
   return {

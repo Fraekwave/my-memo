@@ -225,11 +225,16 @@ export const useTabs = (userId: string | null) => {
 
     try {
       const deletedAt = new Date().toISOString();
+      const targetTab = tabs.find((t) => t.id === id);
+      const targetTabTitle = targetTab?.title ?? 'Recovered';
 
-      // 1. Soft Delete Cascade: 해당 탭의 task를 휴지통으로
+      // 1. Soft Delete Cascade: 해당 탭의 task를 휴지통으로 (last_tab_title 저장으로 복구 시 탭 재생성 가능)
       const { error: tasksError } = await supabase
         .from('mytask')
-        .update({ deleted_at: deletedAt })
+        .update({
+          deleted_at: deletedAt,
+          last_tab_title: targetTabTitle,
+        })
         .eq('tab_id', id)
         .eq('user_id', userId)
         .is('deleted_at', null);
@@ -256,6 +261,34 @@ export const useTabs = (userId: string | null) => {
       alert('⚠️ 탭 삭제 실패. 다시 시도해주세요.');
     }
   };
+
+  /**
+   * 탭이 존재하는지 확인, 없으면 생성하여 ID 반환
+   * 복구 시 tab이 삭제된 task의 last_tab_title로 탭 재생성용
+   */
+  const ensureTabExists = useCallback(
+    async (title: string): Promise<number> => {
+      if (userId === null) throw new Error('No user');
+
+      const existing = tabs.find((t) => t.title === title);
+      if (existing) return existing.id;
+
+      const nextOrderIndex =
+        tabs.length > 0 ? Math.max(...tabs.map((t) => t.order_index ?? 0)) + 1 : 0;
+      const { data, error } = await supabase
+        .from('tabs')
+        .insert([{ title, order_index: nextOrderIndex, user_id: userId }])
+        .select();
+
+      if (error) throw error;
+      const newTab = data?.[0];
+      if (!newTab) throw new Error('Tab insert failed');
+
+      setTabs((prev) => [...prev, newTab]);
+      return newTab.id;
+    },
+    [userId, tabs]
+  );
 
   /**
    * 탭 순서 변경 (Drag & Drop)
@@ -321,5 +354,6 @@ export const useTabs = (userId: string | null) => {
     updateTab,
     deleteTab,
     reorderTabs,
+    ensureTabExists,
   };
 };
