@@ -399,7 +399,7 @@ export const useTasks = (
   const [deletedTasks, setDeletedTasks] = useState<Task[]>([]);
   const [deletedLoading, setDeletedLoading] = useState(false);
 
-  /** Trash: deleted_at IS NOT NULL, user-scoped. UI hides 30+ day items (permanently purged). */
+  /** Trash: deleted_at IS NOT NULL, user-scoped. Includes tasks with tab_id NULL (deported/orphaned). */
   const fetchDeletedTasks = useCallback(async () => {
     if (userId === null) return;
     setDeletedLoading(true);
@@ -433,21 +433,21 @@ export const useTasks = (
       let targetTabId: number;
       let tabTitleForFeedback: string;
 
-      if (task.tab_id != null && tabIds.includes(task.tab_id)) {
-        targetTabId = task.tab_id;
-        tabTitleForFeedback = tabs.find((t) => t.id === task.tab_id)?.title ?? '알 수 없는 탭';
-      } else if (ensureTabExists) {
-        const titleToUse = task.last_tab_title?.trim() || 'Recovered';
-        targetTabId = await ensureTabExists(titleToUse);
-        tabTitleForFeedback = titleToUse;
-      } else {
-        const fallback = tabIds[0];
-        if (fallback == null) return null;
-        targetTabId = fallback;
-        tabTitleForFeedback = tabs.find((t) => t.id === fallback)?.title ?? '첫 번째 탭';
-      }
-
       try {
+        if (task.tab_id != null && tabIds.includes(task.tab_id)) {
+          targetTabId = task.tab_id;
+          tabTitleForFeedback = tabs.find((t) => t.id === task.tab_id)?.title ?? '알 수 없는 탭';
+        } else if (ensureTabExists) {
+          const titleToUse = task.last_tab_title?.trim() || 'Recovered';
+          targetTabId = await ensureTabExists(titleToUse);
+          tabTitleForFeedback = titleToUse;
+        } else {
+          const fallback = tabIds[0];
+          if (fallback == null) return null;
+          targetTabId = fallback;
+          tabTitleForFeedback = tabs.find((t) => t.id === fallback)?.title ?? '첫 번째 탭';
+        }
+
         const { error } = await supabase
           .from('mytask')
           .update({ deleted_at: null, tab_id: targetTabId })

@@ -228,7 +228,8 @@ export const useTabs = (userId: string | null) => {
       const targetTab = tabs.find((t) => t.id === id);
       const targetTabTitle = targetTab?.title ?? 'Recovered';
 
-      // 1. Soft Delete Cascade: 해당 탭의 task를 휴지통으로 (last_tab_title 저장으로 복구 시 탭 재생성 가능)
+      // 1. Safe Deportation: 해당 탭의 모든 task를 휴지통으로 (이미 휴지통인 것 포함)
+      // last_tab_title 저장 → Intelligent Rebirth 시 탭 재생성용
       const { error: tasksError } = await supabase
         .from('mytask')
         .update({
@@ -236,8 +237,7 @@ export const useTabs = (userId: string | null) => {
           last_tab_title: targetTabTitle,
         })
         .eq('tab_id', id)
-        .eq('user_id', userId)
-        .is('deleted_at', null);
+        .eq('user_id', userId);
 
       if (tasksError) throw tasksError;
 
