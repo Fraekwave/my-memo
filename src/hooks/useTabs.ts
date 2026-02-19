@@ -13,7 +13,7 @@ const STORAGE_KEY = 'active_tab_id';
  * - 활성 탭 ID 관리
  * - localStorage로 선택된 탭 유지 (새로고침 시 복원)
  */
-export const useTabs = () => {
+export const useTabs = (userId: string | null) => {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [selectedTabId, _setSelectedTabId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,6 +34,12 @@ export const useTabs = () => {
    * 탭이 없으면 기본 탭 'My Memo'를 자동 생성
    */
   const fetchTabs = useCallback(async () => {
+    if (userId === null) {
+      setIsLoading(false);
+      setTabs([]);
+      setSelectedTabId(null);
+      return;
+    }
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -49,7 +55,7 @@ export const useTabs = () => {
       if (tabsList.length === 0) {
         const { data: newTab, error: insertError } = await supabase
           .from('tabs')
-          .insert([{ title: 'My Memo' }])
+          .insert([{ title: 'My Memo', user_id: userId }])
           .select();
 
         if (insertError) throw insertError;
@@ -82,7 +88,7 @@ export const useTabs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId, setSelectedTabId]);
 
   /**
    * 새 탭 추가 (Synchronous Optimistic Update)
@@ -115,7 +121,7 @@ export const useTabs = () => {
       try {
         const { data, error } = await supabase
           .from('tabs')
-          .insert([{ title, order_index: nextOrderIndex }])
+          .insert([{ title, order_index: nextOrderIndex, ...(userId && { user_id: userId }) }])
           .select();
 
         if (error) throw error;

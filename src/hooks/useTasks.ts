@@ -22,7 +22,7 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
  * - tasksRef로 최신 tasks 참조 (useCallback 내 stale closure 방지)
  * - 첫 로드와 탭 전환을 분리 (탭 전환 시 스피너 표시 안 함)
  */
-export const useTasks = (selectedTabId: number | null) => {
+export const useTasks = (selectedTabId: number | null, userId: string | null) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export const useTasks = (selectedTabId: number | null) => {
    * 1. Read: 선택된 탭의 Task 가져오기
    */
   const fetchTasks = useCallback(async () => {
-    if (selectedTabId === null) {
+    if (selectedTabId === null || userId === null) {
       setTasks([]);
       isFirstLoadRef.current = false;
       setIsInitialLoading(false);
@@ -68,7 +68,7 @@ export const useTasks = (selectedTabId: number | null) => {
       setIsInitialLoading(false);
       isFirstLoadRef.current = false;
     }
-  }, [selectedTabId]);
+  }, [selectedTabId, userId]);
 
   /**
    * 2. Create: 새로운 Task 추가
@@ -78,6 +78,7 @@ export const useTasks = (selectedTabId: number | null) => {
    */
   const addTask = useCallback(async (text: string): Promise<boolean> => {
     if (!text.trim()) return false;
+    if (userId === null) return false; // RLS: must be authenticated
 
     setError(null);
 
@@ -94,6 +95,7 @@ export const useTasks = (selectedTabId: number | null) => {
       completed_at: null,
       tab_id: selectedTabId,
       order_index: nextOrderIndex,
+      user_id: userId ?? undefined,
     };
 
     setTasks((prev) => [optimisticTask, ...prev]);
@@ -101,7 +103,13 @@ export const useTasks = (selectedTabId: number | null) => {
     try {
       const { data, error } = await supabase
         .from('mytask')
-        .insert([{ text: text.trim(), is_completed: false, tab_id: selectedTabId, order_index: nextOrderIndex }])
+        .insert([{
+          text: text.trim(),
+          is_completed: false,
+          tab_id: selectedTabId,
+          order_index: nextOrderIndex,
+          ...(userId && { user_id: userId }),
+        }])
         .select();
 
       if (error) throw error;
@@ -121,7 +129,7 @@ export const useTasks = (selectedTabId: number | null) => {
       setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
       return false;
     }
-  }, [selectedTabId]); // supabase is module-level stable
+  }, [selectedTabId, userId]); // supabase is module-level stable
 
   /**
    * 3. Update: Task 완료 상태 토글

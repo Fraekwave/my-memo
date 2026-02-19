@@ -1,23 +1,23 @@
+import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
 import { useTasks } from '@/hooks/useTasks';
+import { Auth } from '@/components/Auth';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { TabBar } from '@/components/TabBar';
 import { VersionIndicator } from '@/components/VersionIndicator';
+import { LogOut } from 'lucide-react';
 
 /**
  * 메인 애플리케이션 컴포넌트
  *
- * ✨ 탭(Tab) 기능 추가:
- * - 브라우저 스타일 탭으로 할 일 목록을 분리 관리
- * - 탭 CRUD: 추가 / 삭제 / 이름 변경
- * - 각 탭별 독립적인 Task 목록
- *
- * ✨ Optimistic UI 적용:
- * - 초기 로딩 시에만 스피너 표시
- * - Task 추가/수정/삭제는 즉시 반영
+ * ✨ Auth: 세션 없으면 Auth 화면, 있으면 Task 목록
+ * ✨ 탭(Tab) 기능: 브라우저 스타일 탭으로 할 일 목록 분리 관리
+ * ✨ Optimistic UI: 초기 로딩 시에만 스피너, Task CRUD 즉시 반영
  */
 function App() {
+  const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
+
   const {
     tabs,
     selectedTabId,
@@ -27,7 +27,7 @@ function App() {
     updateTab,
     deleteTab,
     reorderTabs,
-  } = useTabs();
+  } = useTabs(userId);
 
   const {
     tasks,
@@ -39,7 +39,7 @@ function App() {
     deleteTask,
     reorderTasks,
     stats,
-  } = useTasks(selectedTabId);
+  } = useTasks(selectedTabId, userId);
 
   // 현재 날짜 포맷팅
   const currentDate = new Date().toLocaleDateString('ko-KR', {
@@ -48,6 +48,30 @@ function App() {
     day: 'numeric',
     weekday: 'long',
   });
+
+  // Auth: 세션 없으면 로그인 화면 (200ms 페이드)
+  if (!isAuthLoading && !session) {
+    return (
+      <>
+        <VersionIndicator />
+        <div className="h-full animate-fade-in">
+          <Auth onSuccess={() => {}} />
+        </div>
+      </>
+    );
+  }
+
+  // Auth 로딩 중
+  if (isAuthLoading) {
+    return (
+      <div className="h-full bg-zinc-50 flex items-center justify-center p-4 sm:p-8">
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4" />
+          <p className="text-zinc-500 font-light">확인 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   // 초기 로딩 중 화면 (탭 로딩)
   if (isTabsLoading) {
@@ -63,14 +87,21 @@ function App() {
 
   return (
     <>
-    {/* 버전 표시 — scroll container 밖, DOM 최상위에 배치 */}
     <VersionIndicator />
-    <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50">
+    <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
-        {/* 헤더 — 스크롤하면 자연스럽게 올라감 */}
-        <div className="text-center mb-8">
+        {/* 헤더 — 로그아웃 버튼 포함 */}
+        <div className="relative text-center mb-8">
+          <button
+            type="button"
+            onClick={() => signOut()}
+            className="absolute right-0 top-0 p-2 -m-2 text-zinc-400 hover:text-zinc-600 transition-colors duration-200 rounded-lg"
+            aria-label="로그아웃"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
           <h1 className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2">
-            Today's Tasks
+            Today&apos;s Tasks
           </h1>
           <p className="text-zinc-500 font-light">{currentDate}</p>
         </div>
