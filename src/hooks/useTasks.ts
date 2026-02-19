@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Task } from '@/lib/types';
+import { Task, Tab } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
 
 /** Virtual system tab (never in DB). Shows all user tasks across categories. */
@@ -29,7 +29,6 @@ export const TRASH_RETENTION_DAYS = 30;
  * - tasksRef로 최신 tasks 참조 (useCallback 내 stale closure 방지)
  * - 첫 로드와 탭 전환을 분리 (탭 전환 시 스피너 표시 안 함)
  */
-import { Tab } from '@/lib/types';
 
 export interface UseTasksOptions {
   ensureTabExists?: (title: string) => Promise<number>;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
-import { Task, Tab } from '@/lib/types';
+import { Task } from '@/lib/types';
 import { getTaskAgingStyles } from '@/lib/visualAging';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -17,7 +17,6 @@ function getDaysUntilPurge(deletedAt: string | null | undefined): number | null 
 interface TrashViewProps {
   deletedTasks: Task[];
   isLoading: boolean;
-  tabs: Tab[];
   onFetch: () => void;
   onRestore: (task: Task) => Promise<string | null>;
 }
@@ -28,7 +27,6 @@ interface TrashViewProps {
 export const TrashView = ({
   deletedTasks,
   isLoading,
-  tabs,
   onFetch,
   onRestore,
 }: TrashViewProps) => {

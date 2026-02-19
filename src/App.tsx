@@ -181,7 +181,6 @@ function App() {
                 <TrashView
                   deletedTasks={deletedTasks}
                   isLoading={deletedLoading}
-                  tabs={tabs}
                   onFetch={fetchDeletedTasks}
                   onRestore={restoreTask}
                 />
