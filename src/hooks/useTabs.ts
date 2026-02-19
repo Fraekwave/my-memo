@@ -6,13 +6,16 @@ import { ALL_TAB_ID } from './useTasks';
 
 const STORAGE_KEY = 'active_tab_id';
 
+/** Default categories for new users (when DB has no tabs). */
+const DEFAULT_TAB_TITLES = ['Job', 'Family', 'Personal'] as const;
+
 /**
  * Tab CRUD 로직을 관리하는 커스텀 훅
  *
- * - 탭 목록 조회, 추가, 이름 변경, 삭제
- * - 기본 탭 자동 생성 (탭이 하나도 없을 때)
- * - 활성 탭 ID 관리
- * - localStorage로 선택된 탭 유지 (새로고침 시 복원)
+ * - 탭 목록 조회 (user_id 필터), 추가, 이름 변경, 삭제
+ * - 신규 유저: 기본 탭 (Job, Family, Personal) 자동 생성
+ * - "All" 탭: Virtual System Tab (DB 없음, TabBar에서 항상 마지막에 고정)
+ * - localStorage로 선택된 탭 유지
  */
 export const useTabs = (userId: string | null) => {
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -31,8 +34,8 @@ export const useTabs = (userId: string | null) => {
   }, []);
 
   /**
-   * 탭 목록 가져오기
-   * 탭이 없으면 기본 탭 'My Memo'를 자동 생성
+   * 탭 목록 가져오기 (현재 유저 전용)
+   * 탭이 없으면 기본 카테고리(Job, Family, Personal) 자동 생성
    */
   const fetchTabs = useCallback(async () => {
     if (userId === null) {
@@ -46,22 +49,29 @@ export const useTabs = (userId: string | null) => {
       const { data, error } = await supabase
         .from('tabs')
         .select('*')
+        .eq('user_id', userId)
         .order('order_index', { ascending: true });
 
       if (error) throw error;
 
       let tabsList = data || [];
 
-      // 탭이 하나도 없으면 기본 탭 생성
+      // 신규 유저: 기본 카테고리 생성
       if (tabsList.length === 0) {
-        const { data: newTab, error: insertError } = await supabase
+        const { data: newTabs, error: insertError } = await supabase
           .from('tabs')
-          .insert([{ title: 'My Memo', user_id: userId }])
+          .insert(
+            DEFAULT_TAB_TITLES.map((title, i) => ({
+              title,
+              order_index: i,
+              user_id: userId,
+            }))
+          )
           .select();
 
         if (insertError) throw insertError;
 
-        tabsList = newTab || [];
+        tabsList = newTabs || [];
       }
 
       setTabs(tabsList);
@@ -152,9 +162,10 @@ export const useTabs = (userId: string | null) => {
 
   /**
    * 탭 이름 변경
+   * System "All" 탭(id=-1)은 변경 불가
    */
   const updateTab = async (id: number, newTitle: string) => {
-    if (!newTitle.trim()) return;
+    if (id === ALL_TAB_ID || !newTitle.trim()) return;
 
     const previousTabs = tabs;
 
@@ -181,6 +192,7 @@ export const useTabs = (userId: string | null) => {
 
   /**
    * 탭 삭제
+   * System "All" 탭(id=-1)은 삭제 불가.
    * Cascade로 해당 탭의 task도 함께 삭제됨
    *
    * Nearest Neighbor 전략:
@@ -188,6 +200,7 @@ export const useTabs = (userId: string | null) => {
    * - 활성 탭 삭제: 왼쪽 탭 → 오른쪽 탭 → null 순으로 fallback
    */
   const deleteTab = async (id: number) => {
+    if (id === ALL_TAB_ID) return;
     const previousTabs = tabs;
     const previousSelectedTabId = selectedTabId;
     const deletedIndex = tabs.findIndex((tab) => tab.id === id);
@@ -224,6 +237,7 @@ export const useTabs = (userId: string | null) => {
 
   /**
    * 탭 순서 변경 (Drag & Drop)
+   * System "All" 탭은 SortableContext에 없어 드래그 불가
    *
    * Optimistic UI:
    * - arrayMove로 즉시 로컬 배열 재정렬
@@ -231,6 +245,8 @@ export const useTabs = (userId: string | null) => {
    * - 실패 시 이전 순서로 롤백
    */
   const reorderTabs = async (activeId: number, overId: number) => {
+    if (activeId === ALL_TAB_ID || overId === ALL_TAB_ID) return;
+
     const oldIndex = tabs.findIndex((t) => t.id === activeId);
     const newIndex = tabs.findIndex((t) => t.id === overId);
 

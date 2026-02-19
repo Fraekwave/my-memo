@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { Task } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
 
+/** Virtual system tab (never in DB). Shows all user tasks across categories. */
 export const ALL_TAB_ID = -1;
 
 /** 30-day purge window for trash (used by TrashView only). Active notes are permanent. */

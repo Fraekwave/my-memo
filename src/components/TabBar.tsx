@@ -308,7 +308,7 @@ export const TabBar = ({
               />
             ))}
 
-            {/* All 탭 (Master View) — 항상 마지막, 반전 스타일 */}
+            {/* Virtual System Tab "All" — DB에 없음, 삭제/이름변경 불가, 항상 마지막 */}
             <button
               type="button"
               onClick={() => onSelect(ALL_TAB_ID)}
