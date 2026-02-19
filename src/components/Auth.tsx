@@ -1,5 +1,5 @@
-import { useState, FormEvent, useCallback } from 'react';
-import { Globe, Apple, MessageCircle, Loader2 } from 'lucide-react';
+import { useState, FormEvent, useCallback, useMemo } from 'react';
+import { Globe, Apple, MessageCircle, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type AuthMode = 'login' | 'signup';
@@ -8,6 +8,14 @@ type SocialProvider = 'google' | 'apple' | 'kakao';
 interface AuthProps {
   onSuccess: () => void;
 }
+
+const PASSWORD_CRITERIA: { label: string; test: (p: string) => boolean }[] = [
+  { label: '최소 8자 이상', test: (p) => p.length >= 8 },
+  { label: '대문자 포함', test: (p) => /[A-Z]/.test(p) },
+  { label: '소문자 포함', test: (p) => /[a-z]/.test(p) },
+  { label: '숫자 포함', test: (p) => /[0-9]/.test(p) },
+  { label: '특수문자 포함', test: (p) => /[@&$%#*()\-_+=.,!?;:'"\\/[\]{}^`~]/.test(p) },
+];
 
 // Monochrome icons (zinc scale, no brand colors)
 const iconClass = 'w-5 h-5 text-zinc-500';
@@ -55,6 +63,15 @@ export const Auth = ({ onSuccess }: AuthProps) => {
     setError(null);
   }, []);
 
+  const passwordChecks = useMemo(
+    () => PASSWORD_CRITERIA.map(({ label, test }) => ({ label, met: test(password) })),
+    [password]
+  );
+  const allPasswordCriteriaMet = useMemo(
+    () => passwordChecks.every((c) => c.met),
+    [passwordChecks]
+  );
+
   const handleSocialLogin = useCallback(async (provider: SocialProvider) => {
     setError(null);
     setSocialLoadingProvider(provider);
@@ -100,10 +117,29 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="비밀번호"
             required
-            minLength={6}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
           />
+
+          {mode === 'signup' && (
+            <ul className="mt-1.5 space-y-0.5" aria-live="polite" aria-atomic="true">
+              {passwordChecks.map(({ label, met }) => (
+                <li
+                  key={label}
+                  className={`flex items-center gap-1.5 text-[10px] font-light transition-colors duration-150 ${
+                    met ? 'text-zinc-900' : 'text-zinc-300'
+                  }`}
+                >
+                  {met ? (
+                    <Check className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={2.5} stroke="currentColor" />
+                  ) : (
+                    <span className="w-2.5 h-2.5 flex-shrink-0 rounded-full border border-zinc-300" aria-hidden />
+                  )}
+                  {label}
+                </li>
+              ))}
+            </ul>
+          )}
 
           {error && (
             <p className="text-zinc-600 text-sm font-light">{error}</p>
@@ -111,7 +147,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (mode === 'signup' && !allPasswordCriteriaMet)}
             className="w-full py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? '처리 중...' : mode === 'login' ? '로그인' : '가입하기'}
