@@ -14,7 +14,7 @@ import { getTaskAgingStyles } from '@/lib/visualAging';
 import { DeconstructionCanvas } from './DeconstructionCanvas';
 
 const COMPLETION_ANIMATION_MS = 400;
-const DIRECTION_THRESHOLD = 8;
+const DIRECTION_THRESHOLD = 10;
 const DELETE_DISTANCE_RATIO = 0.5;
 const VELOCITY_THRESHOLD = 500;
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 30 };
@@ -166,6 +166,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     (e: React.PointerEvent) => {
       if (isEditing || isDragging || showDeconstruction) return;
       if (isInteractiveElement(e.target)) return;
+      // Swipe-to-delete only for touch; mouse/pen use hover delete
+      if (e.pointerType !== 'touch') return;
       startRef.current = { x: e.clientX, y: e.clientY, t: performance.now() };
       lastRef.current = { x: e.clientX, t: performance.now() };
       modeRef.current = 'idle';
@@ -187,6 +189,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         const isHorizontal = Math.abs(dx) > Math.abs(dy);
         modeRef.current = isHorizontal ? 'swipe' : 'sort';
         if (!isHorizontal) return;
+        e.currentTarget instanceof HTMLElement &&
+          e.currentTarget.setPointerCapture(e.pointerId);
       }
 
       if (modeRef.current === 'swipe') {
@@ -255,14 +259,14 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       style={style}
       {...dragProps}
       className={`
-        task-item rounded-xl border border-zinc-100
+        task-item group rounded-xl border border-zinc-100
         hover:border-zinc-200 hover:shadow-sm select-none
         ${isEditing ? 'cursor-auto' : 'cursor-grab'}
       `}
     >
       <div
         ref={swipeWrapperRef}
-        className="relative overflow-hidden rounded-xl"
+        className="relative overflow-hidden rounded-xl touch-pan-y"
         onPointerDownCapture={handlePointerDown}
         onPointerMoveCapture={handlePointerMove}
         onPointerUpCapture={handlePointerUp}
@@ -356,13 +360,34 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
           </div>
 
           {!isEditing && !isDragging && (
-            <button
-              onClick={startEditing}
-              className={iconClass}
-              aria-label="수정"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
+            <>
+              <button
+                onClick={startEditing}
+                className={iconClass}
+                aria-label="수정"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              {/* Desktop: reveal-on-hover delete (hidden on touch devices via group-hover) */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  tryHaptic();
+                  onDelete(task.id);
+                }}
+                data-no-dnd="true"
+                className={`
+                  opacity-0 group-hover:opacity-100 transition-opacity duration-150
+                  pointer-events-none group-hover:pointer-events-auto
+                  p-1 rounded
+                  ${aging.isDark ? 'text-white/80 hover:text-white' : 'text-zinc-400 hover:text-red-500'}
+                `}
+                aria-label="삭제"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
           )}
         </motion.div>
       </div>
