@@ -19,7 +19,14 @@ const AXIS_LOCK_RATIO = 1.5; // |dx| must exceed |dy| by this factor to lock hor
 const DELETE_DISTANCE_RATIO = 0.38; // 38% — responsive for mobile, balanced with velocity-based flick
 const VELOCITY_THRESHOLD = 400; // px/s — lower for faster flick completion
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 30 };
-const EXIT_DURATION = 0.25;
+
+// Fluidic deletion: viscous spring (low stiffness, high damping) — organic collapse, no bounce
+const EXIT_SPRING = {
+  type: 'spring' as const,
+  stiffness: 120,
+  damping: 26,
+  mass: 0.8,
+};
 
 function isInteractiveElement(el: EventTarget | null): boolean {
   const tags = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'LABEL']);
@@ -297,7 +304,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       }}
       transition={
         isDeleting
-          ? { marginTop: { duration: EXIT_DURATION }, marginBottom: { duration: EXIT_DURATION } }
+          ? { marginTop: EXIT_SPRING, marginBottom: EXIT_SPRING }
           : undefined
       }
       {...dragProps}
@@ -313,17 +320,16 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         key={deletingState ? 'exit' : 'idle'}
         initial={
           deletingState
-            ? { height: deletingState.height, opacity: 1 }
-            : { height: 'auto', opacity: 1 }
+            ? { height: deletingState.height }
+            : { height: 'auto' }
         }
         animate={
           deletingState
-            ? { height: 0, opacity: 0 }
-            : { height: 'auto', opacity: 1 }
+            ? { height: 0 }
+            : { height: 'auto' }
         }
         transition={{
-          height: { duration: EXIT_DURATION, ease: [0.32, 0.72, 0, 1] },
-          opacity: { duration: EXIT_DURATION * 0.6 },
+          height: EXIT_SPRING,
         }}
         onAnimationComplete={() => {
           if (deletingState) handleDeleteComplete();
