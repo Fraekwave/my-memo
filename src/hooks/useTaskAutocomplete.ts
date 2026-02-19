@@ -1,7 +1,7 @@
 import { useRef, useCallback } from 'react';
 
 /**
- * Local-First Autocomplete Hook — "Invisible Intelligence"
+a * Local-First Autocomplete Hook — "Invisible Intelligence"
  *
  * Self-cleaning data model: no manual delete, learns from user behavior.
  *
