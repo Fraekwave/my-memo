@@ -19,6 +19,7 @@ const AXIS_LOCK_RATIO = 1.5; // |dx| must exceed |dy| by this factor to lock hor
 const DELETE_DISTANCE_RATIO = 0.5;
 const VELOCITY_THRESHOLD = 400; // px/s — lower for faster flick completion
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 30 };
+const EXIT_DURATION = 0.25;
 
 function isInteractiveElement(el: EventTarget | null): boolean {
   const tags = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'LABEL']);
@@ -56,6 +57,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [swipeOffset, setSwipeOffset] = useState(0);
+  const [deletingState, setDeletingState] = useState<{ height: number } | null>(null);
+  const contentWrapperRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastRef = useRef<{ x: number; t: number } | null>(null);
   const velocityHistoryRef = useRef<{ x: number; t: number }[]>([]);
@@ -164,9 +167,23 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
     }
   };
 
+  const isDeleting = deletingState !== null;
+
+  const triggerDelete = useCallback(() => {
+    if (isDeleting) return;
+    const el = contentWrapperRef.current;
+    const height = el?.offsetHeight ?? 80;
+    setDeletingState({ height });
+    tryHaptic();
+  }, [isDeleting]);
+
+  const handleDeleteComplete = useCallback(() => {
+    onDelete(task.id);
+  }, [task.id, onDelete]);
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (isEditing || isDragging || showDeconstruction) return;
+      if (isDeleting || isEditing || isDragging || showDeconstruction) return;
       if (isInteractiveElement(e.target)) return;
       // Swipe-to-delete only for touch; mouse/pen use hover delete
       if (e.pointerType !== 'touch') return;
@@ -176,12 +193,12 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       modeRef.current = 'idle';
       setSwipeOffset(0);
     },
-    [isEditing, isDragging, showDeconstruction]
+    [isDeleting, isEditing, isDragging, showDeconstruction]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!startRef.current || isEditing || isDragging || showDeconstruction) return;
+      if (!startRef.current || isDeleting || isEditing || isDragging || showDeconstruction) return;
       if (isInteractiveElement(e.target)) return;
 
       const dx = e.clientX - startRef.current.x;
@@ -209,7 +226,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         setSwipeOffset(Math.min(0, dx));
       }
     },
-    [isEditing, isDragging, showDeconstruction]
+    [isDeleting, isEditing, isDragging, showDeconstruction]
   );
 
   const handlePointerUp = useCallback(
@@ -244,8 +261,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         offset < -width * DELETE_DISTANCE_RATIO || velocity < -VELOCITY_THRESHOLD;
 
       if (shouldDelete) {
-        tryHaptic();
-        onDelete(task.id);
+        triggerDelete();
       } else {
         setSwipeOffset(0);
       }
@@ -255,7 +271,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       lastRef.current = null;
       velocityHistoryRef.current = [];
     },
-    [swipeOffset, task.id, onDelete]
+    [swipeOffset, task.id, triggerDelete]
   );
 
   const iconClass = aging.isDark
@@ -268,23 +284,55 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       : 'animate-shake-complete'
     : '';
 
-  // Only show delete reveal when actively swiping (swipeOffset set in swipe mode only)
-  const progress = Math.min(1, Math.abs(swipeOffset) / 120);
+  // Delete reveal: full red during exit; otherwise only when actively swiping
+  const progress = isDeleting ? 1 : Math.min(1, Math.abs(swipeOffset) / 120);
 
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
-      style={style}
+      layout
+      style={{
+        ...style,
+        ...(isDeleting ? { marginTop: 0, marginBottom: 0 } : {}),
+      }}
+      transition={
+        isDeleting
+          ? { marginTop: { duration: EXIT_DURATION }, marginBottom: { duration: EXIT_DURATION } }
+          : undefined
+      }
       {...dragProps}
       className={`
         task-item group rounded-xl border border-zinc-100
         hover:border-zinc-200 hover:shadow-sm select-none
         ${isEditing ? 'cursor-auto' : 'cursor-grab'}
+        ${isDeleting ? 'pointer-events-none' : ''}
       `}
     >
-      <div
-        ref={swipeWrapperRef}
-        className="relative overflow-hidden rounded-xl touch-pan-y"
+      <motion.div
+        ref={contentWrapperRef}
+        key={deletingState ? 'exit' : 'idle'}
+        initial={
+          deletingState
+            ? { height: deletingState.height, opacity: 1 }
+            : { height: 'auto', opacity: 1 }
+        }
+        animate={
+          deletingState
+            ? { height: 0, opacity: 0 }
+            : { height: 'auto', opacity: 1 }
+        }
+        transition={{
+          height: { duration: EXIT_DURATION, ease: [0.32, 0.72, 0, 1] },
+          opacity: { duration: EXIT_DURATION * 0.6 },
+        }}
+        onAnimationComplete={() => {
+          if (deletingState) handleDeleteComplete();
+        }}
+        className="overflow-hidden"
+      >
+        <div
+          ref={swipeWrapperRef}
+          className="relative overflow-hidden rounded-xl touch-pan-y"
         onPointerDownCapture={handlePointerDown}
         onPointerMoveCapture={handlePointerMove}
         onPointerUpCapture={handlePointerUp}
@@ -380,20 +428,20 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
           {!isEditing && !isDragging && (
             <div className="flex justify-end items-center gap-2 min-w-0">
               {/* Desktop: Trash slides in from left on hover; Mobile: w-0 so no space (group-hover never fires) */}
+              {/* PC only: @media (hover: hover) — strictly non-existent on touch (no ghost/sticky hover) */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  tryHaptic();
-                  onDelete(task.id);
+                  triggerDelete();
                 }}
                 data-no-dnd="true"
                 className={`
-                  shrink-0 w-0 overflow-hidden opacity-0
+                  hidden hover-hover:inline-flex shrink-0 w-0 overflow-hidden opacity-0
                   group-hover:w-6 group-hover:opacity-100
                   transition-all duration-200 ease-out
                   pointer-events-none group-hover:pointer-events-auto
-                  p-1 rounded flex items-center justify-center
+                  p-1 rounded items-center justify-center
                   ${aging.isDark ? 'text-white/80 hover:text-white' : 'text-zinc-400 hover:text-red-500'}
                 `}
                 aria-label="삭제"
@@ -411,7 +459,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
           )}
         </motion.div>
       </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }, (prev, next) =>
   prev.task.id === next.task.id &&
