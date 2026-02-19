@@ -1,9 +1,9 @@
 import { useState, FormEvent, useCallback, useMemo } from 'react';
-import { Globe, Apple, MessageCircle, Loader2, Check, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Loader2, Check, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { GoogleGIcon } from '@/components/GoogleGIcon';
 
 type AuthMode = 'login' | 'signup';
-type SocialProvider = 'google' | 'apple' | 'kakao';
 
 interface AuthProps {
   onSuccess: () => void;
@@ -16,9 +16,6 @@ const PASSWORD_CRITERIA: { label: string; test: (p: string) => boolean }[] = [
   { label: '숫자 포함', test: (p) => /[0-9]/.test(p) },
   { label: '특수문자 포함', test: (p) => /[@&$%#*()\-_+=.,!?;:'"\\/[\]{}^`~]/.test(p) },
 ];
-
-// Monochrome icons (zinc scale, no brand colors)
-const iconClass = 'w-5 h-5 text-zinc-500';
 
 /**
  * Tesla-style Auth: Extreme minimalism, Zinc/Stone monochrome
@@ -37,7 +34,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  const [socialLoadingProvider, setSocialLoadingProvider] = useState<SocialProvider | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -118,22 +115,22 @@ export const Auth = ({ onSuccess }: AuthProps) => {
     [allPasswordCriteriaMet, password, confirmPassword]
   );
 
-  const handleSocialLogin = useCallback(async (provider: SocialProvider) => {
+  const handleGoogleSignIn = useCallback(async () => {
     setError(null);
-    setSocialLoadingProvider(provider);
+    setGoogleLoading(true);
 
     try {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider,
+        provider: 'google',
         options: {
           redirectTo: window.location.origin,
         },
       });
       if (oauthError) throw oauthError;
+      // Success: redirect happens; no need to clear loading
     } catch (err) {
-      setError(err instanceof Error ? err.message : '소셜 로그인 실패');
-    } finally {
-      setSocialLoadingProvider(null);
+      setError(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다');
+      setGoogleLoading(false);
     }
   }, []);
 
@@ -335,62 +332,32 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         </form>
         )}
 
-        {/* OR Divider & Social Login — 숨김 when reset flow */}
+        {/* OR Divider & Sign in with Google — 숨김 when reset flow */}
         {!showResetFlow && (
         <>
-        <div className="flex items-center gap-4 my-6">
+        <div className="flex items-center gap-4 my-6" role="separator" aria-label="구분선">
           <div className="flex-1 h-px bg-zinc-200" />
-          <span className="text-stone-400 text-xs font-light tracking-widest uppercase">또는</span>
+          <span className="text-zinc-400 text-xs font-light tracking-widest uppercase">OR</span>
           <div className="flex-1 h-px bg-zinc-200" />
         </div>
 
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => handleSocialLogin('google')}
-            disabled={socialLoadingProvider !== null}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-transparent border border-zinc-200 rounded-xl text-zinc-700 hover:bg-zinc-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-          >
-            {socialLoadingProvider === 'google' ? (
-              <Loader2 className={`${iconClass} animate-spin`} strokeWidth={1.5} />
-            ) : (
-              <Globe className={iconClass} strokeWidth={1.5} />
-            )}
-            <span className="text-sm font-medium">
-              {socialLoadingProvider === 'google' ? '연결 중...' : 'Google로 계속하기'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSocialLogin('apple')}
-            disabled={socialLoadingProvider !== null}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-transparent border border-zinc-200 rounded-xl text-zinc-700 hover:bg-zinc-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-          >
-            {socialLoadingProvider === 'apple' ? (
-              <Loader2 className={`${iconClass} animate-spin`} strokeWidth={1.5} />
-            ) : (
-              <Apple className={iconClass} strokeWidth={1.5} />
-            )}
-            <span className="text-sm font-medium">
-              {socialLoadingProvider === 'apple' ? '연결 중...' : 'Apple로 계속하기'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSocialLogin('kakao')}
-            disabled={socialLoadingProvider !== null}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-transparent border border-zinc-200 rounded-xl text-zinc-700 hover:bg-zinc-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-          >
-            {socialLoadingProvider === 'kakao' ? (
-              <Loader2 className={`${iconClass} animate-spin`} strokeWidth={1.5} />
-            ) : (
-              <MessageCircle className={iconClass} strokeWidth={1.5} />
-            )}
-            <span className="text-sm font-medium">
-              {socialLoadingProvider === 'kakao' ? '연결 중...' : '카카오로 계속하기'}
-            </span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={googleLoading}
+          className={`w-full flex items-center justify-center gap-3 py-3 px-4 bg-white border border-zinc-200 rounded-xl text-zinc-800 hover:bg-zinc-50 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white ${
+            googleLoading ? 'opacity-75' : ''
+          }`}
+        >
+          {googleLoading ? (
+            <Loader2 className="w-5 h-5 text-zinc-500 animate-spin" strokeWidth={1.5} />
+          ) : (
+            <GoogleGIcon className="w-5 h-5" />
+          )}
+          <span className="text-sm font-medium">
+            {googleLoading ? '연결 중...' : 'Sign in with Google'}
+          </span>
+        </button>
         </>
         )}
 
