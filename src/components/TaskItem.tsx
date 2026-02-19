@@ -42,6 +42,7 @@ function isInteractiveElement(el: EventTarget | null): boolean {
 
 interface TaskItemProps {
   task: Task;
+  activeDragId: number | null;
   onToggle: (id: number, isCompleted: boolean) => void;
   onUpdate: (id: number, newText: string) => void;
   onDelete: (id: number) => void;
@@ -53,7 +54,7 @@ const animateLayoutChanges: AnimateLayoutChanges = (args) => {
   return defaultAnimateLayoutChanges(args);
 };
 
-export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemProps) => {
+export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [justCompleted, setJustCompleted] = useState(false);
@@ -83,10 +84,11 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   } = useSortable({ id: task.id, animateLayoutChanges });
 
   const aging = getTaskAgingStyles(task.created_at);
+  const isDragActive = activeDragId === task.id;
   const style = {
     transform: CSS.Translate.toString(transform),
     transition: sortableTransition,
-    opacity: isDragging ? 0.3 : undefined,
+    opacity: isDragActive ? 0.3 : 1,
     backgroundColor: aging.backgroundColor,
   };
 
@@ -492,6 +494,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   prev.task.order_index === next.task.order_index &&
   prev.task.created_at === next.task.created_at &&
   prev.task.completed_at === next.task.completed_at &&
+  prev.activeDragId === next.activeDragId &&
   prev.onToggle === next.onToggle &&
   prev.onUpdate === next.onUpdate &&
   prev.onDelete === next.onDelete

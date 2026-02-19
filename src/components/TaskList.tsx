@@ -173,10 +173,12 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
       onReorder(Number(active.id), Number(over.id));
     }
     setActiveId(null);
+    (document.activeElement as HTMLElement)?.blur?.();
   };
 
   const handleDragCancel = () => {
     setActiveId(null);
+    (document.activeElement as HTMLElement)?.blur?.();
   };
 
   if (tasks.length === 0) {
@@ -209,6 +211,7 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
             <TaskItem
               key={task.id}
               task={task}
+              activeDragId={activeId}
               onToggle={onToggle}
               onUpdate={onUpdate}
               onDelete={onDelete}
