@@ -28,6 +28,10 @@ const EXIT_TRANSITION = {
   ease: EXIT_SNAP_EASE,
 };
 
+// Lightweight sliver: start at 50% height to reduce visual weight, then magnetic snap to 0
+const EXIT_SHRINK_RATIO = 0.5;
+const EXIT_KEYFRAME_TIMES = [0, 0.06, 1] as const; // 6% rapid thin, 94% magnetic snap
+
 function isInteractiveElement(el: EventTarget | null): boolean {
   const tags = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'LABEL']);
   let cur = el as HTMLElement | null;
@@ -329,11 +333,41 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         }
         animate={
           deletingState
-            ? { height: 0 }
-            : { height: 'auto' }
+            ? {
+                height: [
+                  deletingState.height,
+                  deletingState.height * EXIT_SHRINK_RATIO,
+                  0,
+                ],
+                marginTop: [
+                  0,
+                  deletingState.height * (1 - EXIT_SHRINK_RATIO) * 0.5,
+                  0,
+                ],
+                marginBottom: [
+                  0,
+                  deletingState.height * (1 - EXIT_SHRINK_RATIO) * 0.5,
+                  0,
+                ],
+              }
+            : { height: 'auto', marginTop: 0, marginBottom: 0 }
         }
         transition={{
-          height: EXIT_TRANSITION,
+          height: {
+            duration: EXIT_DURATION,
+            times: [...EXIT_KEYFRAME_TIMES],
+            ease: ['easeOut', EXIT_SNAP_EASE],
+          },
+          marginTop: {
+            duration: EXIT_DURATION,
+            times: [...EXIT_KEYFRAME_TIMES],
+            ease: ['easeOut', EXIT_SNAP_EASE],
+          },
+          marginBottom: {
+            duration: EXIT_DURATION,
+            times: [...EXIT_KEYFRAME_TIMES],
+            ease: ['easeOut', EXIT_SNAP_EASE],
+          },
         }}
         onAnimationComplete={() => {
           if (deletingState) handleDeleteComplete();
