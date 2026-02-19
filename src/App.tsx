@@ -101,7 +101,7 @@ function App() {
 
         {/* 스크롤 콘텐츠: Task 목록 */}
         <div className="bg-white rounded-b-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 border-t-0">
-          {/* Task 목록 — 컨테이너 내에서 자연스럽게 늘어남 */}
+          {/* Task 목록 — min-h 고정으로 레이아웃 점프 방지, 탭 전환 시 페이드 */}
           <div className="p-6 sm:p-8 min-h-[400px] flex flex-col">
             {isTasksLoading ? (
               <div className="flex-1 flex items-center justify-center min-h-[300px]">
@@ -109,7 +109,7 @@ function App() {
               </div>
             ) : (
               <div
-                className="flex-1 flex flex-col transition-opacity duration-150 ease-out"
+                className="flex-1 flex flex-col min-h-[300px] transition-opacity duration-200 ease-out"
                 style={{ opacity: tasks.length > 0 || !selectedTabId ? 1 : 0.6 }}
               >
                 <TaskList

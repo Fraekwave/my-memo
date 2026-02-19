@@ -1,4 +1,4 @@
-import { useState, type MouseEvent, type TouchEvent } from 'react';
+import { useState, useMemo, type MouseEvent, type TouchEvent } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -154,13 +154,11 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
   const [activeId, setActiveId] = useState<number | null>(null);
   const activeTask = activeId !== null ? tasks.find((t) => t.id === activeId) : null;
 
+  const mouseOptions = useMemo(() => ({ activationConstraint: { distance: 10 } }), []);
+  const touchOptions = useMemo(() => ({ activationConstraint: { delay: 250, tolerance: 5 } }), []);
   const sensors = useSensors(
-    useSensor(SmartMouseSensor, {
-      activationConstraint: { distance: 10 },
-    }),
-    useSensor(SmartTouchSensor, {
-      activationConstraint: { delay: 250, tolerance: 5 },
-    })
+    useSensor(SmartMouseSensor, mouseOptions),
+    useSensor(SmartTouchSensor, touchOptions)
   );
 
   const handleDragStart = (event: DragStartEvent) => {

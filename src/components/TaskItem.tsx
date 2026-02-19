@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
+import { memo, useState, useRef, useEffect, useCallback, useMemo, KeyboardEvent } from 'react';
 import {
   useSortable,
   defaultAnimateLayoutChanges,
@@ -90,7 +90,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
     isDragging,
   } = useSortable({ id: task.id, animateLayoutChanges });
 
-  const aging = getTaskAgingStyles(task.created_at);
+  const aging = useMemo(() => getTaskAgingStyles(task.created_at), [task.created_at]);
   const isDragActive = activeDragId === task.id;
   const style = {
     transform: CSS.Translate.toString(transform),

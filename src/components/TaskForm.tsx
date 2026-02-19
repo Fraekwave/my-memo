@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, FormEvent, KeyboardEvent, TouchEvent } from 'react';
+import { memo, useState, useRef, useEffect, useCallback, FormEvent, KeyboardEvent, TouchEvent } from 'react';
 import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
 
 interface TaskFormProps {
@@ -28,7 +28,7 @@ interface TaskFormProps {
 const HINT_STORAGE_KEY = 'has_seen_swipe_hint';
 const SWIPE_THRESHOLD = 50; // px — 의도적 스와이프와 탭/미세 터치 구분
 
-export const TaskForm = ({ onSubmit }: TaskFormProps) => {
+export const TaskForm = memo(({ onSubmit }: TaskFormProps) => {
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const { record, suggest, onAcceptSuggestion, checkRejection } = useTaskAutocomplete();
@@ -244,4 +244,4 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
       </div>
     </form>
   );
-};
+});

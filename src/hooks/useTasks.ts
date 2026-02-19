@@ -74,11 +74,9 @@ export const useTasks = (selectedTabId: number | null) => {
    * 2. Create: 새로운 Task 추가
    *
    * ✨ Optimistic UI: 임시 Task를 즉시 UI에 추가
-   *
-   * NOTE: addTask는 selectedTabId를 참조하므로 useCallback으로 감싸지 않음.
-   * (selectedTabId가 변경될 때마다 새 함수 필요)
+   * ✨ useCallback으로 안정화 — TaskForm 불필요한 리렌더 방지
    */
-  const addTask = async (text: string): Promise<boolean> => {
+  const addTask = useCallback(async (text: string): Promise<boolean> => {
     if (!text.trim()) return false;
 
     setError(null);
@@ -123,7 +121,7 @@ export const useTasks = (selectedTabId: number | null) => {
       setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
       return false;
     }
-  };
+  }, [selectedTabId]); // supabase is module-level stable
 
   /**
    * 3. Update: Task 완료 상태 토글
