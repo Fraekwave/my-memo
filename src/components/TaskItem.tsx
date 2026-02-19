@@ -20,12 +20,12 @@ const DELETE_DISTANCE_RATIO = 0.38; // 38% — responsive for mobile, balanced w
 const VELOCITY_THRESHOLD = 400; // px/s — lower for faster flick completion
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 30 };
 
-// Fluidic deletion: viscous spring (low stiffness, high damping) — organic collapse, no bounce
-const EXIT_SPRING = {
-  type: 'spring' as const,
-  stiffness: 120,
-  damping: 26,
-  mass: 0.8,
+// Magnetic snap: ease-in curve — fluid start, terminal acceleration into zero (pulled to floor)
+const EXIT_SNAP_EASE = [0.5, 0, 0.85, 1] as const;
+const EXIT_DURATION = 0.26;
+const EXIT_TRANSITION = {
+  duration: EXIT_DURATION,
+  ease: EXIT_SNAP_EASE,
 };
 
 function isInteractiveElement(el: EventTarget | null): boolean {
@@ -304,7 +304,11 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       }}
       transition={
         isDeleting
-          ? { marginTop: EXIT_SPRING, marginBottom: EXIT_SPRING }
+          ? {
+              marginTop: EXIT_TRANSITION,
+              marginBottom: EXIT_TRANSITION,
+              layout: EXIT_TRANSITION,
+            }
           : undefined
       }
       {...dragProps}
@@ -329,7 +333,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
             : { height: 'auto' }
         }
         transition={{
-          height: EXIT_SPRING,
+          height: EXIT_TRANSITION,
         }}
         onAnimationComplete={() => {
           if (deletingState) handleDeleteComplete();
