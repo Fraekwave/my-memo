@@ -440,14 +440,6 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
                   )}
               </>
             )}
-            <span
-              className="text-[10px] text-red-500/80 font-mono tabular-nums"
-              aria-hidden
-            >
-              {aging.isInGracePeriod
-                ? `Fresh (Grace Period)`
-                : `Age: ${aging.daysOld.toFixed(1)} / Effective: ${aging.effectiveDaysOld.toFixed(1)} / Dark: ${aging.darknessPercent.toFixed(1)}%`}
-            </span>
           </div>
 
           {!isEditing && !isDragging && (
