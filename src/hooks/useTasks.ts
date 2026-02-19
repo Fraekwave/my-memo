@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
@@ -28,14 +28,27 @@ export const useTasks = (
   userId: string | null,
   tabIds: number[] = []
 ) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [rawTasks, setRawTasks] = useState<Task[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
-  // ── Performance: 최신 tasks를 ref로 참조 ──
-  // useCallback 핸들러 내에서 stale closure 없이 tasks에 접근
-  const tasksRef = useRef(tasks);
-  tasksRef.current = tasks;
+  const tasksRef = useRef<Task[]>([]);
+  tasksRef.current = rawTasks;
+
+  /**
+   * Pre-sorted display list (Zero-Flicker): sort once in useMemo before paint.
+   * For All tab: alphanumeric sort. For tab view: raw order_index from DB.
+   */
+  const displayTasks = useMemo(() => {
+    if (selectedTabId === ALL_TAB_ID) {
+      return [...rawTasks].sort((a, b) =>
+        (a.text ?? '').localeCompare(b.text ?? '', 'ko', { numeric: true })
+      );
+    }
+    return rawTasks;
+  }, [rawTasks, selectedTabId]);
+
 
   // ── 첫 로드 추적 ──
   const isFirstLoadRef = useRef(true);
@@ -49,7 +62,7 @@ export const useTasks = (
    */
   const fetchTasks = useCallback(async () => {
     if (selectedTabId === null || userId === null) {
-      setTasks([]);
+      startTransition(() => setRawTasks([]));
       isFirstLoadRef.current = false;
       setIsInitialLoading(false);
       return;
@@ -64,7 +77,7 @@ export const useTasks = (
 
       if (selectedTabId === ALL_TAB_ID) {
         if (tabIds.length === 0) {
-          if (thisFetchId === fetchIdRef.current) setTasks([]);
+          if (thisFetchId === fetchIdRef.current) startTransition(() => setRawTasks([]));
         } else {
           const { data, error } = await supabase
             .from('mytask')
@@ -75,11 +88,7 @@ export const useTasks = (
 
           if (error) throw error;
           if (thisFetchId !== fetchIdRef.current) return;
-
-          const sorted = (data || []).sort((a, b) =>
-            (a.text ?? '').localeCompare(b.text ?? '', 'ko', { numeric: true })
-          );
-          setTasks(sorted);
+          startTransition(() => setRawTasks(data || []));
         }
       } else {
         const { data, error } = await supabase
@@ -91,7 +100,7 @@ export const useTasks = (
 
         if (error) throw error;
         if (thisFetchId !== fetchIdRef.current) return;
-        setTasks(data || []);
+        startTransition(() => setRawTasks(data || []));
       }
     } catch (err) {
       if (thisFetchId === fetchIdRef.current) {
@@ -135,7 +144,7 @@ export const useTasks = (
       user_id: userId ?? undefined,
     };
 
-    setTasks((prev) => [optimisticTask, ...prev]);
+    setRawTasks((prev) => [optimisticTask, ...prev]);
 
     try {
       const { data, error } = await supabase
@@ -152,7 +161,7 @@ export const useTasks = (
       if (error) throw error;
 
       if (data && data[0]) {
-        setTasks((prev) =>
+        setRawTasks((prev) =>
           prev.map((task) =>
             task.id === optimisticTask.id ? data[0] : task
           )
@@ -163,7 +172,7 @@ export const useTasks = (
     } catch (err) {
       console.error('추가 에러:', err);
       setError(err instanceof Error ? err.message : '추가 실패');
-      setTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
+      setRawTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
       return false;
     }
   }, [selectedTabId, userId]); // supabase is module-level stable
@@ -177,7 +186,7 @@ export const useTasks = (
     const previousTasks = tasksRef.current;
     const completedAt = isCompleted ? new Date().toISOString() : null;
 
-    setTasks((prev) =>
+    setRawTasks((prev) =>
       prev.map((task) =>
         task.id === id
           ? { ...task, is_completed: isCompleted, completed_at: completedAt ?? undefined }
@@ -195,7 +204,7 @@ export const useTasks = (
     } catch (err) {
       console.error('수정 에러:', err);
       setError(err instanceof Error ? err.message : '수정 실패');
-      setTasks(previousTasks);
+      setRawTasks(previousTasks);
     }
   }, []);
 
@@ -208,7 +217,7 @@ export const useTasks = (
 
     const previousTasks = tasksRef.current;
 
-    setTasks((prev) =>
+    setRawTasks((prev) =>
       prev.map((task) =>
         task.id === id ? { ...task, text: newText.trim() } : task
       )
@@ -224,7 +233,7 @@ export const useTasks = (
     } catch (err) {
       console.error('수정 에러:', err);
       setError(err instanceof Error ? err.message : '수정 실패');
-      setTasks(previousTasks);
+      setRawTasks(previousTasks);
     }
   }, []);
 
@@ -236,7 +245,7 @@ export const useTasks = (
     const taskToDelete = currentTasks.find((task) => task.id === id);
     if (!taskToDelete) return;
 
-    setTasks((prev) => prev.filter((task) => task.id !== id));
+    setRawTasks((prev) => prev.filter((task) => task.id !== id));
 
     try {
       const { error } = await supabase
@@ -248,7 +257,7 @@ export const useTasks = (
     } catch (err) {
       console.error('삭제 에러:', err);
       setError(err instanceof Error ? err.message : '삭제 실패');
-      setTasks((prev) => {
+      setRawTasks((prev) => {
         const restored = [...prev, taskToDelete].sort(
           (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
         );
@@ -275,7 +284,7 @@ export const useTasks = (
       ...task,
       order_index: i,
     }));
-    setTasks(reorderedWithIndex);
+    setRawTasks(reorderedWithIndex);
 
     try {
       const results = await Promise.all(
@@ -287,7 +296,7 @@ export const useTasks = (
       if (failed?.error) throw failed.error;
     } catch (err) {
       console.error('Task 순서 변경 에러:', err);
-      setTasks(previousTasks);
+      setRawTasks(previousTasks);
     }
   }, []);
 
@@ -307,12 +316,12 @@ export const useTasks = (
    */
   const visibleTasks = useMemo(() => {
     const now = Date.now();
-    return tasks.filter((t) => {
+    return displayTasks.filter((t) => {
       if (!t.is_completed) return true;
       const completedAt = t.completed_at ? new Date(t.completed_at).getTime() : 0;
       return now - completedAt < TWENTY_FOUR_HOURS_MS;
     });
-  }, [tasks]);
+  }, [displayTasks]);
 
   /**
    * 통계 계산 (노출되는 Task 기준)

@@ -312,7 +312,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
   return (
     <motion.div
       ref={setNodeRef}
-      layout
+      layout={!disableDrag}
       style={{
         ...style,
         ...(isDeleting ? { marginTop: 0, marginBottom: 0 } : {}),
