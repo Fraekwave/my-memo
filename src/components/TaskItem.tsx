@@ -411,7 +411,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
 
           <div
             ref={textContainerRef}
-            className="relative flex-1 min-w-0 flex flex-col gap-0.5 min-h-[2rem]"
+            className="relative flex-1 min-w-0 flex flex-col gap-0.5 min-h-[2rem] justify-center"
           >
             {isEditing ? (
               <input
