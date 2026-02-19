@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Tab } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
+import { ALL_TAB_ID } from './useTasks';
 
 const STORAGE_KEY = 'active_tab_id';
 
@@ -71,15 +72,17 @@ export const useTabs = (userId: string | null) => {
         const savedTabId = savedId ? Number(savedId) : null;
 
         setSelectedTabId((prev) => {
-          // 1) 저장된 ID가 유효하면 복원
+          // 1) All 탭(-1) 복원
+          if (savedTabId === ALL_TAB_ID) return ALL_TAB_ID;
+          // 2) 저장된 ID가 유효하면 복원
           if (savedTabId !== null && tabsList.some((t) => t.id === savedTabId)) {
             return savedTabId;
           }
-          // 2) 이미 선택된 탭이 유효하면 유지
-          if (prev !== null && tabsList.some((t) => t.id === prev)) {
+          // 3) 이미 선택된 탭이 유효하면 유지
+          if (prev !== null && prev !== ALL_TAB_ID && tabsList.some((t) => t.id === prev)) {
             return prev;
           }
-          // 3) 둘 다 아니면 첫 번째 탭
+          // 4) 둘 다 아니면 첫 번째 탭
           return tabsList[0].id;
         });
       }

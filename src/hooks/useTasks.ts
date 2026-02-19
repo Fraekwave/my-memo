@@ -4,6 +4,7 @@ import { Task } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+export const ALL_TAB_ID = -1;
 
 /**
  * Task CRUD 로직을 관리하는 커스텀 훅
@@ -22,7 +23,11 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
  * - tasksRef로 최신 tasks 참조 (useCallback 내 stale closure 방지)
  * - 첫 로드와 탭 전환을 분리 (탭 전환 시 스피너 표시 안 함)
  */
-export const useTasks = (selectedTabId: number | null, userId: string | null) => {
+export const useTasks = (
+  selectedTabId: number | null,
+  userId: string | null,
+  tabIds: number[] = []
+) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,19 +53,39 @@ export const useTasks = (selectedTabId: number | null, userId: string | null) =>
     }
 
     try {
-      // 첫 로드에서만 스피너 표시 — 탭 전환 시에는 기존 콘텐츠 유지
       if (isFirstLoadRef.current) {
         setIsInitialLoading(true);
       }
 
-      const { data, error } = await supabase
-        .from('mytask')
-        .select('*')
-        .eq('tab_id', selectedTabId)
-        .order('order_index', { ascending: true });
+      if (selectedTabId === ALL_TAB_ID) {
+        // All 탭: 모든 탭의 task 통합, 오름차순 정렬 (숫자→영문→한글)
+        if (tabIds.length === 0) {
+          setTasks([]);
+        } else {
+          const { data, error } = await supabase
+            .from('mytask')
+            .select('*')
+            .in('tab_id', tabIds)
+            .is('deleted_at', null)
+            .order('order_index', { ascending: true });
 
-      if (error) throw error;
-      setTasks(data || []);
+          if (error) throw error;
+          const sorted = (data || []).sort((a, b) =>
+            (a.text ?? '').localeCompare(b.text ?? '', 'ko', { numeric: true })
+          );
+          setTasks(sorted);
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('mytask')
+          .select('*')
+          .eq('tab_id', selectedTabId)
+          .is('deleted_at', null)
+          .order('order_index', { ascending: true });
+
+        if (error) throw error;
+        setTasks(data || []);
+      }
     } catch (err) {
       console.error('불러오기 에러:', err);
       setError(err instanceof Error ? err.message : '알 수 없는 에러');
@@ -68,7 +93,7 @@ export const useTasks = (selectedTabId: number | null, userId: string | null) =>
       setIsInitialLoading(false);
       isFirstLoadRef.current = false;
     }
-  }, [selectedTabId, userId]);
+  }, [selectedTabId, userId, tabIds]);
 
   /**
    * 2. Create: 새로운 Task 추가
@@ -78,7 +103,8 @@ export const useTasks = (selectedTabId: number | null, userId: string | null) =>
    */
   const addTask = useCallback(async (text: string): Promise<boolean> => {
     if (!text.trim()) return false;
-    if (userId === null) return false; // RLS: must be authenticated
+    if (userId === null) return false;
+    if (selectedTabId === ALL_TAB_ID || selectedTabId === null) return false; // All 탭에서는 추가 불가
 
     setError(null);
 
@@ -192,8 +218,7 @@ export const useTasks = (selectedTabId: number | null, userId: string | null) =>
   }, []);
 
   /**
-   * 5. Delete: Task 삭제
-   * ✨ useCallback으로 안정화
+   * 5. Delete: Soft Delete (deleted_at 설정)
    */
   const deleteTask = useCallback(async (id: number) => {
     const currentTasks = tasksRef.current;
@@ -203,13 +228,15 @@ export const useTasks = (selectedTabId: number | null, userId: string | null) =>
     setTasks((prev) => prev.filter((task) => task.id !== id));
 
     try {
-      const { error } = await supabase.from('mytask').delete().eq('id', id);
+      const { error } = await supabase
+        .from('mytask')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
 
       if (error) throw error;
     } catch (err) {
       console.error('삭제 에러:', err);
       setError(err instanceof Error ? err.message : '삭제 실패');
-
       setTasks((prev) => {
         const restored = [...prev, taskToDelete].sort(
           (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
@@ -286,6 +313,49 @@ export const useTasks = (selectedTabId: number | null, userId: string | null) =>
     [visibleTasks]
   );
 
+  // ── 휴지통: Soft Delete 복구 ──
+  const [deletedTasks, setDeletedTasks] = useState<Task[]>([]);
+  const [deletedLoading, setDeletedLoading] = useState(false);
+
+  const fetchDeletedTasks = useCallback(async () => {
+    if (userId === null) return;
+    setDeletedLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('mytask')
+        .select('*')
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false });
+
+      if (error) throw error;
+      setDeletedTasks(data || []);
+    } catch (err) {
+      console.error('휴지통 불러오기 에러:', err);
+    } finally {
+      setDeletedLoading(false);
+    }
+  }, [userId]);
+
+  const restoreTask = useCallback(
+    async (id: number, tabTitle: string): Promise<string | null> => {
+      try {
+        const { error } = await supabase
+          .from('mytask')
+          .update({ deleted_at: null })
+          .eq('id', id);
+
+        if (error) throw error;
+        setDeletedTasks((prev) => prev.filter((t) => t.id !== id));
+        if (selectedTabId !== null) fetchTasks();
+        return tabTitle;
+      } catch (err) {
+        console.error('복구 에러:', err);
+        return null;
+      }
+    },
+    [selectedTabId, fetchTasks]
+  );
+
   return {
     tasks: visibleTasks,
     isInitialLoading,
@@ -296,5 +366,9 @@ export const useTasks = (selectedTabId: number | null, userId: string | null) =>
     deleteTask,
     reorderTasks,
     stats,
+    deletedTasks,
+    deletedLoading,
+    fetchDeletedTasks,
+    restoreTask,
   };
 };

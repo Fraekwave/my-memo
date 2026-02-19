@@ -15,6 +15,7 @@ import {
   horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ALL_TAB_ID } from '@/hooks/useTasks';
 import { Tab } from '@/lib/types';
 import { ConfirmModal } from './ConfirmModal';
 import { SortableTabItem } from './SortableTabItem';
@@ -22,7 +23,7 @@ import { SortableTabItem } from './SortableTabItem';
 interface TabBarProps {
   tabs: Tab[];
   selectedTabId: number | null;
-  onSelect: (id: number) => void;
+  onSelect: (id: number) => void; // -1 = All (Master View)
   onAdd: () => number;
   onUpdate: (id: number, newTitle: string) => void;
   onDelete: (id: number) => void;
@@ -306,6 +307,22 @@ export const TabBar = ({
                 onDeleteRequest={setDeleteTabId}
               />
             ))}
+
+            {/* All 탭 (Master View) — 항상 마지막, 반전 스타일 */}
+            <button
+              type="button"
+              onClick={() => onSelect(ALL_TAB_ID)}
+              className={`
+                flex-shrink-0 flex items-center px-3 py-2.5 rounded-t-lg
+                min-w-[60px] transition-colors duration-200
+                ${selectedTabId === ALL_TAB_ID
+                  ? 'bg-zinc-900 text-white font-medium'
+                  : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300/70 hover:text-zinc-700'
+                }
+              `}
+            >
+              <span className="text-sm">All</span>
+            </button>
           </div>
         </SortableContext>
       </DndContext>

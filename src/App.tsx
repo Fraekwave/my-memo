@@ -1,12 +1,14 @@
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
-import { useTasks } from '@/hooks/useTasks';
+import { useTasks, ALL_TAB_ID } from '@/hooks/useTasks';
 import { Auth } from '@/components/Auth';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
+import { TrashView } from '@/components/TrashView';
 import { TabBar } from '@/components/TabBar';
 import { VersionIndicator } from '@/components/VersionIndicator';
-import { LogOut } from 'lucide-react';
+import { LogOut, Trash2 } from 'lucide-react';
 
 /**
  * 메인 애플리케이션 컴포넌트
@@ -39,7 +41,13 @@ function App() {
     deleteTask,
     reorderTasks,
     stats,
-  } = useTasks(selectedTabId, userId);
+    deletedTasks,
+    deletedLoading,
+    fetchDeletedTasks,
+    restoreTask,
+  } = useTasks(selectedTabId, userId, tabs.map((t) => t.id));
+
+  const [showTrashView, setShowTrashView] = useState(false);
 
   // 현재 날짜 포맷팅
   const currentDate = new Date().toLocaleDateString('ko-KR', {
@@ -90,23 +98,36 @@ function App() {
     <VersionIndicator />
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
-        {/* 헤더 — 로그아웃 버튼 포함 */}
+        {/* 헤더 — 휴지통 + 로그아웃 */}
         <div className="relative text-center mb-8">
-          <button
-            type="button"
-            onClick={() => signOut()}
-            className="absolute right-0 top-0 p-2 -m-2 text-zinc-400 hover:text-zinc-600 transition-colors duration-200 rounded-lg"
-            aria-label="로그아웃"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="absolute right-0 top-0 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setShowTrashView((v) => !v)}
+              className={`p-2 -m-2 rounded-lg transition-colors duration-200 ${
+                showTrashView ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
+              }`}
+              aria-label="휴지통"
+            >
+              <Trash2 className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+            <button
+              type="button"
+              onClick={() => signOut()}
+              className="p-2 -m-2 text-zinc-400 hover:text-zinc-600 transition-colors duration-200 rounded-lg"
+              aria-label="로그아웃"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
           <h1 className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2">
             Today&apos;s Tasks
           </h1>
           <p className="text-zinc-500 font-light">{currentDate}</p>
         </div>
 
-        {/* Sticky 영역: 탭 바 + 입력 폼 (항상 상단 고정) */}
+        {/* Sticky 영역: 탭 바 + 입력 폼 (휴지통 뷰에서는 숨김) */}
+        {!showTrashView && (
         <div className="sticky top-0 z-10 bg-zinc-50 -mx-4 sm:-mx-8 px-4 sm:px-8">
           <TabBar
             tabs={tabs}
@@ -124,24 +145,43 @@ function App() {
                 ⚠️ {error}
               </div>
             )}
-            <TaskForm onSubmit={addTask} />
+            <TaskForm onSubmit={addTask} disabled={selectedTabId === ALL_TAB_ID} />
           </div>
-          {/* 스크롤 시 헤더-리스트 경계선 + 미세 그림자 */}
           <div className="h-0 border-x border-zinc-200 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.06)]" />
         </div>
+        )}
 
-        {/* 스크롤 콘텐츠: Task 목록 */}
+        {/* 스크롤 콘텐츠: Task 목록 또는 휴지통 */}
         <div className="bg-white rounded-b-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 border-t-0">
-          {/* Task 목록 — min-h 고정으로 레이아웃 점프 방지, 탭 전환 시 페이드 */}
           <div className="p-6 sm:p-8 min-h-[400px] flex flex-col">
-            {isTasksLoading ? (
+            {showTrashView ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-light text-zinc-900">휴지통</h2>
+                  <button
+                    type="button"
+                    onClick={() => setShowTrashView(false)}
+                    className="text-xs font-medium text-zinc-500 hover:text-zinc-700"
+                  >
+                    닫기
+                  </button>
+                </div>
+                <TrashView
+                  deletedTasks={deletedTasks}
+                  isLoading={deletedLoading}
+                  tabs={tabs}
+                  onFetch={fetchDeletedTasks}
+                  onRestore={restoreTask}
+                />
+              </>
+            ) : isTasksLoading ? (
               <div className="flex-1 flex items-center justify-center min-h-[300px]">
-                <div className="inline-block w-8 h-8 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+                <div className="inline-block w-8 h-8 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
               </div>
             ) : (
               <div
                 className="flex-1 flex flex-col min-h-[300px] transition-opacity duration-200 ease-out"
-                style={{ opacity: tasks.length > 0 || !selectedTabId ? 1 : 0.6 }}
+                style={{ opacity: tasks.length > 0 || !selectedTabId || selectedTabId === ALL_TAB_ID ? 1 : 0.6 }}
               >
                 <TaskList
                   tasks={tasks}
@@ -149,12 +189,13 @@ function App() {
                   onUpdate={updateTask}
                   onDelete={deleteTask}
                   onReorder={reorderTasks}
+                  disableReorder={selectedTabId === ALL_TAB_ID}
                 />
               </div>
             )}
           </div>
 
-          {/* 통계 푸터 */}
+          {!showTrashView && (
           <div className="px-6 sm:px-8 py-4 bg-zinc-50 border-t border-zinc-100 rounded-b-3xl flex items-center justify-between text-sm">
             <span className="text-zinc-500 font-light">
               전체 <span className="font-medium text-zinc-900">{stats.total}</span>개
@@ -163,6 +204,7 @@ function App() {
               완료 <span className="font-medium text-zinc-900">{stats.completed}</span>개
             </span>
           </div>
+          )}
         </div>
 
         {/* 푸터 */}

@@ -53,6 +53,7 @@ interface TaskItemProps {
   onToggle: (id: number, isCompleted: boolean) => void;
   onUpdate: (id: number, newText: string) => void;
   onDelete: (id: number) => void;
+  disableDrag?: boolean;
 }
 
 const animateLayoutChanges: AnimateLayoutChanges = (args) => {
@@ -61,7 +62,7 @@ const animateLayoutChanges: AnimateLayoutChanges = (args) => {
   return defaultAnimateLayoutChanges(args);
 };
 
-export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete }: TaskItemProps) => {
+export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete, disableDrag = false }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [justCompleted, setJustCompleted] = useState(false);
@@ -88,7 +89,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
     transform,
     transition: sortableTransition,
     isDragging,
-  } = useSortable({ id: task.id, animateLayoutChanges });
+  } = useSortable({ id: task.id, animateLayoutChanges, disabled: disableDrag });
 
   const aging = useMemo(() => getTaskAgingStyles(task.created_at), [task.created_at]);
   const isDragActive = activeDragId === task.id;
@@ -99,7 +100,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
     backgroundColor: aging.backgroundColor,
   };
 
-  const dragProps = isEditing ? {} : { ...attributes, ...listeners };
+  const dragProps = isEditing || disableDrag ? {} : { ...attributes, ...listeners };
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -501,6 +502,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
   prev.task.created_at === next.task.created_at &&
   prev.task.completed_at === next.task.completed_at &&
   prev.activeDragId === next.activeDragId &&
+  prev.disableDrag === next.disableDrag &&
   prev.onToggle === next.onToggle &&
   prev.onUpdate === next.onUpdate &&
   prev.onDelete === next.onDelete

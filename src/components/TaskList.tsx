@@ -138,6 +138,7 @@ interface TaskListProps {
   onUpdate: (id: number, newText: string) => void;
   onDelete: (id: number) => void;
   onReorder: (activeId: number, overId: number) => void;
+  disableReorder?: boolean;
 }
 
 /**
@@ -149,7 +150,7 @@ interface TaskListProps {
  * - Touch: delay 250ms + tolerance 5px (스크롤과 구분 — Long Press)
  * - SmartSensor: Checkbox, Button, Input 위의 이벤트는 드래그 차단
  */
-export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: TaskListProps) => {
+export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder, disableReorder = false }: TaskListProps) => {
   // DragOverlay용: 현재 드래그 중인 Task ID 추적
   const [activeId, setActiveId] = useState<number | null>(null);
   const activeTask = activeId !== null ? tasks.find((t) => t.id === activeId) : null;
@@ -213,6 +214,7 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder }: Tas
               onToggle={onToggle}
               onUpdate={onUpdate}
               onDelete={onDelete}
+              disableDrag={disableReorder}
             />
           ))}
         </div>

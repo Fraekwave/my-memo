@@ -21,6 +21,7 @@ export interface Task {
   tab_id: number | null; // 소속 탭 ID
   order_index: number;
   user_id?: string; // Phase 2에서 활성화 예정
+  deleted_at?: string | null; // Soft Delete
 }
 
 /**

@@ -3,6 +3,7 @@ import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
 
 interface TaskFormProps {
   onSubmit: (text: string) => Promise<boolean>;
+  disabled?: boolean;
 }
 
 /**
@@ -28,7 +29,7 @@ interface TaskFormProps {
 const HINT_STORAGE_KEY = 'has_seen_swipe_hint';
 const SWIPE_THRESHOLD = 50; // px — 의도적 스와이프와 탭/미세 터치 구분
 
-export const TaskForm = memo(({ onSubmit }: TaskFormProps) => {
+export const TaskForm = memo(({ onSubmit, disabled = false }: TaskFormProps) => {
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const { record, suggest, onAcceptSuggestion, checkRejection } = useTaskAutocomplete();
@@ -217,6 +218,7 @@ export const TaskForm = memo(({ onSubmit }: TaskFormProps) => {
             type="text"
             name="task_text"
             value={input}
+            disabled={disabled}
             onChange={(e) => {
               const next = e.target.value;
               checkRejection(input, next);
@@ -225,7 +227,7 @@ export const TaskForm = memo(({ onSubmit }: TaskFormProps) => {
             onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            placeholder="새로운 할 일을 입력하세요..."
+            placeholder={disabled ? "All 탭에서는 추가할 수 없습니다" : "새로운 할 일을 입력하세요..."}
             className="relative w-full px-4 py-3 bg-transparent text-zinc-900 placeholder-zinc-400 outline-none rounded-xl"
             autoComplete="off"
             autoCorrect="off"
@@ -236,7 +238,7 @@ export const TaskForm = memo(({ onSubmit }: TaskFormProps) => {
 
         <button
           type="submit"
-          disabled={!input.trim()}
+          disabled={disabled || !input.trim()}
           className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all active:scale-95 whitespace-nowrap flex-shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>추가</span>
