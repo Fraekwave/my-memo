@@ -124,6 +124,10 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         provider: 'google',
         options: {
           redirectTo: window.location.origin,
+          queryParams: {
+            prompt: 'select_account',
+            access_type: 'offline',
+          },
         },
       });
       if (oauthError) throw oauthError;
