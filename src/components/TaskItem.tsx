@@ -16,7 +16,7 @@ import { DeconstructionCanvas } from './DeconstructionCanvas';
 const COMPLETION_ANIMATION_MS = 400;
 const DIRECTION_THRESHOLD = 10;
 const AXIS_LOCK_RATIO = 1.5; // |dx| must exceed |dy| by this factor to lock horizontal
-const DELETE_DISTANCE_RATIO = 0.5;
+const DELETE_DISTANCE_RATIO = 0.38; // 38% — responsive for mobile, balanced with velocity-based flick
 const VELOCITY_THRESHOLD = 400; // px/s — lower for faster flick completion
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 30 };
 const EXIT_DURATION = 0.25;
@@ -338,7 +338,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         onPointerUpCapture={handlePointerUp}
         onPointerCancelCapture={handlePointerUp}
       >
-        {/* Delete reveal (red bg + trash) */}
+        {/* Delete reveal: red bg only during exit (content erased); trash icon during swipe */}
         <div
           className="absolute inset-0 flex items-center justify-end pr-4 rounded-xl"
           style={{
@@ -348,17 +348,25 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
         >
           <Trash2
             className="w-6 h-6 text-white"
-            style={{ opacity: Math.min(1, progress * 1.2) }}
+            style={{
+              opacity: isDeleting ? 0 : Math.min(1, progress * 1.2),
+              transition: isDeleting ? 'none' : undefined,
+            }}
           />
         </div>
 
-        {/* Card content (slides left on swipe) */}
+        {/* Card content: hidden immediately on commit (opacity avoids layout jump) */}
         <motion.div
           className={`
             relative z-10 flex items-center gap-3 p-4 w-full min-w-0
             ${completionAnimClass}
           `}
-          style={{ backgroundColor: aging.backgroundColor }}
+          style={{
+            backgroundColor: aging.backgroundColor,
+            opacity: isDeleting ? 0 : 1,
+            pointerEvents: isDeleting ? 'none' : 'auto',
+            transition: isDeleting ? 'none' : undefined,
+          }}
           animate={{ x: swipeOffset }}
           transition={SPRING}
         >
