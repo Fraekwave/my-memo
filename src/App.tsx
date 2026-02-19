@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
 import { useTasks, ALL_TAB_ID } from '@/hooks/useTasks';
+import { useAppTitle } from '@/hooks/useAppTitle';
 import { Auth } from '@/components/Auth';
+import { EditableTitle } from '@/components/EditableTitle';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { TrashView } from '@/components/TrashView';
@@ -19,6 +21,7 @@ import { LogOut, Trash2 } from 'lucide-react';
  */
 function App() {
   const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
+  const { title: appTitle, updateTitle } = useAppTitle(userId);
 
   const {
     tabs,
@@ -122,9 +125,12 @@ function App() {
               <LogOut className="w-5 h-5" />
             </button>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2">
-            Today&apos;s Tasks
-          </h1>
+          <EditableTitle
+            value={appTitle}
+            onSave={updateTitle}
+            placeholder="Today's Tasks"
+            className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2 block"
+          />
           <p className="text-zinc-500 font-light">{currentDate}</p>
         </div>
 
