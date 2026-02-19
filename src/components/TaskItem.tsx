@@ -17,7 +17,7 @@ const COMPLETION_ANIMATION_MS = 400;
 const DIRECTION_THRESHOLD = 10;
 const AXIS_LOCK_RATIO = 1.5; // |dx| must exceed |dy| by this factor to lock horizontal
 const DELETE_DISTANCE_RATIO = 0.38; // 38% — deliberate swipe threshold
-const MIN_INTENT_RATIO = 0.18; // 18% — minimum swipe for velocity-based delete (prevents accidental bumps)
+const MIN_INTENT_RATIO = 0.28; // 28% — minimum swipe for velocity-based delete (deliberate stroke, not twitch)
 const VELOCITY_THRESHOLD = 400; // px/s — fast flick completion
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 30 };
 
