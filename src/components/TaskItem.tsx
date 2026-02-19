@@ -15,8 +15,9 @@ import { DeconstructionCanvas } from './DeconstructionCanvas';
 
 const COMPLETION_ANIMATION_MS = 400;
 const DIRECTION_THRESHOLD = 10;
+const AXIS_LOCK_RATIO = 1.5; // |dx| must exceed |dy| by this factor to lock horizontal
 const DELETE_DISTANCE_RATIO = 0.5;
-const VELOCITY_THRESHOLD = 500;
+const VELOCITY_THRESHOLD = 400; // px/s — lower for faster flick completion
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 30 };
 
 function isInteractiveElement(el: EventTarget | null): boolean {
@@ -57,6 +58,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
   const [swipeOffset, setSwipeOffset] = useState(0);
   const startRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastRef = useRef<{ x: number; t: number } | null>(null);
+  const velocityHistoryRef = useRef<{ x: number; t: number }[]>([]);
   const modeRef = useRef<'idle' | 'swipe' | 'sort'>('idle');
 
   const {
@@ -170,6 +172,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       if (e.pointerType !== 'touch') return;
       startRef.current = { x: e.clientX, y: e.clientY, t: performance.now() };
       lastRef.current = { x: e.clientX, t: performance.now() };
+      velocityHistoryRef.current = [{ x: e.clientX, t: performance.now() }];
       modeRef.current = 'idle';
       setSwipeOffset(0);
     },
@@ -186,7 +189,9 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (modeRef.current === 'idle' && dist >= DIRECTION_THRESHOLD) {
-        const isHorizontal = Math.abs(dx) > Math.abs(dy);
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        const isHorizontal = absDx > absDy && absDx >= absDy * AXIS_LOCK_RATIO;
         modeRef.current = isHorizontal ? 'swipe' : 'sort';
         if (!isHorizontal) return;
         e.currentTarget instanceof HTMLElement &&
@@ -196,7 +201,11 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       if (modeRef.current === 'swipe') {
         e.stopPropagation();
         e.preventDefault();
-        lastRef.current = { x: e.clientX, t: performance.now() };
+        const now = performance.now();
+        lastRef.current = { x: e.clientX, t: now };
+        const hist = velocityHistoryRef.current;
+        hist.push({ x: e.clientX, t: now });
+        while (hist.length > 1 && now - hist[0].t > 80) hist.shift();
         setSwipeOffset(Math.min(0, dx));
       }
     },
@@ -209,6 +218,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       if (modeRef.current !== 'swipe') {
         startRef.current = null;
         lastRef.current = null;
+        velocityHistoryRef.current = [];
         modeRef.current = 'idle';
         return;
       }
@@ -219,7 +229,13 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       const offset = swipeOffset;
 
       let velocity = 0;
-      if (lastRef.current) {
+      const hist = velocityHistoryRef.current;
+      if (hist.length >= 2) {
+        const first = hist[0];
+        const last = hist[hist.length - 1];
+        const dt = last.t - first.t;
+        if (dt >= 5) velocity = ((last.x - first.x) / dt) * 1000;
+      } else if (lastRef.current) {
         const dt = performance.now() - lastRef.current.t;
         if (dt >= 8) velocity = ((e.clientX - lastRef.current.x) / dt) * 1000;
       }
@@ -237,6 +253,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       modeRef.current = 'idle';
       startRef.current = null;
       lastRef.current = null;
+      velocityHistoryRef.current = [];
     },
     [swipeOffset, task.id, onDelete]
   );
@@ -251,6 +268,7 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
       : 'animate-shake-complete'
     : '';
 
+  // Only show delete reveal when actively swiping (swipeOffset set in swipe mode only)
   const progress = Math.min(1, Math.abs(swipeOffset) / 120);
 
   return (
@@ -360,15 +378,8 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
           </div>
 
           {!isEditing && !isDragging && (
-            <>
-              <button
-                onClick={startEditing}
-                className={iconClass}
-                aria-label="수정"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
-              {/* Desktop: reveal-on-hover delete (hidden on touch devices via group-hover) */}
+            <div className="flex justify-end items-center gap-2 min-w-0">
+              {/* Desktop: Trash slides in from left on hover; Mobile: w-0 so no space (group-hover never fires) */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -378,16 +389,25 @@ export const TaskItem = memo(({ task, onToggle, onUpdate, onDelete }: TaskItemPr
                 }}
                 data-no-dnd="true"
                 className={`
-                  opacity-0 group-hover:opacity-100 transition-opacity duration-150
+                  shrink-0 w-0 overflow-hidden opacity-0
+                  group-hover:w-6 group-hover:opacity-100
+                  transition-all duration-200 ease-out
                   pointer-events-none group-hover:pointer-events-auto
-                  p-1 rounded
+                  p-1 rounded flex items-center justify-center
                   ${aging.isDark ? 'text-white/80 hover:text-white' : 'text-zinc-400 hover:text-red-500'}
                 `}
                 aria-label="삭제"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4 flex-shrink-0" />
               </button>
-            </>
+              <button
+                onClick={startEditing}
+                className={`${iconClass} shrink-0`}
+                aria-label="수정"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
           )}
         </motion.div>
       </div>
