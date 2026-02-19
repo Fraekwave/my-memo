@@ -42,6 +42,26 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
 
   // ── Swipe Detection ──
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Force IME commit before setInput to prevent ghost character appending
+  const acceptSuggestionSafely = useCallback(
+    (value: string) => {
+      const el = inputRef.current;
+      if (el) {
+        el.blur();
+        setTimeout(() => {
+          el.focus();
+          onAcceptSuggestion(value);
+          setInput(value);
+        }, 0);
+      } else {
+        onAcceptSuggestion(value);
+        setInput(value);
+      }
+    },
+    [onAcceptSuggestion]
+  );
 
   const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
     touchStartRef.current = {
@@ -61,8 +81,7 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
 
     // Swipe Right: 수평 이동 > 50px AND 수평 > 수직 (스크롤 아닌 의도적 스와이프)
     if (deltaX > SWIPE_THRESHOLD && deltaX > deltaY) {
-      onAcceptSuggestion(suggestion);
-      setInput(suggestion);
+      acceptSuggestionSafely(suggestion);
       dismissHint();
     }
 
@@ -128,27 +147,25 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
     [input, onSubmit, record]
   );
 
-  // ── 키보드: Tab / ArrowRight로 제안 수락 ──
+  // ── 키보드: Tab / ArrowRight로 제안 수락 (IME composition commit before setInput) ──
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
       if (!suggestion) return;
 
       if (e.key === 'Tab') {
         e.preventDefault();
-        onAcceptSuggestion(suggestion);
-        setInput(suggestion);
+        acceptSuggestionSafely(suggestion);
       }
 
       if (e.key === 'ArrowRight') {
         const target = e.currentTarget;
         if (target.selectionStart === target.value.length) {
           e.preventDefault();
-          onAcceptSuggestion(suggestion);
-          setInput(suggestion);
+          acceptSuggestionSafely(suggestion);
         }
       }
     },
-    [suggestion, onAcceptSuggestion]
+    [suggestion, acceptSuggestionSafely]
   );
 
   // ── IME Composition Guard ──
@@ -196,6 +213,7 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
 
           {/* Standard input — basic clean attributes */}
           <input
+            ref={inputRef}
             type="text"
             name="task_text"
             value={input}
