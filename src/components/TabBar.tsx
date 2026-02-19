@@ -360,7 +360,7 @@ export const TabBar = ({
       <ConfirmModal
         isOpen={deleteTabId !== null}
         title="탭 삭제"
-        message={`"${deleteTargetTab?.title ?? ''}" 탭을 삭제하시겠습니까?\n탭에 포함된 모든 할 일도 함께 삭제됩니다.`}
+        message={`"${deleteTargetTab?.title ?? ''}" 탭을 삭제하시겠습니까?\n탭에 포함된 할 일은 휴지통으로 이동됩니다.`}
         confirmLabel="삭제"
         cancelLabel="취소"
         onConfirm={() => {

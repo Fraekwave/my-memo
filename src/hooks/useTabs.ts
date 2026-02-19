@@ -192,9 +192,12 @@ export const useTabs = (userId: string | null) => {
   };
 
   /**
-   * 탭 삭제
+   * 탭 삭제 (Soft Delete Cascade)
    * System "All" 탭(id=-1)은 삭제 불가.
-   * Cascade로 해당 탭의 task도 함께 삭제됨
+   *
+   * 1. 해당 탭의 모든 task를 Soft Delete (deleted_at) → 휴지통으로 이동
+   * 2. 탭 레코드 삭제
+   * 실패 시 Optimistic UI 롤백
    *
    * Nearest Neighbor 전략:
    * - 비활성 탭 삭제: 현재 선택 유지 (Passive Delete)
@@ -221,13 +224,26 @@ export const useTabs = (userId: string | null) => {
     }
 
     try {
-      const { error } = await supabase
+      const deletedAt = new Date().toISOString();
+
+      // 1. Soft Delete Cascade: 해당 탭의 task를 휴지통으로
+      const { error: tasksError } = await supabase
+        .from('mytask')
+        .update({ deleted_at: deletedAt })
+        .eq('tab_id', id)
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      if (tasksError) throw tasksError;
+
+      // 2. 탭 삭제
+      const { error: tabError } = await supabase
         .from('tabs')
         .delete()
         .eq('id', id)
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (tabError) throw tabError;
 
       // 탭이 전부 삭제되면 기본 탭 재생성
       if (remaining.length === 0) {

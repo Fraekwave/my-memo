@@ -19,7 +19,7 @@ interface TrashViewProps {
   isLoading: boolean;
   tabs: Tab[];
   onFetch: () => void;
-  onRestore: (id: number, tabTitle: string) => Promise<string | null>;
+  onRestore: (id: number, tabTitle: string, fallbackTabId?: number | null) => Promise<string | null>;
 }
 
 /**
@@ -40,8 +40,10 @@ export const TrashView = ({
 
   const handleRestore = async (task: Task) => {
     const tab = task.tab_id != null ? tabs.find((t) => t.id === task.tab_id) : null;
-    const tabTitle = tab?.title ?? '알 수 없는 탭';
-    const result = await onRestore(task.id, tabTitle);
+    const fallbackTab = tabs[0];
+    const tabTitle = tab?.title ?? fallbackTab?.title ?? '첫 번째 탭';
+    const fallbackTabId = tab == null && fallbackTab != null ? fallbackTab.id : undefined;
+    const result = await onRestore(task.id, tabTitle, fallbackTabId);
     if (result) {
       setRestoreFeedback(`"${result}" 탭으로 복구되었습니다`);
       setTimeout(() => setRestoreFeedback(null), 3000);

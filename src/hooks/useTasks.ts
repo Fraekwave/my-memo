@@ -368,13 +368,19 @@ export const useTasks = (
     }
   }, [userId]);
 
+  /**
+   * 복구: deleted_at = null. 탭이 삭제된 task는 fallbackTabId로 재배치.
+   */
   const restoreTask = useCallback(
-    async (id: number, tabTitle: string): Promise<string | null> => {
+    async (id: number, tabTitle: string, fallbackTabId?: number | null): Promise<string | null> => {
       if (userId === null) return null;
       try {
+        const payload: { deleted_at: null; tab_id?: number } = { deleted_at: null };
+        if (fallbackTabId != null) payload.tab_id = fallbackTabId;
+
         const { error } = await supabase
           .from('mytask')
-          .update({ deleted_at: null })
+          .update(payload)
           .eq('id', id)
           .eq('user_id', userId);
 
