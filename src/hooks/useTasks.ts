@@ -38,8 +38,11 @@ export const useTasks = (
   tasksRef.current = tasks;
 
   // ── 첫 로드 추적 ──
-  // 첫 로드: 스피너 표시 / 탭 전환: 즉시 데이터 교체 (스피너 없음)
   const isFirstLoadRef = useRef(true);
+
+  // ── Race-condition 방지: 오래된 fetch 응답 무시 ──
+  // 탭 전환 시 이전 fetch가 나중에 완료되면 stale 데이터로 덮어쓰는 문제 해결
+  const fetchIdRef = useRef(0);
 
   /**
    * 1. Read: 선택된 탭의 Task 가져오기
@@ -52,15 +55,16 @@ export const useTasks = (
       return;
     }
 
+    const thisFetchId = ++fetchIdRef.current;
+
     try {
       if (isFirstLoadRef.current) {
         setIsInitialLoading(true);
       }
 
       if (selectedTabId === ALL_TAB_ID) {
-        // All 탭: 모든 탭의 task 통합, 오름차순 정렬 (숫자→영문→한글)
         if (tabIds.length === 0) {
-          setTasks([]);
+          if (thisFetchId === fetchIdRef.current) setTasks([]);
         } else {
           const { data, error } = await supabase
             .from('mytask')
@@ -70,6 +74,8 @@ export const useTasks = (
             .order('order_index', { ascending: true });
 
           if (error) throw error;
+          if (thisFetchId !== fetchIdRef.current) return;
+
           const sorted = (data || []).sort((a, b) =>
             (a.text ?? '').localeCompare(b.text ?? '', 'ko', { numeric: true })
           );
@@ -84,14 +90,19 @@ export const useTasks = (
           .order('order_index', { ascending: true });
 
         if (error) throw error;
+        if (thisFetchId !== fetchIdRef.current) return;
         setTasks(data || []);
       }
     } catch (err) {
-      console.error('불러오기 에러:', err);
-      setError(err instanceof Error ? err.message : '알 수 없는 에러');
+      if (thisFetchId === fetchIdRef.current) {
+        console.error('불러오기 에러:', err);
+        setError(err instanceof Error ? err.message : '알 수 없는 에러');
+      }
     } finally {
-      setIsInitialLoading(false);
-      isFirstLoadRef.current = false;
+      if (thisFetchId === fetchIdRef.current) {
+        setIsInitialLoading(false);
+        isFirstLoadRef.current = false;
+      }
     }
   }, [selectedTabId, userId, tabIds]);
 
@@ -282,6 +293,7 @@ export const useTasks = (
 
   /**
    * 탭 변경 시 데이터 로드
+   * fetchTasks는 selectedTabId/tabIds 변경 시에만 재생성됨 (tabIds memo화 필요)
    */
   useEffect(() => {
     fetchTasks();

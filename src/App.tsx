@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
 import { useTasks, ALL_TAB_ID } from '@/hooks/useTasks';
@@ -31,6 +31,8 @@ function App() {
     reorderTabs,
   } = useTabs(userId);
 
+  const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
+
   const {
     tasks,
     isInitialLoading: isTasksLoading,
@@ -45,7 +47,7 @@ function App() {
     deletedLoading,
     fetchDeletedTasks,
     restoreTask,
-  } = useTasks(selectedTabId, userId, tabs.map((t) => t.id));
+  } = useTasks(selectedTabId, userId, tabIds);
 
   const [showTrashView, setShowTrashView] = useState(false);
 
