@@ -4,6 +4,15 @@ import { Task, Tab } from '@/lib/types';
 import { getTaskAgingStyles } from '@/lib/visualAging';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Days remaining until permanent purge. 0 = today is last day. Negative = already purged. */
+function getDaysUntilPurge(deletedAt: string | null | undefined): number | null {
+  if (!deletedAt) return null;
+  const elapsed = Date.now() - new Date(deletedAt).getTime();
+  const daysElapsed = Math.floor(elapsed / MS_PER_DAY);
+  return 30 - daysElapsed;
+}
 
 interface TrashViewProps {
   deletedTasks: Task[];
@@ -44,7 +53,7 @@ export const TrashView = ({
     const deletedAt = t.deleted_at ? new Date(t.deleted_at).getTime() : 0;
     return now - deletedAt < THIRTY_DAYS_MS;
   });
-  const expiredCount = deletedTasks.length - visibleDeleted.length;
+  const purgedCount = deletedTasks.length - visibleDeleted.length;
 
   if (isLoading) {
     return (
@@ -57,7 +66,7 @@ export const TrashView = ({
   return (
     <div className="space-y-4">
       <p className="text-zinc-500 text-xs font-light">
-        30일이 지난 항목은 영구 삭제됩니다.
+        휴지통 항목은 30일 후 영구 삭제됩니다. 활성 노트는 절대 자동 삭제되지 않습니다.
       </p>
 
       {restoreFeedback && (
@@ -72,6 +81,15 @@ export const TrashView = ({
         <ul className="space-y-2">
           {visibleDeleted.map((task) => {
             const aging = getTaskAgingStyles(task.created_at);
+            const daysRemaining = getDaysUntilPurge(task.deleted_at);
+            const purgeLabel =
+              daysRemaining === null
+                ? ''
+                : daysRemaining <= 0
+                  ? '오늘 삭제'
+                  : daysRemaining === 1
+                    ? '내일 삭제'
+                    : `${daysRemaining}일 남음`;
             return (
               <li
                 key={task.id}
@@ -83,6 +101,14 @@ export const TrashView = ({
                 >
                   {task.text}
                 </span>
+                {purgeLabel && (
+                  <span
+                    className="flex-shrink-0 text-xs text-zinc-400 font-light tabular-nums"
+                    aria-label={`${purgeLabel}`}
+                  >
+                    {purgeLabel}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => handleRestore(task)}
@@ -98,9 +124,9 @@ export const TrashView = ({
         </ul>
       )}
 
-      {expiredCount > 0 && (
+      {purgedCount > 0 && (
         <p className="text-zinc-400 text-xs font-light">
-          {expiredCount}개 항목이 30일이 지나 숨겨졌습니다.
+          {purgedCount}개 항목이 30일 경과로 영구 삭제되었습니다.
         </p>
       )}
     </div>

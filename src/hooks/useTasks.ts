@@ -3,8 +3,10 @@ import { supabase } from '@/lib/supabase';
 import { Task } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
 
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 export const ALL_TAB_ID = -1;
+
+/** 30-day purge window for trash (used by TrashView only). Active notes are permanent. */
+export const TRASH_RETENTION_DAYS = 30;
 
 /**
  * Task CRUD 로직을 관리하는 커스텀 훅
@@ -59,6 +61,7 @@ export const useTasks = (
 
   /**
    * 1. Read: 선택된 탭의 Task 가져오기
+   * Active notes only (deleted_at IS NULL). Trash uses fetchDeletedTasks.
    */
   const fetchTasks = useCallback(async () => {
     if (selectedTabId === null || userId === null) {
@@ -309,19 +312,11 @@ export const useTasks = (
   }, [fetchTasks]);
 
   /**
-   * Digital Detox: 완료된 Task 중 24시간 경과분 필터링
-   * - 미완료: 항상 표시
-   * - 완료: (now - completed_at) < 24h 인 경우만 표시
-   * - completed_at 없음: 기존 데이터, 숨김 (null = 오래됨으로 간주)
+   * Data Retention: Active notes (deleted_at IS NULL) are PERMANENT.
+   * No time-based filters. Main/All tab show all active notes.
+   * Trash (deleted_at IS NOT NULL) uses 30-day purge → TrashView.
    */
-  const visibleTasks = useMemo(() => {
-    const now = Date.now();
-    return displayTasks.filter((t) => {
-      if (!t.is_completed) return true;
-      const completedAt = t.completed_at ? new Date(t.completed_at).getTime() : 0;
-      return now - completedAt < TWENTY_FOUR_HOURS_MS;
-    });
-  }, [displayTasks]);
+  const visibleTasks = displayTasks;
 
   /**
    * 통계 계산 (노출되는 Task 기준)
@@ -334,10 +329,11 @@ export const useTasks = (
     [visibleTasks]
   );
 
-  // ── 휴지통: Soft Delete 복구 ──
+  // ── 휴지통: 30일 보관 정책 (Trash만 해당) ──
   const [deletedTasks, setDeletedTasks] = useState<Task[]>([]);
   const [deletedLoading, setDeletedLoading] = useState(false);
 
+  /** Trash: deleted_at IS NOT NULL. UI hides 30+ day items (permanently purged). */
   const fetchDeletedTasks = useCallback(async () => {
     if (userId === null) return;
     setDeletedLoading(true);

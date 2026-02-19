@@ -17,7 +17,7 @@ export interface Task {
   text: string;
   is_completed: boolean;
   created_at: string;
-  completed_at?: string | null; // Digital Detox: 완료 시점 (24h 후 자동 숨김)
+  completed_at?: string | null; // 완료 시점
   tab_id: number | null; // 소속 탭 ID
   order_index: number;
   user_id?: string; // Phase 2에서 활성화 예정
