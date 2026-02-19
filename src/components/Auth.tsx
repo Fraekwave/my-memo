@@ -33,6 +33,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showResetFlow, setShowResetFlow] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [isSignedUp, setIsSignedUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
@@ -48,7 +49,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         if (mode === 'signup') {
           const { error } = await supabase.auth.signUp({ email, password });
           if (error) throw error;
-          onSuccess();
+          setIsSignedUp(true);
         } else {
           const { error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
@@ -69,6 +70,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
     setConfirmPassword('');
     setShowResetFlow(false);
     setResetSuccess(false);
+    setIsSignedUp(false);
   }, []);
 
   const toggleShowPassword = useCallback(() => setShowPassword((p) => !p), []);
@@ -134,6 +136,31 @@ export const Auth = ({ onSuccess }: AuthProps) => {
       setSocialLoadingProvider(null);
     }
   }, []);
+
+  if (isSignedUp) {
+    return (
+      <div className="h-full flex items-center justify-center p-6 sm:p-8 bg-stone-50">
+        <div className="w-full max-w-sm text-center">
+          <h1 className="text-2xl font-light text-zinc-900 tracking-tight mb-4">
+            메일함을 확인해 주세요
+          </h1>
+          <p className="text-zinc-600 text-sm font-light leading-relaxed mb-8">
+            입력하신 이메일로 인증 링크를 보냈습니다. 링크를 클릭하면 가입이 완료됩니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignedUp(false);
+              setMode('login');
+            }}
+            className="w-full py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 active:scale-[0.99]"
+          >
+            로그인 화면으로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex items-center justify-center p-6 sm:p-8 bg-stone-50">
