@@ -103,8 +103,8 @@ function App() {
     <VersionIndicator />
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
-        {/* 헤더 — 휴지통 + 로그아웃 */}
-        <div className="relative text-center mb-8">
+        {/* 헤더 — 휴지통 + 로그아웃 (pr-24 예약으로 제목이 아이콘과 겹치지 않음) */}
+        <div className="relative text-center mb-8 pl-4 pr-24 sm:pr-24">
           <div className="absolute right-0 top-0 flex items-center gap-1">
             <button
               type="button"

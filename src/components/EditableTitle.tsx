@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react';
+import { TITLE_MAX_LENGTH } from '@/lib/constants';
 
 interface EditableTitleProps {
   value: string;
@@ -66,7 +67,7 @@ export const EditableTitle = ({
             setIsEditing(true);
           }
         }}
-        className={`cursor-text outline-none focus:outline-none focus-visible:ring-0 ${className}`}
+        className={`cursor-text outline-none focus:outline-none focus-visible:ring-0 min-w-0 max-w-full overflow-hidden truncate ${className}`}
         style={{
           borderBottom: '1px solid transparent',
           transition: 'border-color 0.15s ease, color 0.15s ease',
@@ -75,7 +76,7 @@ export const EditableTitle = ({
         aria-label="앱 제목 (클릭하여 수정)"
       >
         <span
-          className="border-b border-transparent hover:border-zinc-300/70 transition-colors duration-150"
+          className="block border-b border-transparent hover:border-zinc-300/70 transition-colors duration-150 truncate"
           style={{ paddingBottom: '1px' }}
         >
           {value || placeholder}
@@ -89,12 +90,13 @@ export const EditableTitle = ({
       ref={inputRef}
       type="text"
       value={editValue}
-      onChange={(e) => setEditValue(e.target.value)}
+      maxLength={TITLE_MAX_LENGTH}
+      onChange={(e) => setEditValue(e.target.value.slice(0, TITLE_MAX_LENGTH))}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
       placeholder={placeholder}
       className={`
-        w-full max-w-full text-4xl sm:text-5xl font-light tracking-tight
+        w-full max-w-full min-w-0 text-4xl sm:text-5xl font-light tracking-tight
         bg-transparent border-none outline-none
         text-zinc-900 placeholder:text-zinc-400
         border-b border-zinc-300 focus:border-zinc-500
