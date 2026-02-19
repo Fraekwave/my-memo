@@ -31,7 +31,7 @@ const SWIPE_THRESHOLD = 50; // px — 의도적 스와이프와 탭/미세 터�
 export const TaskForm = ({ onSubmit }: TaskFormProps) => {
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
-  const { record, suggest } = useTaskAutocomplete();
+  const { record, suggest, onAcceptSuggestion, checkRejection } = useTaskAutocomplete();
 
   // ── 자동완성 제안 ──
   const suggestion = isComposing && input.length < 2 ? null : suggest(input);
@@ -61,6 +61,7 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
 
     // Swipe Right: 수평 이동 > 50px AND 수평 > 수직 (스크롤 아닌 의도적 스와이프)
     if (deltaX > SWIPE_THRESHOLD && deltaX > deltaY) {
+      onAcceptSuggestion(suggestion);
       setInput(suggestion);
       dismissHint();
     }
@@ -134,6 +135,7 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
 
       if (e.key === 'Tab') {
         e.preventDefault();
+        onAcceptSuggestion(suggestion);
         setInput(suggestion);
       }
 
@@ -141,11 +143,12 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
         const target = e.currentTarget;
         if (target.selectionStart === target.value.length) {
           e.preventDefault();
+          onAcceptSuggestion(suggestion);
           setInput(suggestion);
         }
       }
     },
-    [suggestion]
+    [suggestion, onAcceptSuggestion]
   );
 
   // ── IME Composition Guard ──
@@ -196,7 +199,11 @@ export const TaskForm = ({ onSubmit }: TaskFormProps) => {
             type="text"
             name="task_text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              checkRejection(input, next);
+              setInput(next);
+            }}
             onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
