@@ -103,35 +103,38 @@ function App() {
     <VersionIndicator />
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
-        {/* 헤더 — 휴지통 + 로그아웃 (pr-24 예약으로 제목이 아이콘과 겹치지 않음) */}
-        <div className="relative text-center mb-8 pl-4 pr-24 sm:pr-24">
-          <div className="absolute right-0 top-0 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setShowTrashView((v) => !v)}
-              className={`p-2 -m-2 rounded-lg transition-colors duration-200 ${
-                showTrashView ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
-              }`}
-              aria-label="휴지통"
-            >
-              <Trash2 className="w-5 h-5" strokeWidth={1.5} />
-            </button>
-            <button
-              type="button"
-              onClick={() => signOut()}
-              className="p-2 -m-2 text-zinc-400 hover:text-zinc-600 transition-colors duration-200 rounded-lg"
-              aria-label="로그아웃"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+        {/* 헤더 — 3열 그리드: 빈 좌측 | 중앙 제목 | 우측 아이콘 (수학적 중앙 정렬) */}
+        <div className="mb-8">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+            <div aria-hidden />
+            <EditableTitle
+              value={appTitle}
+              onSave={updateTitle}
+              placeholder="Today's Tasks"
+              className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2 block text-center min-w-0 max-w-full"
+            />
+            <div className="flex items-center justify-end gap-1">
+              <button
+                type="button"
+                onClick={() => setShowTrashView((v) => !v)}
+                className={`p-2 -m-2 rounded-lg transition-colors duration-200 ${
+                  showTrashView ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
+                }`}
+                aria-label="휴지통"
+              >
+                <Trash2 className="w-5 h-5" strokeWidth={1.5} />
+              </button>
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="p-2 -m-2 text-zinc-400 hover:text-zinc-600 transition-colors duration-200 rounded-lg"
+                aria-label="로그아웃"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-          <EditableTitle
-            value={appTitle}
-            onSave={updateTitle}
-            placeholder="Today's Tasks"
-            className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2 block"
-          />
-          <p className="text-zinc-500 font-light">{currentDate}</p>
+          <p className="text-zinc-500 font-light text-center">{currentDate}</p>
         </div>
 
         {/* Sticky 영역: 탭 바 + 입력 폼 (휴지통 뷰에서는 숨김) */}

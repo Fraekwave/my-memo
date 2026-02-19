@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { TITLE_MAX_LENGTH } from '@/lib/constants';
+import { truncateToTitleBudget } from '@/lib/titleWeight';
 
 const DEFAULT_TITLE = "Today's Tasks";
-
-const truncateToLimit = (s: string) => s.slice(0, TITLE_MAX_LENGTH);
 
 /**
  * 사용자별 앱 제목 관리 (profiles.app_title)
@@ -30,7 +28,7 @@ export const useAppTitle = (userId: string | null) => {
 
       if (error) throw error;
       const raw = data?.app_title?.trim();
-      const value = raw && raw.length > 0 ? truncateToLimit(raw) : DEFAULT_TITLE;
+      const value = raw && raw.length > 0 ? truncateToTitleBudget(raw) : DEFAULT_TITLE;
       setTitle(value);
     } catch (err) {
       console.error('앱 제목 불러오기 에러:', err);
@@ -48,7 +46,7 @@ export const useAppTitle = (userId: string | null) => {
     async (newTitle: string) => {
       const trimmed = newTitle.trim();
       const displayValue =
-        trimmed.length > 0 ? truncateToLimit(trimmed) : DEFAULT_TITLE;
+        trimmed.length > 0 ? truncateToTitleBudget(trimmed) : DEFAULT_TITLE;
       const previousTitle = title;
 
       setTitle(displayValue);

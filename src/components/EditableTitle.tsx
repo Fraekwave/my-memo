@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react';
-import { TITLE_MAX_LENGTH } from '@/lib/constants';
+import { truncateToTitleBudget } from '@/lib/titleWeight';
 
 interface EditableTitleProps {
   value: string;
@@ -90,8 +90,7 @@ export const EditableTitle = ({
       ref={inputRef}
       type="text"
       value={editValue}
-      maxLength={TITLE_MAX_LENGTH}
-      onChange={(e) => setEditValue(e.target.value.slice(0, TITLE_MAX_LENGTH))}
+      onChange={(e) => setEditValue(truncateToTitleBudget(e.target.value))}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
       placeholder={placeholder}
