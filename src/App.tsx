@@ -140,7 +140,7 @@ function App() {
 
         {/* Sticky 영역: 탭 바 + 입력 폼 (휴지통 뷰에서는 숨김) */}
         {!showTrashView && (
-        <div className="sticky top-0 z-10 bg-zinc-50 -mx-4 sm:-mx-8 px-4 sm:px-8">
+        <div className="sticky top-0 z-40 bg-zinc-50 -mx-4 sm:-mx-8 px-4 sm:px-8">
           <TabBar
             tabs={tabs}
             selectedTabId={selectedTabId}

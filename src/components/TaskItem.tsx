@@ -357,7 +357,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
       >
         <div
           ref={swipeWrapperRef}
-          className="relative overflow-hidden rounded-xl touch-pan-y"
+          className="relative isolate overflow-hidden rounded-xl touch-pan-y"
         onPointerDownCapture={handlePointerDown}
         onPointerMoveCapture={handlePointerMove}
         onPointerUpCapture={handlePointerUp}
