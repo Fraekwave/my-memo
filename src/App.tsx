@@ -86,12 +86,22 @@ function App() {
   const [showTrashView, setShowTrashView] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
-  // Format current date — month + day + year, no weekday (centrepiece display)
-  const currentDate = new Date().toLocaleDateString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
+  // Map i18next language codes → BCP 47 locale tags for Intl.DateTimeFormat
+  const LOCALE_MAP: Record<string, string> = {
+    ko: 'ko-KR',
+    en: 'en-US',
+    ja: 'ja-JP',
+    zh: 'zh-CN',
+    de: 'de-DE',
+    es: 'es-ES',
+  };
+  const dateLocale = LOCALE_MAP[i18n.language] ?? 'en-US';
+  const currentDate = new Intl.DateTimeFormat(dateLocale, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-  });
+    weekday: 'long',
+  }).format(new Date());
 
   // Auth: 세션 없으면 로그인 화면 (200ms 페이드)
   if (!isAuthLoading && !session) {
