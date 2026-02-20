@@ -95,6 +95,23 @@ export interface AdminStats {
  *     max_tasks        = EXCLUDED.max_tasks;
  * END; $$;
  */
+/** Supabase PostgrestError is a plain object, not an Error subclass. Extract all fields. */
+function extractError(err: unknown): string {
+  if (!err) return 'Unknown error';
+  // PostgrestError shape: { message, details, hint, code }
+  if (typeof err === 'object') {
+    const e = err as Record<string, unknown>;
+    const parts: string[] = [];
+    if (typeof e.message === 'string') parts.push(e.message);
+    if (typeof e.details === 'string' && e.details) parts.push(`Details: ${e.details}`);
+    if (typeof e.hint === 'string' && e.hint) parts.push(`Hint: ${e.hint}`);
+    if (typeof e.code === 'string' && e.code) parts.push(`Code: ${e.code}`);
+    if (parts.length > 0) return parts.join(' · ');
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 export function useAdminDashboard() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [stats, setStats] = useState<AdminStats>({ totalUsers: 0, proUsers: 0, totalTasks: 0 });
@@ -112,8 +129,18 @@ export function useAdminDashboard() {
         supabase.rpc('admin_get_stats'),
       ]);
 
-      if (usersResult.error) throw usersResult.error;
-      if (statsResult.error) throw statsResult.error;
+      // Log raw responses for debugging — visible in browser DevTools console
+      if (usersResult.error) {
+        console.error('[admin] admin_get_users error:', usersResult.error);
+        throw usersResult.error;
+      }
+      if (statsResult.error) {
+        console.error('[admin] admin_get_stats error:', statsResult.error);
+        throw statsResult.error;
+      }
+
+      console.debug('[admin] admin_get_users raw data:', usersResult.data);
+      console.debug('[admin] admin_get_stats raw data:', statsResult.data);
 
       const userList: AdminUser[] = (usersResult.data ?? []).map(
         (row: {
@@ -137,14 +164,17 @@ export function useAdminDashboard() {
 
       setUsers(userList);
 
-      const s = statsResult.data as { total_users: number; pro_users: number; total_tasks: number };
+      // count(*) inside jsonb_build_object serialises as bigint → string in some
+      // PostgreSQL/PostgREST versions; Number() coerces both "5" and 5 safely.
+      const s = statsResult.data as { total_users: unknown; pro_users: unknown; total_tasks: unknown };
       setStats({
         totalUsers: Number(s.total_users ?? 0),
         proUsers: Number(s.pro_users ?? 0),
         totalTasks: Number(s.total_tasks ?? 0),
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load admin data';
+      const msg = extractError(err);
+      console.error('[admin] fetchData failed:', err);
       setError(msg);
     } finally {
       setIsLoading(false);
@@ -183,6 +213,7 @@ export function useAdminDashboard() {
         });
         if (error) throw error;
       } catch (err: unknown) {
+        console.error('[admin] admin_set_pro error:', err);
         // Rollback on failure
         setUsers((prev) =>
           prev.map((u) =>
@@ -201,7 +232,7 @@ export function useAdminDashboard() {
           ...prev,
           proUsers: Math.max(0, prev.proUsers + (currentIsPro ? 1 : -1)),
         }));
-        setError(err instanceof Error ? err.message : 'Failed to update user');
+        setError(extractError(err));
       } finally {
         setTogglingId(null);
       }
