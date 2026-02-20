@@ -156,19 +156,20 @@ export function useAdminDashboard() {
 
       setUsers(userList);
 
-      // count(*) inside jsonb_build_object serialises as bigint → string in some
-      // PostgreSQL/PostgREST versions; Number() coerces both "5" and 5 safely.
-      const s = statsResult.data as {
+      // admin_get_stats returns a TABLE (always an array) — take the first row.
+      // Number() coerces bigint-serialised strings ("5") and real numbers (5) safely.
+      const statsArray = statsResult.data as Array<{
         total_users: unknown;
         total_pro: unknown;
         active_tasks: unknown;
         deleted_tasks: unknown;
-      };
+      }>;
+      const s = statsArray?.length > 0 ? statsArray[0] : {};
       setStats({
-        totalUsers: Number(s.total_users ?? 0),
-        proUsers: Number(s.total_pro ?? 0),
-        activeTasks: Number(s.active_tasks ?? 0),
-        deletedTasks: Number(s.deleted_tasks ?? 0),
+        totalUsers: Number((s as { total_users?: unknown }).total_users ?? 0),
+        proUsers: Number((s as { total_pro?: unknown }).total_pro ?? 0),
+        activeTasks: Number((s as { active_tasks?: unknown }).active_tasks ?? 0),
+        deletedTasks: Number((s as { deleted_tasks?: unknown }).deleted_tasks ?? 0),
       });
     } catch (err: unknown) {
       const msg = extractError(err);
