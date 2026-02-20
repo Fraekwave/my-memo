@@ -17,14 +17,15 @@ import {
 const ADMIN_EMAIL = 'choi.seunghoon@gmail.com';
 const SUPPORTED_LEGAL_LANGS = ['ko', 'en', 'ja', 'zh', 'de', 'es'];
 
-type Panel = null | 'howToUse' | 'pro' | 'admin';
+type Panel = null | 'howToUse' | 'pro';
 
 interface GlobalMenuProps {
   userEmail: string | null | undefined;
   onSignOut: () => void;
+  onOpenAdmin: () => void;
 }
 
-export function GlobalMenu({ userEmail, onSignOut }: GlobalMenuProps) {
+export function GlobalMenu({ userEmail, onSignOut, onOpenAdmin }: GlobalMenuProps) {
   const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
@@ -106,8 +107,9 @@ export function GlobalMenu({ userEmail, onSignOut }: GlobalMenuProps) {
             key: 'admin',
             label: t('menu.admin'),
             icon: <ShieldCheck className="w-4 h-4" strokeWidth={1.5} />,
-            action: () => setPanel('admin'),
+            action: () => { close(); onOpenAdmin(); },
             isAdmin: true,
+            external: true,
           },
         ]
       : []),
@@ -224,7 +226,6 @@ export function GlobalMenu({ userEmail, onSignOut }: GlobalMenuProps) {
               <span className="text-sm font-medium text-zinc-700">
                 {panel === 'howToUse' && t('menu.howToUse')}
                 {panel === 'pro' && t('menu.proUpgrade')}
-                {panel === 'admin' && t('menu.admin')}
               </span>
             </div>
 
@@ -271,17 +272,6 @@ export function GlobalMenu({ userEmail, onSignOut }: GlobalMenuProps) {
                 </div>
               )}
 
-              {/* ── Admin ── */}
-              {panel === 'admin' && (
-                <div className="space-y-4">
-                  <p className="text-sm font-medium text-zinc-800">Admin Panel</p>
-                  <p className="text-xs text-zinc-500 leading-relaxed">
-                    Signed in as <span className="font-medium text-zinc-700">{userEmail}</span>
-                  </p>
-                  <div className="h-px bg-zinc-100" />
-                  <p className="text-xs text-zinc-400">Advanced controls coming soon.</p>
-                </div>
-              )}
             </div>
           </div>
         </div>

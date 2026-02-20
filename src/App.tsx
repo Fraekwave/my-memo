@@ -11,6 +11,7 @@ import { TrashView } from '@/components/TrashView';
 import { TabBar } from '@/components/TabBar';
 import { VersionIndicator } from '@/components/VersionIndicator';
 import { GlobalMenu } from '@/components/GlobalMenu';
+import { AdminPage } from '@/components/AdminPage';
 import { Trash2 } from 'lucide-react';
 
 /**
@@ -65,6 +66,7 @@ function App() {
   });
 
   const [showTrashView, setShowTrashView] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   // Format current date in the active locale
   const currentDate = new Date().toLocaleDateString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
@@ -119,7 +121,11 @@ function App() {
         <div className="mb-8">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center">
             <div className="flex items-center justify-start">
-              <GlobalMenu userEmail={userEmail} onSignOut={signOut} />
+              <GlobalMenu
+                userEmail={userEmail}
+                onSignOut={signOut}
+                onOpenAdmin={() => setShowAdmin(true)}
+              />
             </div>
             <h1
               className="text-4xl sm:text-5xl font-semibold text-zinc-900 select-none"
@@ -236,6 +242,14 @@ function App() {
 
       </div>
     </div>
+
+    {/* Admin page — full-screen overlay, admin-only */}
+    {showAdmin && (
+      <AdminPage
+        userEmail={userEmail}
+        onClose={() => setShowAdmin(false)}
+      />
+    )}
     </>
   );
 }
