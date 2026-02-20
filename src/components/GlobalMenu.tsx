@@ -119,7 +119,7 @@ export function GlobalMenu({ userEmail, onSignOut, onOpenAdmin }: GlobalMenuProp
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 bg-zinc-900/5 backdrop-blur-[8px] transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={close}
@@ -170,12 +170,12 @@ export function GlobalMenu({ userEmail, onSignOut, onOpenAdmin }: GlobalMenuProp
                   role="menuitem"
                   onClick={item.action}
                   className={`w-full flex items-center gap-3 px-6 py-3.5 text-left
-                    transition-colors duration-150 hover:bg-zinc-50 active:bg-zinc-100 group
-                    ${item.isAdmin ? 'text-zinc-400' : 'text-zinc-700'}`}
+                    transition-colors duration-150 hover:bg-black/5 active:bg-black/[0.08] group
+                    ${item.isAdmin ? 'text-zinc-400' : 'text-zinc-800'}`}
                 >
                   <span
                     className={`flex-shrink-0 transition-colors duration-150
-                      ${item.isAdmin ? 'text-zinc-300' : 'text-zinc-400 group-hover:text-zinc-600'}`}
+                      ${item.isAdmin ? 'text-zinc-300' : 'text-zinc-400 group-hover:text-zinc-700'}`}
                   >
                     {item.icon}
                   </span>
@@ -233,13 +233,21 @@ export function GlobalMenu({ userEmail, onSignOut, onOpenAdmin }: GlobalMenuProp
             <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">
               {/* ── How to Use ── */}
               {panel === 'howToUse' && (
-                <div className="space-y-6">
-                  {tips.map((tip, i) => (
-                    <div key={i}>
-                      <p className="text-sm font-semibold text-zinc-800 mb-1">{tip.title}</p>
-                      <p className="text-xs text-zinc-500 leading-relaxed">{tip.desc}</p>
-                    </div>
-                  ))}
+                <div>
+                  <div className="space-y-6">
+                    {tips.map((tip, i) => (
+                      <div key={i}>
+                        <p className="text-sm font-semibold text-zinc-800 mb-1">{tip.title}</p>
+                        <p className="text-xs text-zinc-500 leading-relaxed">{tip.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p
+                    className="mt-12 text-center text-[10px] font-medium uppercase text-zinc-300"
+                    style={{ letterSpacing: '0.2em' }}
+                  >
+                    — V1.0.0 —
+                  </p>
                 </div>
               )}
 
