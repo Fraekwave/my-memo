@@ -70,7 +70,7 @@
   },
   "trash": {
     "trashTitle": "回收站",
-    "purgeWarning": "回收站内容将在7天后永久删除",
+    "purgeWarning": "回收站中的项目将在 30 天后永久删除",
     "restore": "恢复",
     "empty": "回收站为空",
     "restored": "已恢复到 \"{{tab}}\"",
@@ -105,12 +105,13 @@
     "tip5Title": "重新排序",
     "tip5Desc": "长按并拖动任务可以调整顺序。",
     "tip6Title": "回收站",
-    "tip6Desc": "已删除的任务保留7天后自动永久删除，可通过右上角图标恢复。",
+    "tip6Desc": "已删除的任务保留30天后自动永久删除，可通过右上角图标恢复。",
     "proTitle": "INA Done PRO",
-    "proDesc": "解锁无限标签和任务，最大化您的工作效率。",
-    "proFeature1": "无限标签创建",
-    "proFeature2": "无限任务添加",
-    "proFeature3": "优先客户支持",
+    "proDesc": "解锁更多标签和任务，最大化您的工作效率。",
+    "proFeature1": "最多 30 个标签页",
+    "proFeature2": "1,000 个任务",
+    "proFeature3": "终身升级",
+    "proFeature4": "更快的数据处理",
     "proComingSoon": "即将推出"
   }
 }

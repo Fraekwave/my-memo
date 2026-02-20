@@ -70,7 +70,7 @@
   },
   "trash": {
     "trashTitle": "Papierkorb",
-    "purgeWarning": "Elemente werden nach 7 Tagen gelöscht",
+    "purgeWarning": "Elemente werden nach 30 Tagen dauerhaft gelöscht",
     "restore": "Wiederherstellen",
     "empty": "Papierkorb ist leer",
     "restored": "Wiederhergestellt in \"{{tab}}\"",
@@ -105,12 +105,13 @@
     "tip5Title": "Reihenfolge ändern",
     "tip5Desc": "Aufgabe gedrückt halten und ziehen, um die Reihenfolge zu ändern.",
     "tip6Title": "Papierkorb",
-    "tip6Desc": "Gelöschte Elemente werden 7 Tage aufbewahrt und dann dauerhaft entfernt. Über das Symbol oben wiederherstellen.",
+    "tip6Desc": "Gelöschte Elemente werden 30 Tage aufbewahrt und dann dauerhaft entfernt. Über das Symbol oben wiederherstellen.",
     "proTitle": "INA Done PRO",
-    "proDesc": "Schalte unbegrenzte Tabs und Aufgaben frei und maximiere deine Produktivität.",
-    "proFeature1": "Unbegrenzte Tabs",
-    "proFeature2": "Unbegrenzte Aufgaben",
-    "proFeature3": "Prioritätssupport",
+    "proDesc": "Schalte mehr Tabs und Aufgaben frei und maximiere deine Produktivität.",
+    "proFeature1": "Max. 30 Tabs",
+    "proFeature2": "1.000 Aufgaben",
+    "proFeature3": "Lebenslange Upgrades",
+    "proFeature4": "Schnellere Datenverarbeitung",
     "proComingSoon": "Demnächst verfügbar"
   }
 }

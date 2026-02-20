@@ -70,7 +70,7 @@
   },
   "trash": {
     "trashTitle": "휴지통",
-    "purgeWarning": "휴지통의 항목은 7일 후 영구 삭제됩니다",
+    "purgeWarning": "휴지통의 항목은 30일 후 영구 삭제됩니다",
     "restore": "복원",
     "empty": "휴지통이 비어 있습니다",
     "restored": "\"{{tab}}\" 탭으로 복구되었습니다",
@@ -105,12 +105,13 @@
     "tip5Title": "순서 변경",
     "tip5Desc": "항목을 길게 눌러 드래그하면 순서를 자유롭게 변경할 수 있습니다.",
     "tip6Title": "휴지통",
-    "tip6Desc": "삭제된 항목은 7일간 보관 후 자동 영구 삭제됩니다. 우상단 아이콘으로 복구할 수 있습니다.",
+    "tip6Desc": "삭제된 항목은 30일간 보관 후 자동 영구 삭제됩니다. 우상단 아이콘으로 복구할 수 있습니다.",
     "proTitle": "INA Done PRO",
     "proDesc": "더 많은 탭과 할 일로 업무 효율을 극대화하세요.",
-    "proFeature1": "탭 무제한 생성",
-    "proFeature2": "할 일 무제한 등록",
-    "proFeature3": "우선 고객 지원",
+    "proFeature1": "탭 최대 30개",
+    "proFeature2": "할 일 1,000개",
+    "proFeature3": "평생 무료 업그레이드",
+    "proFeature4": "빠른 데이터 처리",
     "proComingSoon": "출시 예정"
   }
 }

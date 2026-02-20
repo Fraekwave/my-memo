@@ -70,7 +70,7 @@
   },
   "trash": {
     "trashTitle": "Trash",
-    "purgeWarning": "Items are purged after 7 days",
+    "purgeWarning": "Items are permanently deleted after 30 days",
     "restore": "Restore",
     "empty": "Trash is empty",
     "restored": "Restored to \"{{tab}}\"",
@@ -105,12 +105,13 @@
     "tip5Title": "Reorder Tasks",
     "tip5Desc": "Long-press and drag any task to rearrange its position.",
     "tip6Title": "Trash",
-    "tip6Desc": "Deleted items are kept for 7 days then permanently removed. Use the Trash icon to restore.",
+    "tip6Desc": "Deleted items are kept for 30 days then permanently removed. Use the Trash icon to restore.",
     "proTitle": "INA Done PRO",
-    "proDesc": "Unlock unlimited tabs and tasks to maximise your productivity.",
-    "proFeature1": "Unlimited tabs",
-    "proFeature2": "Unlimited tasks",
-    "proFeature3": "Priority support",
+    "proDesc": "Unlock more tabs and tasks to maximise your productivity.",
+    "proFeature1": "Max 30 tabs",
+    "proFeature2": "1,000 tasks",
+    "proFeature3": "Lifetime upgrades",
+    "proFeature4": "Faster data handling",
     "proComingSoon": "Coming soon"
   }
 }

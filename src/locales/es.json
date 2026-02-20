@@ -70,7 +70,7 @@
   },
   "trash": {
     "trashTitle": "Papelera",
-    "purgeWarning": "Los elementos se borran después de 7 días",
+    "purgeWarning": "Los elementos se eliminan permanentemente después de 30 días",
     "restore": "Restaurar",
     "empty": "La papelera está vacía",
     "restored": "Restaurado en \"{{tab}}\"",
@@ -105,12 +105,13 @@
     "tip5Title": "Reordenar tareas",
     "tip5Desc": "Mantén pulsada una tarea y arrástrala para cambiar su posición.",
     "tip6Title": "Papelera",
-    "tip6Desc": "Los elementos eliminados se conservan 7 días y luego se borran. Usa el icono de papelera para restaurar.",
+    "tip6Desc": "Los elementos eliminados se conservan 30 días y luego se borran permanentemente. Usa el icono de papelera para restaurar.",
     "proTitle": "INA Done PRO",
-    "proDesc": "Desbloquea pestañas y tareas ilimitadas para maximizar tu productividad.",
-    "proFeature1": "Pestañas ilimitadas",
-    "proFeature2": "Tareas ilimitadas",
-    "proFeature3": "Soporte prioritario",
+    "proDesc": "Desbloquea más pestañas y tareas para maximizar tu productividad.",
+    "proFeature1": "Máx. 30 pestañas",
+    "proFeature2": "1.000 tareas",
+    "proFeature3": "Actualizaciones de por vida",
+    "proFeature4": "Procesamiento de datos más rápido",
     "proComingSoon": "Próximamente"
   }
 }

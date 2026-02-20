@@ -66,7 +66,7 @@ export function GlobalMenu({ userEmail, onSignOut }: GlobalMenuProps) {
     desc: t(`menu.tip${i}Desc`),
   }));
 
-  const proFeatures = [1, 2, 3].map((i) => t(`menu.proFeature${i}`));
+  const proFeatures = [1, 2, 3, 4].map((i) => t(`menu.proFeature${i}`));
 
   interface MenuItem {
     key: string;
