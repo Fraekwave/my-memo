@@ -1,4 +1,4 @@
-import { useState, FormEvent, useCallback, useMemo } from 'react';
+import { useState, FormEvent, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Loader2, Check, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { GoogleGIcon } from '@/components/GoogleGIcon';
@@ -35,6 +35,47 @@ export const Auth = ({ onSuccess }: AuthProps) => {
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const googleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Window focus + pageshow: reset loading if user returns via Back button (bfcache) or closes OAuth tab
+  useEffect(() => {
+    if (!googleLoading) return;
+
+    let focusTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const resetGoogleLoading = () => {
+      if (googleTimeoutRef.current) {
+        clearTimeout(googleTimeoutRef.current);
+        googleTimeoutRef.current = null;
+      }
+      focusTimer = setTimeout(() => {
+        setGoogleLoading(false);
+        focusTimer = null;
+      }, 500);
+    };
+
+    const handleFocus = () => resetGoogleLoading();
+    // pageshow with persisted=true fires when browser restores page from bfcache (Back button)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) resetGoogleLoading();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pageshow', handlePageShow);
+      if (focusTimer) clearTimeout(focusTimer);
+    };
+  }, [googleLoading]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (googleTimeoutRef.current) clearTimeout(googleTimeoutRef.current);
+    };
+  }, []);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -119,6 +160,13 @@ export const Auth = ({ onSuccess }: AuthProps) => {
     setError(null);
     setGoogleLoading(true);
 
+    // 10s safeguard: if signInWithOAuth hangs (network error, blocked redirect, etc.)
+    googleTimeoutRef.current = setTimeout(() => {
+      setGoogleLoading(false);
+      setError('연결 시간이 초과되었습니다. 다시 시도해 주세요.');
+      googleTimeoutRef.current = null;
+    }, 10_000);
+
     try {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -131,8 +179,12 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         },
       });
       if (oauthError) throw oauthError;
-      // Success: redirect happens; no need to clear loading
+      // Success: redirect begins; timeout/focus listener will cancel if user returns
     } catch (err) {
+      if (googleTimeoutRef.current) {
+        clearTimeout(googleTimeoutRef.current);
+        googleTimeoutRef.current = null;
+      }
       setError(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다');
       setGoogleLoading(false);
     }
