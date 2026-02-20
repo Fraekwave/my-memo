@@ -86,32 +86,16 @@ function App() {
   const [showTrashView, setShowTrashView] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
-  // Map i18next language codes → BCP 47 locale tags for Intl.DateTimeFormat
-  const LOCALE_MAP: Record<string, string> = {
-    ko: 'ko-KR',
-    en: 'en-US',
-    ja: 'ja-JP',
-    zh: 'zh-CN',
-    de: 'de-DE',
-    es: 'es-ES',
-  };
-  const dateLocale = LOCALE_MAP[i18n.language] ?? 'en-US';
-  const currentDate = new Intl.DateTimeFormat(dateLocale, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-  }).format(new Date());
-
-  // ── DEBUG PROBE (remove after diagnosis) ──────────────────────────────────
-  const debugData = {
-    i18nLang: i18n.language,
-    navLang: typeof navigator !== 'undefined' ? navigator.language : 'N/A',
-    renderedDate: currentDate,
-    timestamp: new Date().toLocaleTimeString(),
-  };
-  console.table(debugData);
-  // ──────────────────────────────────────────────────────────────────────────
+  const currentDate = useMemo(() => {
+    const currentLang = i18n.language || 'en';
+    const locale = currentLang.toLowerCase().startsWith('ko') ? 'ko-KR' : 'en-US';
+    return new Intl.DateTimeFormat(locale, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    }).format(new Date());
+  }, [i18n.language]);
 
   // Auth: 세션 없으면 로그인 화면 (200ms 페이드)
   if (!isAuthLoading && !session) {
@@ -151,18 +135,6 @@ function App() {
 
   return (
     <>
-    {/* ── DEBUG PROBE — remove after diagnosis ── */}
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, backgroundColor: 'red',
-      color: 'white', fontSize: '10px', padding: '4px', zIndex: 9999,
-      display: 'flex', justifyContent: 'space-between', pointerEvents: 'none',
-    }}>
-      <span>L: {debugData.i18nLang}</span>
-      <span>NL: {debugData.navLang}</span>
-      <span>D: {debugData.renderedDate}</span>
-      <span>T: {debugData.timestamp}</span>
-    </div>
-    {/* ──────────────────────────────────────── */}
     <VersionIndicator />
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
