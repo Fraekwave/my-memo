@@ -21,13 +21,14 @@ i18n
       de: { translation: de },
       es: { translation: es },
     },
-    // Always follow the live browser/OS language — no stale persisted choice.
-    // Priority: navigator.language → <html lang> → URL path → subdomain
+    // Always read the live browser/OS language — no cache, no past selections.
+    // Priority: navigator.language → <html lang>
+    // Any unsupported language falls back to English.
     detection: {
-      order: ['navigator', 'htmlTag', 'path', 'subdomain'],
+      order: ['navigator', 'htmlTag'],
       caches: [],
     },
-    fallbackLng: 'ko',
+    fallbackLng: 'en',
     supportedLngs: ['ko', 'en', 'ja', 'zh', 'de', 'es'],
     interpolation: {
       escapeValue: false,
