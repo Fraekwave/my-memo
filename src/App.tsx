@@ -86,12 +86,11 @@ function App() {
   const [showTrashView, setShowTrashView] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
-  // Format current date in the active locale
+  // Format current date — month + day + year, no weekday (centrepiece display)
   const currentDate = new Date().toLocaleDateString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    weekday: 'long',
   });
 
   // Auth: 세션 없으면 로그인 화면 (200ms 페이드)
@@ -135,11 +134,12 @@ function App() {
     <VersionIndicator />
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
-        {/* 헤더 — Apple nav-bar pattern:
-              side icons in flex row; title+badge absolutely centred so
-              max-w % resolves against the full row width, enabling truncate. */}
+        {/* 헤더 — 시간 중심 레이아웃:
+              날짜가 중앙 상단의 메인 콘텐츠, 배지가 그 바로 아래에 위치.
+              Side icons float in the same row via absolute positioning. */}
         <div className="mb-8">
-          <div className="relative flex items-center">
+          {/* Icon row — side icons anchored, vertical stack centred absolutely */}
+          <div className="relative flex items-center py-3 sm:py-4">
             {/* Left — menu */}
             <div className="flex-shrink-0">
               <GlobalMenu
@@ -149,9 +149,16 @@ function App() {
               />
             </div>
 
-            {/* Centre — membership badge, perfectly centred */}
+            {/* Centre — bold date + status badge stacked vertically */}
             <div className="absolute inset-x-0 flex items-center justify-center pointer-events-none">
-              <MembershipBadge isPro={isPro} />
+              <div className="flex flex-col items-center gap-1.5">
+                <p
+                  className="text-xl sm:text-2xl font-semibold text-zinc-900 tracking-tight select-none"
+                >
+                  {currentDate}
+                </p>
+                <MembershipBadge isPro={isPro} />
+              </div>
             </div>
 
             {/* Right — trash */}
@@ -168,7 +175,6 @@ function App() {
               </button>
             </div>
           </div>
-          <p className="text-zinc-500 font-light text-center mt-2">{currentDate}</p>
         </div>
 
         {/* Sticky 영역: 탭 바 + 입력 폼 (휴지통 뷰에서는 숨김) */}
