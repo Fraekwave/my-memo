@@ -1,0 +1,89 @@
+{
+  "common": {
+    "add": "Add",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "restore": "Restore",
+    "close": "Close",
+    "back": "Back"
+  },
+  "auth": {
+    "title": "Today's Tasks",
+    "subtitle_login": "Sign in to get started",
+    "subtitle_signup": "Create a new account",
+    "subtitle_reset": "Reset your password",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "emailForReset": "Your registered email",
+    "login": "Sign in",
+    "signup": "Sign up",
+    "processing": "Processing...",
+    "forgotPassword": "Forgot your password?",
+    "switchToSignup": "No account? Sign up",
+    "switchToLogin": "Already have an account? Sign in",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "passwordMismatch": "Passwords do not match",
+    "authError": "Authentication failed",
+    "google": "Sign in with Google",
+    "googleConnecting": "Connecting...",
+    "googleTimeout": "Connection timed out. Please try again.",
+    "googleError": "Failed to sign in with Google",
+    "resetSend": "Send reset email",
+    "resetSending": "Sending...",
+    "resetSent": "Sent",
+    "resetSentMessage": "Password reset email has been sent.",
+    "resetError": "Failed to send reset email",
+    "verifyEmailTitle": "Check your inbox",
+    "verifyEmailMessage": "We sent a verification link to your email. Click the link to complete sign-up.",
+    "backToLogin": "Back to sign in",
+    "password_criteria": {
+      "minLength": "At least 8 characters",
+      "uppercase": "One uppercase letter",
+      "lowercase": "One lowercase letter",
+      "number": "One number",
+      "special": "One special character"
+    }
+  },
+  "tabs": {
+    "all": "All",
+    "newTab": "New Tab",
+    "scrollLeft": "Scroll tabs left",
+    "scrollRight": "Scroll tabs right",
+    "addTab": "Add new tab",
+    "limitReached": "Tab limit reached. Upgrade to Pro to create more tabs.",
+    "deleteTitle": "Delete Tab",
+    "deleteMessage": "Delete \"{{title}}\"?\nTasks in this tab will be moved to trash."
+  },
+  "tasks": {
+    "placeholder": "Enter a new task...",
+    "placeholderAllTab": "Cannot add tasks in the All tab",
+    "placeholderLimitReached": "Limit reached ({{count}}/{{max}}). Upgrade to Pro for unlimited tasks.",
+    "swipeHint": "Swipe to complete",
+    "ariaDelete": "Delete",
+    "ariaEdit": "Edit"
+  },
+  "trash": {
+    "heading": "Trash",
+    "disclaimer": "Items in trash are permanently deleted after 30 days. Active tasks are never auto-deleted.",
+    "empty": "Trash is empty",
+    "restored": "Restored to \"{{tab}}\"",
+    "purgedCount": "{{count}} item(s) permanently deleted after 30 days.",
+    "deletesToday": "Deleted today",
+    "deletesTomorrow": "Deleted tomorrow",
+    "deletesInDays": "{{days}} days left"
+  },
+  "app": {
+    "titlePlaceholder": "Today's Tasks",
+    "loading": "Loading...",
+    "loadingData": "Loading data...",
+    "trashAriaLabel": "Trash",
+    "signOutAriaLabel": "Sign out",
+    "trashHeading": "Trash",
+    "statsTotal": "Total {{count}}",
+    "statsCompleted": "Done {{count}}",
+    "footer": "Premium Minimalism © {{year}}"
+  }
+}

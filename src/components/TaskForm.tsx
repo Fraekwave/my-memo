@@ -1,4 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback, FormEvent, KeyboardEvent, TouchEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
 
 interface TaskFormProps {
@@ -43,14 +44,15 @@ export const TaskForm = memo(({
   totalActiveCount = 0,
   maxTasks = Infinity,
 }: TaskFormProps) => {
+  const { t } = useTranslation();
   const isDisabled = disabled || isAtTaskLimit;
 
   // Priority: quota message > All-tab message > default placeholder
   const placeholder = isAtTaskLimit
-    ? `한도 도달 (${totalActiveCount}/${maxTasks}). Pro로 업그레이드하면 더 추가할 수 있어요.`
+    ? t('tasks.placeholderLimitReached', { count: totalActiveCount, max: maxTasks })
     : disabled
-      ? 'All 탭에서는 추가할 수 없습니다'
-      : '새로운 할 일을 입력하세요...';
+      ? t('tasks.placeholderAllTab')
+      : t('tasks.placeholder');
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const { record, suggest, onAcceptSuggestion, checkRejection } = useTaskAutocomplete();
@@ -228,7 +230,7 @@ export const TaskForm = memo(({
             >
               <span className="text-[11px] text-zinc-400 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
                 <span className="animate-nudge-right">→</span>
-                밀어서 완성
+                {t('tasks.swipeHint')}
               </span>
             </div>
           )}
@@ -262,7 +264,7 @@ export const TaskForm = memo(({
           disabled={isDisabled || !input.trim()}
           className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all active:scale-95 whitespace-nowrap flex-shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <span>추가</span>
+          <span>{t('common.add')}</span>
         </button>
       </div>
     </form>

@@ -1,4 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback, useMemo, KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   useSortable,
   defaultAnimateLayoutChanges,
@@ -63,6 +64,7 @@ const animateLayoutChanges: AnimateLayoutChanges = (args) => {
 };
 
 export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete, disableDrag = false }: TaskItemProps) => {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [justCompleted, setJustCompleted] = useState(false);
@@ -476,14 +478,14 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
                   p-1 rounded items-center justify-center
                   ${aging.isDark ? 'text-white/20 hover:text-white' : 'text-zinc-400/20 hover:text-red-500'}
                 `}
-                aria-label="삭제"
+                aria-label={t('tasks.ariaDelete')}
               >
                 <Trash2 className="w-4 h-4 flex-shrink-0" />
               </button>
               <button
                 onClick={startEditing}
                 className={`${iconClass} shrink-0`}
-                aria-label="수정"
+                aria-label={t('tasks.ariaEdit')}
               >
                 <Pencil className="w-4 h-4" />
               </button>

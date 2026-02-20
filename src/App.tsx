@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
 import { useTasks, ALL_TAB_ID } from '@/hooks/useTasks';
@@ -11,6 +12,7 @@ import { TaskList } from '@/components/TaskList';
 import { TrashView } from '@/components/TrashView';
 import { TabBar } from '@/components/TabBar';
 import { VersionIndicator } from '@/components/VersionIndicator';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { LogOut, Trash2 } from 'lucide-react';
 
 /**
@@ -21,6 +23,7 @@ import { LogOut, Trash2 } from 'lucide-react';
  * ✨ Optimistic UI: 초기 로딩 시에만 스피너, Task CRUD 즉시 반영
  */
 function App() {
+  const { t, i18n } = useTranslation();
   const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
 
   const { title: appTitle, updateTitle } = useAppTitle(userId);
@@ -66,8 +69,8 @@ function App() {
 
   const [showTrashView, setShowTrashView] = useState(false);
 
-  // 현재 날짜 포맷팅
-  const currentDate = new Date().toLocaleDateString('ko-KR', {
+  // Format current date in the active locale
+  const currentDate = new Date().toLocaleDateString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -92,7 +95,7 @@ function App() {
       <div className="h-full bg-zinc-50 flex items-center justify-center p-4 sm:p-8">
         <div className="text-center">
           <div className="inline-block w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4" />
-          <p className="text-zinc-500 font-light">확인 중...</p>
+          <p className="text-zinc-500 font-light">{t('app.loading')}</p>
         </div>
       </div>
     );
@@ -104,7 +107,7 @@ function App() {
       <div className="h-full bg-zinc-50 flex items-center justify-center p-4 sm:p-8">
         <div className="text-center">
           <div className="inline-block w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4" />
-          <p className="text-zinc-500 font-light">데이터를 불러오는 중...</p>
+          <p className="text-zinc-500 font-light">{t('app.loadingData')}</p>
         </div>
       </div>
     );
@@ -122,17 +125,18 @@ function App() {
             <EditableTitle
               value={appTitle}
               onSave={updateTitle}
-              placeholder="Today's Tasks"
+              placeholder={t('app.titlePlaceholder')}
               className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2 block text-center min-w-0 max-w-full"
             />
             <div className="flex items-center justify-end gap-1">
+              <LanguageSwitcher />
               <button
                 type="button"
                 onClick={() => setShowTrashView((v) => !v)}
                 className={`p-2 -m-2 rounded-lg transition-colors duration-200 ${
                   showTrashView ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
                 }`}
-                aria-label="휴지통"
+                aria-label={t('app.trashAriaLabel')}
               >
                 <Trash2 className="w-5 h-5" strokeWidth={1.5} />
               </button>
@@ -140,7 +144,7 @@ function App() {
                 type="button"
                 onClick={() => signOut()}
                 className="p-2 -m-2 text-zinc-400 hover:text-zinc-600 transition-colors duration-200 rounded-lg"
-                aria-label="로그아웃"
+                aria-label={t('app.signOutAriaLabel')}
               >
                 <LogOut className="w-5 h-5" />
               </button>
@@ -186,13 +190,13 @@ function App() {
             {showTrashView ? (
               <>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-light text-zinc-900">휴지통</h2>
+                  <h2 className="text-lg font-light text-zinc-900">{t('app.trashHeading')}</h2>
                   <button
                     type="button"
                     onClick={() => setShowTrashView(false)}
                     className="text-xs font-medium text-zinc-500 hover:text-zinc-700"
                   >
-                    닫기
+                    {t('common.close')}
                   </button>
                 </div>
                 <TrashView
@@ -226,10 +230,10 @@ function App() {
           {!showTrashView && (
           <div className="px-6 sm:px-8 py-4 bg-zinc-50 border-t border-zinc-100 rounded-b-3xl flex items-center justify-between text-sm">
             <span className="text-zinc-500 font-light">
-              전체 <span className="font-medium text-zinc-900">{stats.total}</span>개
+              {t('app.statsTotal', { count: stats.total })}
             </span>
             <span className="text-zinc-500 font-light">
-              완료 <span className="font-medium text-zinc-900">{stats.completed}</span>개
+              {t('app.statsCompleted', { count: stats.completed })}
             </span>
           </div>
           )}
@@ -238,7 +242,7 @@ function App() {
         {/* 푸터 */}
         <div className="text-center mt-8 pb-[env(safe-area-inset-bottom)]">
           <p className="text-zinc-400 text-sm font-light">
-            Premium Minimalism © {new Date().getFullYear()}
+            {t('app.footer', { year: new Date().getFullYear() })}
           </p>
         </div>
 

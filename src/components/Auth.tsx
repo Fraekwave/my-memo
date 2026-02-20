@@ -1,5 +1,6 @@
 import { useState, FormEvent, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Loader2, Check, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { GoogleGIcon } from '@/components/GoogleGIcon';
 
@@ -9,13 +10,20 @@ interface AuthProps {
   onSuccess: () => void;
 }
 
-const PASSWORD_CRITERIA: { label: string; test: (p: string) => boolean }[] = [
-  { label: '최소 8자 이상', test: (p) => p.length >= 8 },
-  { label: '대문자 포함', test: (p) => /[A-Z]/.test(p) },
-  { label: '소문자 포함', test: (p) => /[a-z]/.test(p) },
-  { label: '숫자 포함', test: (p) => /[0-9]/.test(p) },
-  { label: '특수문자 포함', test: (p) => /[@&$%#*()\-_+=.,!?;:'"\\/[\]{}^`~]/.test(p) },
+const PASSWORD_CRITERIA_TESTS: ((p: string) => boolean)[] = [
+  (p) => p.length >= 8,
+  (p) => /[A-Z]/.test(p),
+  (p) => /[a-z]/.test(p),
+  (p) => /[0-9]/.test(p),
+  (p) => /[@&$%#*()\-_+=.,!?;:'"\\/[\]{}^`~]/.test(p),
 ];
+const CRITERIA_KEYS = [
+  'auth.password_criteria.minLength',
+  'auth.password_criteria.uppercase',
+  'auth.password_criteria.lowercase',
+  'auth.password_criteria.number',
+  'auth.password_criteria.special',
+] as const;
 
 /**
  * Tesla-style Auth: Extreme minimalism, Zinc/Stone monochrome
@@ -23,6 +31,7 @@ const PASSWORD_CRITERIA: { label: string; test: (p: string) => boolean }[] = [
  * - Social login via Supabase OAuth
  */
 export const Auth = ({ onSuccess }: AuthProps) => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -94,7 +103,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
           onSuccess();
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : '인증 실패');
+        setError(err instanceof Error ? err.message : t('auth.authError'));
       } finally {
         setLoading(false);
       }
@@ -131,7 +140,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         if (resetError) throw resetError;
         setResetSuccess(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : '재설정 메일 발송 실패');
+        setError(err instanceof Error ? err.message : t('auth.resetError'));
       } finally {
         setResetLoading(false);
       }
@@ -140,8 +149,11 @@ export const Auth = ({ onSuccess }: AuthProps) => {
   );
 
   const passwordChecks = useMemo(
-    () => PASSWORD_CRITERIA.map(({ label, test }) => ({ label, met: test(password) })),
-    [password]
+    () => PASSWORD_CRITERIA_TESTS.map((test, i) => ({
+      label: t(CRITERIA_KEYS[i]),
+      met: test(password),
+    })),
+    [password, t]
   );
   const allPasswordCriteriaMet = useMemo(
     () => passwordChecks.every((c) => c.met),
@@ -163,7 +175,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
     // 10s safeguard: if signInWithOAuth hangs (network error, blocked redirect, etc.)
     googleTimeoutRef.current = setTimeout(() => {
       setGoogleLoading(false);
-      setError('연결 시간이 초과되었습니다. 다시 시도해 주세요.');
+      setError(t('auth.googleTimeout'));
       googleTimeoutRef.current = null;
     }, 10_000);
 
@@ -185,7 +197,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         clearTimeout(googleTimeoutRef.current);
         googleTimeoutRef.current = null;
       }
-      setError(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다');
+      setError(err instanceof Error ? err.message : t('auth.googleError'));
       setGoogleLoading(false);
     }
   }, []);
@@ -195,10 +207,10 @@ export const Auth = ({ onSuccess }: AuthProps) => {
       <div className="h-full flex items-center justify-center p-6 sm:p-8 bg-stone-50">
         <div className="w-full max-w-sm text-center">
           <h1 className="text-2xl font-light text-zinc-900 tracking-tight mb-4">
-            메일함을 확인해 주세요
+            {t('auth.verifyEmailTitle')}
           </h1>
           <p className="text-zinc-600 text-sm font-light leading-relaxed mb-8">
-            입력하신 이메일로 인증 링크를 보냈습니다. 링크를 클릭하면 가입이 완료됩니다.
+            {t('auth.verifyEmailMessage')}
           </p>
           <button
             type="button"
@@ -208,7 +220,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             }}
             className="w-full py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 active:scale-[0.99]"
           >
-            로그인 화면으로 돌아가기
+            {t('auth.backToLogin')}
           </button>
         </div>
       </div>
@@ -223,10 +235,10 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         </h1>
         <p className="text-stone-500 text-sm font-light text-center mb-8 tracking-wide">
           {showResetFlow
-            ? '비밀번호 재설정'
+            ? t('auth.subtitle_reset')
             : mode === 'login'
-              ? '로그인하여 시작하세요'
-              : '새 계정 만들기'}
+              ? t('auth.subtitle_login')
+              : t('auth.subtitle_signup')}
         </p>
 
         {showResetFlow ? (
@@ -235,7 +247,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="가입한 이메일 주소"
+              placeholder={t('auth.emailForReset')}
               required
               autoComplete="email"
               className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
@@ -243,7 +255,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             {error && <p className="text-zinc-600 text-sm font-light">{error}</p>}
             {resetSuccess && (
               <p className="text-zinc-800 text-sm font-medium">
-                비밀번호 재설정 메일이 발송되었습니다.
+                {t('auth.resetSentMessage')}
               </p>
             )}
             <div className="flex gap-3">
@@ -257,14 +269,14 @@ export const Auth = ({ onSuccess }: AuthProps) => {
                 className="flex items-center justify-center gap-1.5 px-4 py-3 border border-zinc-200 rounded-xl text-zinc-600 text-sm font-medium hover:bg-zinc-50 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
-                뒤로
+                {t('common.back')}
               </button>
               <button
                 type="submit"
                 disabled={resetLoading || resetSuccess}
                 className="flex-1 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {resetLoading ? '발송 중...' : resetSuccess ? '발송 완료' : '재설정 메일 받기'}
+                {resetLoading ? t('auth.resetSending') : resetSuccess ? t('auth.resetSent') : t('auth.resetSend')}
               </button>
             </div>
           </form>
@@ -274,7 +286,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="이메일"
+              placeholder={t('auth.email')}
             required
             autoComplete="email"
             className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
@@ -284,7 +296,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호"
+              placeholder={t('auth.password')}
               required
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               className="w-full px-4 py-3 pr-10 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
@@ -293,7 +305,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
               type="button"
               onClick={toggleShowPassword}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 transition-colors"
-              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+              aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               tabIndex={-1}
             >
               {showPassword ? (
@@ -335,7 +347,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
                 type={showPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="비밀번호 확인"
+                placeholder={t('auth.confirmPassword')}
                 required
                 autoComplete="new-password"
                 className={`w-full px-4 py-3 pr-10 bg-white border rounded-xl text-zinc-900 placeholder-stone-400 outline-none transition-colors duration-200 ${
@@ -348,7 +360,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
                 type="button"
                 onClick={toggleShowPassword}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 transition-colors"
-                aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                 tabIndex={-1}
               >
                 {showPassword ? (
@@ -361,7 +373,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
           )}
 
           {confirmPassword && !passwordsMatch && (
-            <p className="text-zinc-600 text-sm font-light">비밀번호가 일치하지 않습니다</p>
+            <p className="text-zinc-600 text-sm font-light">{t('auth.passwordMismatch')}</p>
           )}
 
           {error && (
@@ -373,7 +385,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             disabled={loading || (mode === 'signup' && !canSignUp)}
             className="w-full py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? '처리 중...' : mode === 'login' ? '로그인' : '가입하기'}
+            {loading ? t('auth.processing') : mode === 'login' ? t('auth.login') : t('auth.signup')}
           </button>
 
           {mode === 'login' && !showResetFlow && (
@@ -382,7 +394,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
               onClick={() => setShowResetFlow(true)}
               className="w-full py-1.5 text-zinc-500 text-xs font-light hover:text-zinc-700 transition-colors"
             >
-              비밀번호를 잊으셨나요?
+              {t('auth.forgotPassword')}
             </button>
           )}
         </form>
@@ -411,7 +423,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             <GoogleGIcon className="w-5 h-5" />
           )}
           <span className="text-sm font-medium">
-            {googleLoading ? '연결 중...' : 'Sign in with Google'}
+            {googleLoading ? t('auth.googleConnecting') : t('auth.google')}
           </span>
         </button>
         </>
@@ -423,7 +435,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
           onClick={toggleMode}
           className="w-full mt-6 py-2 text-stone-500 text-sm font-light hover:text-zinc-700 transition-colors duration-200"
         >
-          {mode === 'login' ? '계정이 없으신가요? 가입하기' : '이미 계정이 있으신가요? 로그인'}
+          {mode === 'login' ? t('auth.switchToSignup') : t('auth.switchToLogin')}
         </button>
         )}
       </div>

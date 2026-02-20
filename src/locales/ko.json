@@ -1,0 +1,89 @@
+{
+  "common": {
+    "add": "추가",
+    "delete": "삭제",
+    "cancel": "취소",
+    "edit": "수정",
+    "restore": "복구",
+    "close": "닫기",
+    "back": "뒤로"
+  },
+  "auth": {
+    "title": "Today's Tasks",
+    "subtitle_login": "로그인하여 시작하세요",
+    "subtitle_signup": "새 계정 만들기",
+    "subtitle_reset": "비밀번호 재설정",
+    "email": "이메일",
+    "password": "비밀번호",
+    "confirmPassword": "비밀번호 확인",
+    "emailForReset": "가입한 이메일 주소",
+    "login": "로그인",
+    "signup": "가입하기",
+    "processing": "처리 중...",
+    "forgotPassword": "비밀번호를 잊으셨나요?",
+    "switchToSignup": "계정이 없으신가요? 가입하기",
+    "switchToLogin": "이미 계정이 있으신가요? 로그인",
+    "showPassword": "비밀번호 보기",
+    "hidePassword": "비밀번호 숨기기",
+    "passwordMismatch": "비밀번호가 일치하지 않습니다",
+    "authError": "인증 실패",
+    "google": "Sign in with Google",
+    "googleConnecting": "연결 중...",
+    "googleTimeout": "연결 시간이 초과되었습니다. 다시 시도해 주세요.",
+    "googleError": "Google 로그인에 실패했습니다",
+    "resetSend": "재설정 메일 받기",
+    "resetSending": "발송 중...",
+    "resetSent": "발송 완료",
+    "resetSentMessage": "비밀번호 재설정 메일이 발송되었습니다.",
+    "resetError": "재설정 메일 발송 실패",
+    "verifyEmailTitle": "메일함을 확인해 주세요",
+    "verifyEmailMessage": "입력하신 이메일로 인증 링크를 보냈습니다. 링크를 클릭하면 가입이 완료됩니다.",
+    "backToLogin": "로그인 화면으로 돌아가기",
+    "password_criteria": {
+      "minLength": "최소 8자 이상",
+      "uppercase": "대문자 포함",
+      "lowercase": "소문자 포함",
+      "number": "숫자 포함",
+      "special": "특수문자 포함"
+    }
+  },
+  "tabs": {
+    "all": "All",
+    "newTab": "New Tab",
+    "scrollLeft": "탭 왼쪽 스크롤",
+    "scrollRight": "탭 오른쪽 스크롤",
+    "addTab": "새 탭 추가",
+    "limitReached": "탭 한도에 도달했습니다. Pro로 업그레이드하면 탭을 더 만들 수 있어요.",
+    "deleteTitle": "탭 삭제",
+    "deleteMessage": "\"{{title}}\" 탭을 삭제하시겠습니까?\n탭에 포함된 할 일은 휴지통으로 이동됩니다."
+  },
+  "tasks": {
+    "placeholder": "새로운 할 일을 입력하세요...",
+    "placeholderAllTab": "All 탭에서는 추가할 수 없습니다",
+    "placeholderLimitReached": "한도 도달 ({{count}}/{{max}}). Pro로 업그레이드하면 더 추가할 수 있어요.",
+    "swipeHint": "밀어서 완성",
+    "ariaDelete": "삭제",
+    "ariaEdit": "수정"
+  },
+  "trash": {
+    "heading": "휴지통",
+    "disclaimer": "휴지통 항목은 30일 후 영구 삭제됩니다. 활성 노트는 절대 자동 삭제되지 않습니다.",
+    "empty": "휴지통이 비어 있습니다",
+    "restored": "\"{{tab}}\" 탭으로 복구되었습니다",
+    "purgedCount": "{{count}}개 항목이 30일 경과로 영구 삭제되었습니다.",
+    "deletesToday": "오늘 삭제",
+    "deletesTomorrow": "내일 삭제",
+    "deletesInDays": "{{days}}일 남음"
+  },
+  "app": {
+    "titlePlaceholder": "Today's Tasks",
+    "loading": "확인 중...",
+    "loadingData": "데이터를 불러오는 중...",
+    "trashAriaLabel": "휴지통",
+    "signOutAriaLabel": "로그아웃",
+    "trashHeading": "휴지통",
+    "statsTotal": "전체 {{count}}개",
+    "statsCompleted": "완료 {{count}}개",
+    "footer": "Premium Minimalism © {{year}}"
+  }
+}

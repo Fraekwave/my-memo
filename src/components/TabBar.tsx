@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
 import { flushSync } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   closestCenter,
@@ -59,6 +60,8 @@ export const TabBar = ({
   onDelete,
   onReorder,
 }: TabBarProps) => {
+  const { t } = useTranslation();
+
   // --- State ---
   const [editingTabId, setEditingTabId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -244,7 +247,7 @@ export const TabBar = ({
     // 3. 한도 초과: optimistic update 없이 알림 표시 후 종료
     if (newTabId === null) {
       if (limitTimerRef.current) clearTimeout(limitTimerRef.current);
-      setLimitMessage('탭 한도에 도달했습니다. Pro로 업그레이드하면 탭을 더 만들 수 있어요.');
+      setLimitMessage(t('tabs.limitReached'));
       limitTimerRef.current = setTimeout(() => {
         setLimitMessage(null);
         limitTimerRef.current = null;
@@ -255,7 +258,7 @@ export const TabBar = ({
     // 4. flushSync: 편집 상태 + 새 탭 DOM을 같은 User Gesture 스택 안에서 커밋
     flushSync(() => {
       setEditingTabId(newTabId);
-      setEditTitle('New Tab');
+      setEditTitle(t('tabs.newTab'));
     });
 
     // 5. DOM이 동기적으로 업데이트된 직후 — 같은 User Gesture 스택 내에서 focus
@@ -289,7 +292,7 @@ export const TabBar = ({
             : 'text-transparent cursor-default pointer-events-none'
           }
         `}
-        aria-label="탭 왼쪽 스크롤"
+        aria-label={t('tabs.scrollLeft')}
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -342,7 +345,7 @@ export const TabBar = ({
                 }
               `}
             >
-              <span className="text-sm">All</span>
+              <span className="text-sm">{t('tabs.all')}</span>
             </button>
           </div>
         </SortableContext>
@@ -360,7 +363,7 @@ export const TabBar = ({
             : 'text-transparent cursor-default pointer-events-none'
           }
         `}
-        aria-label="탭 오른쪽 스크롤"
+        aria-label={t('tabs.scrollRight')}
       >
         <ChevronRight className="w-4 h-4" />
       </button>
@@ -372,7 +375,7 @@ export const TabBar = ({
         onMouseDown={(e) => e.preventDefault()}
         onClick={handleAdd}
         className="flex-shrink-0 flex items-center justify-center w-8 h-8 mb-0.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition-all duration-150"
-        aria-label="새 탭 추가"
+        aria-label={t('tabs.addTab')}
       >
         <Plus className="w-4 h-4" />
       </button>
@@ -380,10 +383,10 @@ export const TabBar = ({
       {/* 탭 삭제 확인 모달 */}
       <ConfirmModal
         isOpen={deleteTabId !== null}
-        title="탭 삭제"
-        message={`"${deleteTargetTab?.title ?? ''}" 탭을 삭제하시겠습니까?\n탭에 포함된 할 일은 휴지통으로 이동됩니다.`}
-        confirmLabel="삭제"
-        cancelLabel="취소"
+        title={t('tabs.deleteTitle')}
+        message={t('tabs.deleteMessage', { title: deleteTargetTab?.title ?? '' })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
         onConfirm={() => {
           if (deleteTabId !== null) {
             onDelete(deleteTabId);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Task } from '@/lib/types';
 import { getTaskAgingStyles } from '@/lib/visualAging';
 
@@ -30,6 +31,7 @@ export const TrashView = ({
   onFetch,
   onRestore,
 }: TrashViewProps) => {
+  const { t } = useTranslation();
   const [restoreFeedback, setRestoreFeedback] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export const TrashView = ({
   const handleRestore = async (task: Task) => {
     const result = await onRestore(task);
     if (result) {
-      setRestoreFeedback(`"${result}" 탭으로 복구되었습니다`);
+      setRestoreFeedback(t('trash.restored', { tab: result }));
       setTimeout(() => setRestoreFeedback(null), 3000);
     }
   };
@@ -62,7 +64,7 @@ export const TrashView = ({
   return (
     <div className="space-y-4">
       <p className="text-zinc-500 text-xs font-light">
-        휴지통 항목은 30일 후 영구 삭제됩니다. 활성 노트는 절대 자동 삭제되지 않습니다.
+        {t('trash.disclaimer')}
       </p>
 
       {restoreFeedback && (
@@ -71,7 +73,7 @@ export const TrashView = ({
 
       {visibleDeleted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-zinc-400 text-sm font-light">휴지통이 비어 있습니다</p>
+          <p className="text-zinc-400 text-sm font-light">{t('trash.empty')}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -82,10 +84,10 @@ export const TrashView = ({
               daysRemaining === null
                 ? ''
                 : daysRemaining <= 0
-                  ? '오늘 삭제'
+                  ? t('trash.deletesToday')
                   : daysRemaining === 1
-                    ? '내일 삭제'
-                    : `${daysRemaining}일 남음`;
+                    ? t('trash.deletesTomorrow')
+                    : t('trash.deletesInDays', { days: daysRemaining });
             return (
               <li
                 key={task.id}
@@ -109,10 +111,10 @@ export const TrashView = ({
                   type="button"
                   onClick={() => handleRestore(task)}
                   className="flex items-center gap-1.5 px-2 py-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200 rounded-lg transition-colors text-xs font-medium"
-                  aria-label="복구"
+                  aria-label={t('common.restore')}
                 >
                   <RotateCcw className="w-4 h-4" strokeWidth={2} />
-                  복구
+                  {t('common.restore')}
                 </button>
               </li>
             );
@@ -121,9 +123,9 @@ export const TrashView = ({
       )}
 
       {purgedCount > 0 && (
-        <p className="text-zinc-400 text-xs font-light">
-          {purgedCount}개 항목이 30일 경과로 영구 삭제되었습니다.
-        </p>
+      <p className="text-zinc-400 text-xs font-light">
+        {t('trash.purgedCount', { count: purgedCount })}
+      </p>
       )}
     </div>
   );
