@@ -4,6 +4,7 @@ import { useTabs } from '@/hooks/useTabs';
 import { useTasks, ALL_TAB_ID } from '@/hooks/useTasks';
 import { useProfile } from '@/hooks/useProfile';
 import { useAppTitle } from '@/hooks/useAppTitle';
+import { useInAppBrowserEscape } from '@/hooks/useInAppBrowserEscape';
 import { Auth } from '@/components/Auth';
 import { EditableTitle } from '@/components/EditableTitle';
 import { TaskForm } from '@/components/TaskForm';
@@ -11,6 +12,7 @@ import { TaskList } from '@/components/TaskList';
 import { TrashView } from '@/components/TrashView';
 import { TabBar } from '@/components/TabBar';
 import { VersionIndicator } from '@/components/VersionIndicator';
+import { InAppBrowserGuard } from '@/components/InAppBrowserGuard';
 import { LogOut, Trash2 } from 'lucide-react';
 
 /**
@@ -22,6 +24,13 @@ import { LogOut, Trash2 } from 'lucide-react';
  */
 function App() {
   const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
+
+  // In-App Browser Escape: redirect Android to Chrome via intent://, show iOS guide.
+  // Only active while the user is not authenticated (Google OAuth is the concern).
+  const { showIOSGuide, dismissIOSGuide } = useInAppBrowserEscape(
+    !isAuthLoading && !session
+  );
+
   const { title: appTitle, updateTitle } = useAppTitle(userId);
   const { isPro, isProfileLoading, maxTabs, maxTasks } = useProfile(userId);
 
@@ -112,6 +121,7 @@ function App() {
   return (
     <>
     <VersionIndicator />
+    {showIOSGuide && <InAppBrowserGuard onDismiss={dismissIOSGuide} />}
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
         {/* 헤더 — 3열 그리드: 빈 좌측 | 중앙 제목 | 우측 아이콘 (수학적 중앙 정렬) */}
