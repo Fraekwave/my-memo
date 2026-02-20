@@ -117,41 +117,50 @@ function App() {
     <VersionIndicator />
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
-        {/* 헤더 — 3열 그리드: 메뉴 | 브랜드명 | 휴지통 */}
+        {/* 헤더 — Apple nav-bar pattern:
+              side icons in flex row; title+badge absolutely centred so
+              max-w % resolves against the full row width, enabling truncate. */}
         <div className="mb-8">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center">
-            <div className="flex items-center justify-start">
+          <div className="relative flex items-center">
+            {/* Left — menu */}
+            <div className="flex-shrink-0">
               <GlobalMenu
                 userEmail={userEmail}
                 onSignOut={signOut}
                 onOpenAdmin={() => setShowAdmin(true)}
               />
             </div>
-            <div className="flex items-end gap-2.5">
-              <h1
-                className="text-4xl sm:text-5xl font-semibold text-zinc-900 select-none"
-                style={{ letterSpacing: '-0.05em' }}
-              >
-                INA Done
-              </h1>
-              {isPro && (
-                <span
-                  className="mb-1 sm:mb-1.5 px-1.5 py-0.5 rounded-full select-none"
-                  style={{
-                    background: 'rgba(212, 175, 55, 0.10)',
-                    border: '1px solid rgba(212, 175, 55, 0.25)',
-                    color: 'rgb(161, 120, 24)',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    letterSpacing: '0.1em',
-                    lineHeight: 1,
-                  }}
+
+            {/* Centre — title + PRO badge, perfectly centred, truncates safely */}
+            <div className="absolute inset-x-0 flex items-end justify-center pointer-events-none">
+              <div className="flex items-end gap-2 min-w-0 max-w-[70%]">
+                <h1
+                  className="truncate text-4xl sm:text-5xl font-semibold text-zinc-900 select-none pointer-events-auto min-w-0"
+                  style={{ letterSpacing: '-0.05em' }}
                 >
-                  PRO
-                </span>
-              )}
+                  INA Done
+                </h1>
+                {isPro && (
+                  <span
+                    className="flex-shrink-0 mb-1 sm:mb-1.5 px-1.5 py-0.5 rounded-full select-none pointer-events-auto"
+                    style={{
+                      background: 'rgba(212, 175, 55, 0.10)',
+                      border: '1px solid rgba(212, 175, 55, 0.25)',
+                      color: 'rgb(161, 120, 24)',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      lineHeight: 1,
+                    }}
+                  >
+                    PRO
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="flex items-center justify-end">
+
+            {/* Right — trash */}
+            <div className="flex-shrink-0 ml-auto">
               <button
                 type="button"
                 onClick={() => setShowTrashView((v) => !v)}
