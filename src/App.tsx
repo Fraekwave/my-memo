@@ -12,7 +12,6 @@ import { TaskList } from '@/components/TaskList';
 import { TrashView } from '@/components/TrashView';
 import { TabBar } from '@/components/TabBar';
 import { VersionIndicator } from '@/components/VersionIndicator';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { LogOut, Trash2 } from 'lucide-react';
 
 /**
@@ -129,7 +128,6 @@ function App() {
               className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2 block text-center min-w-0 max-w-full"
             />
             <div className="flex items-center justify-end gap-1">
-              <LanguageSwitcher />
               <button
                 type="button"
                 onClick={() => setShowTrashView((v) => !v)}

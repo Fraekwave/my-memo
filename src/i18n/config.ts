@@ -13,11 +13,11 @@ i18n
       en: { translation: en },
       ko: { translation: ko },
     },
-    // LanguageDetector order: localStorage → navigator (browser lang) → htmlTag
+    // Always follow the live environment — no stale manual overrides.
+    // Priority: browser Accept-Language → <html lang> → URL path → subdomain
     detection: {
-      order: ['localStorage', 'navigator', 'htmlTag'],
-      caches: ['localStorage'],
-      lookupLocalStorage: 'i18nextLng',
+      order: ['navigator', 'htmlTag', 'path', 'subdomain'],
+      caches: [], // do not persist to localStorage or cookies
     },
     fallbackLng: 'ko',
     supportedLngs: ['en', 'ko'],
