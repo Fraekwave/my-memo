@@ -54,6 +54,7 @@ function App() {
     fetchDeletedTasks,
     restoreTask,
     isAtTaskLimit,
+    totalActiveCount,
   } = useTasks(selectedTabId, userId, tabIds, {
     ensureTabExists,
     tabs,
@@ -168,7 +169,10 @@ function App() {
             )}
             <TaskForm
               onSubmit={addTask}
-              disabled={selectedTabId === ALL_TAB_ID || isAtTaskLimit}
+              disabled={selectedTabId === ALL_TAB_ID}
+              isAtTaskLimit={isAtTaskLimit}
+              totalActiveCount={totalActiveCount}
+              maxTasks={maxTasks}
             />
           </div>
           <div className="h-0 border-x border-zinc-200 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.06)]" />

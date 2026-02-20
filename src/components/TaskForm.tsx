@@ -3,7 +3,14 @@ import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
 
 interface TaskFormProps {
   onSubmit: (text: string) => Promise<boolean>;
+  /** True when the user is on ALL_TAB_ID (cannot target a specific tab). */
   disabled?: boolean;
+  /** True when the user has reached their max_tasks quota. */
+  isAtTaskLimit?: boolean;
+  /** Current total active task count (used in the quota message). */
+  totalActiveCount?: number;
+  /** User's max_tasks limit (used in the quota message). */
+  maxTasks?: number;
 }
 
 /**
@@ -29,7 +36,21 @@ interface TaskFormProps {
 const HINT_STORAGE_KEY = 'has_seen_swipe_hint';
 const SWIPE_THRESHOLD = 50; // px — 의도적 스와이프와 탭/미세 터치 구분
 
-export const TaskForm = memo(({ onSubmit, disabled = false }: TaskFormProps) => {
+export const TaskForm = memo(({
+  onSubmit,
+  disabled = false,
+  isAtTaskLimit = false,
+  totalActiveCount = 0,
+  maxTasks = Infinity,
+}: TaskFormProps) => {
+  const isDisabled = disabled || isAtTaskLimit;
+
+  // Priority: quota message > All-tab message > default placeholder
+  const placeholder = isAtTaskLimit
+    ? `한도 도달 (${totalActiveCount}/${maxTasks}). Pro로 업그레이드하면 더 추가할 수 있어요.`
+    : disabled
+      ? 'All 탭에서는 추가할 수 없습니다'
+      : '새로운 할 일을 입력하세요...';
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const { record, suggest, onAcceptSuggestion, checkRejection } = useTaskAutocomplete();
@@ -218,7 +239,7 @@ export const TaskForm = memo(({ onSubmit, disabled = false }: TaskFormProps) => 
             type="text"
             name="task_text"
             value={input}
-            disabled={disabled}
+            disabled={isDisabled}
             onChange={(e) => {
               const next = e.target.value;
               checkRejection(input, next);
@@ -227,7 +248,7 @@ export const TaskForm = memo(({ onSubmit, disabled = false }: TaskFormProps) => 
             onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            placeholder={disabled ? "All 탭에서는 추가할 수 없습니다" : "새로운 할 일을 입력하세요..."}
+            placeholder={placeholder}
             className="relative w-full px-4 py-3 bg-transparent text-zinc-900 placeholder-zinc-400 outline-none rounded-xl"
             autoComplete="off"
             autoCorrect="off"
@@ -238,7 +259,7 @@ export const TaskForm = memo(({ onSubmit, disabled = false }: TaskFormProps) => 
 
         <button
           type="submit"
-          disabled={disabled || !input.trim()}
+          disabled={isDisabled || !input.trim()}
           className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all active:scale-95 whitespace-nowrap flex-shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>추가</span>
