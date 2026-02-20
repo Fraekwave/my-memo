@@ -423,7 +423,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             <GoogleGIcon className="w-5 h-5" />
           )}
           <span className="text-sm font-medium">
-            {googleLoading ? t('auth.googleConnecting') : t('auth.google')}
+            {googleLoading ? t('auth.googleConnecting') : t('auth.googleLogin')}
           </span>
         </button>
         </>

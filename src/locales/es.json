@@ -1,0 +1,92 @@
+{
+  "common": {
+    "add": "Añadir",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "back": "Atrás"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "googleLogin": "Continuar con Google",
+    "logout": "Cerrar sesión",
+    "subtitle_login": "Inicia sesión para comenzar",
+    "subtitle_signup": "Crear una nueva cuenta",
+    "subtitle_reset": "Restablecer contraseña",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "emailForReset": "Correo electrónico registrado",
+    "signup": "Registrarse",
+    "processing": "Procesando...",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "switchToSignup": "¿Sin cuenta? Regístrate",
+    "switchToLogin": "¿Ya tienes cuenta? Inicia sesión",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "authError": "Error de autenticación",
+    "googleConnecting": "Conectando...",
+    "googleTimeout": "Tiempo de conexión agotado. Inténtalo de nuevo.",
+    "googleError": "Error al iniciar sesión con Google",
+    "resetSend": "Enviar correo de restablecimiento",
+    "resetSending": "Enviando...",
+    "resetSent": "Enviado",
+    "resetSentMessage": "Se ha enviado el correo de restablecimiento de contraseña.",
+    "resetError": "Error al enviar el correo de restablecimiento",
+    "verifyEmailTitle": "Revisa tu bandeja de entrada",
+    "verifyEmailMessage": "Enviamos un enlace de verificación a tu correo. Haz clic en el enlace para completar el registro.",
+    "backToLogin": "Volver al inicio de sesión",
+    "password_criteria": {
+      "minLength": "Al menos 8 caracteres",
+      "uppercase": "Una letra mayúscula",
+      "lowercase": "Una letra minúscula",
+      "number": "Un número",
+      "special": "Un carácter especial"
+    }
+  },
+  "tabs": {
+    "newTab": "Nueva pestaña",
+    "tabLimit": "Límite de pestañas alcanzado (3/3)",
+    "allTab": "Todo",
+    "scrollLeft": "Desplazar pestañas a la izquierda",
+    "scrollRight": "Desplazar pestañas a la derecha",
+    "addTab": "Añadir nueva pestaña",
+    "deleteTitle": "Eliminar pestaña",
+    "deleteMessage": "¿Eliminar \"{{title}}\"?\nLas tareas de esta pestaña se moverán a la papelera."
+  },
+  "tasks": {
+    "placeholder": "Añadir una tarea",
+    "placeholderLimit": "Límite de tareas alcanzado (30/30)",
+    "proUpgrade": "Mejorar a PRO",
+    "noTask": "No hay tareas",
+    "placeholderAllTab": "No se pueden añadir tareas en la pestaña Todo",
+    "swipeHint": "Desliza para completar",
+    "ariaDelete": "Eliminar",
+    "ariaEdit": "Editar"
+  },
+  "trash": {
+    "trashTitle": "Papelera",
+    "purgeWarning": "Los elementos se borran después de 7 días",
+    "restore": "Restaurar",
+    "empty": "La papelera está vacía",
+    "restored": "Restaurado en \"{{tab}}\"",
+    "purgedCount": "{{count}} elemento(s) eliminado(s) permanentemente después de 30 días.",
+    "deletesToday": "Eliminado hoy",
+    "deletesTomorrow": "Eliminado mañana",
+    "deletesInDays": "{{days}} días restantes"
+  },
+  "app": {
+    "titlePlaceholder": "Today's Tasks",
+    "loading": "Cargando...",
+    "loadingData": "Cargando datos...",
+    "stats": "Tareas completadas",
+    "trashAriaLabel": "Papelera",
+    "statsTotal": "Total {{count}}",
+    "statsCompleted": "Completadas {{count}}",
+    "footer": "Premium Minimalism © {{year}}"
+  }
+}

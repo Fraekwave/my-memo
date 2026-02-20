@@ -8,10 +8,6 @@ interface TaskFormProps {
   disabled?: boolean;
   /** True when the user has reached their max_tasks quota. */
   isAtTaskLimit?: boolean;
-  /** Current total active task count (used in the quota message). */
-  totalActiveCount?: number;
-  /** User's max_tasks limit (used in the quota message). */
-  maxTasks?: number;
 }
 
 /**
@@ -41,15 +37,13 @@ export const TaskForm = memo(({
   onSubmit,
   disabled = false,
   isAtTaskLimit = false,
-  totalActiveCount = 0,
-  maxTasks = Infinity,
 }: TaskFormProps) => {
   const { t } = useTranslation();
   const isDisabled = disabled || isAtTaskLimit;
 
   // Priority: quota message > All-tab message > default placeholder
   const placeholder = isAtTaskLimit
-    ? t('tasks.placeholderLimitReached', { count: totalActiveCount, max: maxTasks })
+    ? t('tasks.placeholderLimit')
     : disabled
       ? t('tasks.placeholderAllTab')
       : t('tasks.placeholder');

@@ -1,0 +1,92 @@
+{
+  "common": {
+    "add": "追加",
+    "delete": "削除",
+    "edit": "編集",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "close": "閉じる",
+    "back": "戻る"
+  },
+  "auth": {
+    "login": "ログイン",
+    "googleLogin": "Googleでログイン",
+    "logout": "ログアウト",
+    "subtitle_login": "ログインして始めましょう",
+    "subtitle_signup": "新しいアカウントを作成",
+    "subtitle_reset": "パスワードをリセット",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "confirmPassword": "パスワードの確認",
+    "emailForReset": "登録済みのメールアドレス",
+    "signup": "サインアップ",
+    "processing": "処理中...",
+    "forgotPassword": "パスワードをお忘れですか？",
+    "switchToSignup": "アカウントをお持ちでないですか？ 登録する",
+    "switchToLogin": "すでにアカウントをお持ちですか？ ログイン",
+    "showPassword": "パスワードを表示",
+    "hidePassword": "パスワードを非表示",
+    "passwordMismatch": "パスワードが一致しません",
+    "authError": "認証に失敗しました",
+    "googleConnecting": "接続中...",
+    "googleTimeout": "接続がタイムアウトしました。もう一度お試しください。",
+    "googleError": "Googleへのサインインに失敗しました",
+    "resetSend": "リセットメールを送信",
+    "resetSending": "送信中...",
+    "resetSent": "送信完了",
+    "resetSentMessage": "パスワードリセットメールが送信されました。",
+    "resetError": "リセットメールの送信に失敗しました",
+    "verifyEmailTitle": "受信トレイを確認してください",
+    "verifyEmailMessage": "メールに確認リンクを送信しました。リンクをクリックしてサインアップを完了してください。",
+    "backToLogin": "ログイン画面に戻る",
+    "password_criteria": {
+      "minLength": "8文字以上",
+      "uppercase": "大文字を含む",
+      "lowercase": "小文字を含む",
+      "number": "数字を含む",
+      "special": "特殊文字を含む"
+    }
+  },
+  "tabs": {
+    "newTab": "新しいタブ",
+    "tabLimit": "タブ作成上限に達しました (3/3)",
+    "allTab": "すべて",
+    "scrollLeft": "タブを左にスクロール",
+    "scrollRight": "タブを右にスクロール",
+    "addTab": "新しいタブを追加",
+    "deleteTitle": "タブを削除",
+    "deleteMessage": "\"{{title}}\" を削除しますか？\nこのタブのタスクはゴミ箱に移動されます。"
+  },
+  "tasks": {
+    "placeholder": "タスクを入力してください",
+    "placeholderLimit": "タスク上限に達しました (30/30)",
+    "proUpgrade": "プロにアップグレード",
+    "noTask": "登録されたタスクはありません",
+    "placeholderAllTab": "すべてタブではタスクを追加できません",
+    "swipeHint": "スワイプして完了",
+    "ariaDelete": "削除",
+    "ariaEdit": "編集"
+  },
+  "trash": {
+    "trashTitle": "ゴミ箱",
+    "purgeWarning": "ゴミ箱の項目は7日後に完全に削除されます",
+    "restore": "復元",
+    "empty": "ゴミ箱は空です",
+    "restored": "\"{{tab}}\" に復元されました",
+    "purgedCount": "{{count}} 件が30日経過により完全に削除されました。",
+    "deletesToday": "今日削除",
+    "deletesTomorrow": "明日削除",
+    "deletesInDays": "残り{{days}}日"
+  },
+  "app": {
+    "titlePlaceholder": "Today's Tasks",
+    "loading": "読み込み中...",
+    "loadingData": "データを読み込み中...",
+    "stats": "完了したタスク",
+    "trashAriaLabel": "ゴミ箱",
+    "statsTotal": "合計 {{count}} 件",
+    "statsCompleted": "完了 {{count}} 件",
+    "footer": "Premium Minimalism © {{year}}"
+  }
+}

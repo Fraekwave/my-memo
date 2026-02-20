@@ -1,0 +1,92 @@
+{
+  "common": {
+    "add": "Hinzufügen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "confirm": "Bestätigen",
+    "close": "Schließen",
+    "back": "Zurück"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "googleLogin": "Mit Google anmelden",
+    "logout": "Abmelden",
+    "subtitle_login": "Anmelden, um loszulegen",
+    "subtitle_signup": "Neues Konto erstellen",
+    "subtitle_reset": "Passwort zurücksetzen",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "confirmPassword": "Passwort bestätigen",
+    "emailForReset": "Registrierte E-Mail-Adresse",
+    "signup": "Registrieren",
+    "processing": "Verarbeitung...",
+    "forgotPassword": "Passwort vergessen?",
+    "switchToSignup": "Kein Konto? Registrieren",
+    "switchToLogin": "Bereits ein Konto? Anmelden",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
+    "passwordMismatch": "Passwörter stimmen nicht überein",
+    "authError": "Authentifizierung fehlgeschlagen",
+    "googleConnecting": "Verbinde...",
+    "googleTimeout": "Verbindung unterbrochen. Bitte erneut versuchen.",
+    "googleError": "Google-Anmeldung fehlgeschlagen",
+    "resetSend": "Reset-E-Mail senden",
+    "resetSending": "Sende...",
+    "resetSent": "Gesendet",
+    "resetSentMessage": "Passwort-Reset-E-Mail wurde gesendet.",
+    "resetError": "Reset-E-Mail konnte nicht gesendet werden",
+    "verifyEmailTitle": "Bitte Posteingang prüfen",
+    "verifyEmailMessage": "Wir haben einen Bestätigungslink an Ihre E-Mail gesendet. Klicken Sie auf den Link, um die Registrierung abzuschließen.",
+    "backToLogin": "Zurück zur Anmeldung",
+    "password_criteria": {
+      "minLength": "Mindestens 8 Zeichen",
+      "uppercase": "Ein Großbuchstabe",
+      "lowercase": "Ein Kleinbuchstabe",
+      "number": "Eine Zahl",
+      "special": "Ein Sonderzeichen"
+    }
+  },
+  "tabs": {
+    "newTab": "Neuer Tab",
+    "tabLimit": "Tab-Limit erreicht (3/3)",
+    "allTab": "Alle",
+    "scrollLeft": "Tabs nach links scrollen",
+    "scrollRight": "Tabs nach rechts scrollen",
+    "addTab": "Neuen Tab hinzufügen",
+    "deleteTitle": "Tab löschen",
+    "deleteMessage": "\"{{title}}\" löschen?\nAufgaben in diesem Tab werden in den Papierkorb verschoben."
+  },
+  "tasks": {
+    "placeholder": "Aufgabe eingeben",
+    "placeholderLimit": "Aufgabenlimit erreicht (30/30)",
+    "proUpgrade": "Upgrade auf PRO",
+    "noTask": "Keine Aufgaben gefunden",
+    "placeholderAllTab": "Im Alle-Tab können keine Aufgaben hinzugefügt werden",
+    "swipeHint": "Wischen zum Abschließen",
+    "ariaDelete": "Löschen",
+    "ariaEdit": "Bearbeiten"
+  },
+  "trash": {
+    "trashTitle": "Papierkorb",
+    "purgeWarning": "Elemente werden nach 7 Tagen gelöscht",
+    "restore": "Wiederherstellen",
+    "empty": "Papierkorb ist leer",
+    "restored": "Wiederhergestellt in \"{{tab}}\"",
+    "purgedCount": "{{count}} Element(e) nach 30 Tagen dauerhaft gelöscht.",
+    "deletesToday": "Heute gelöscht",
+    "deletesTomorrow": "Morgen gelöscht",
+    "deletesInDays": "{{days}} Tage verbleibend"
+  },
+  "app": {
+    "titlePlaceholder": "Today's Tasks",
+    "loading": "Wird geladen...",
+    "loadingData": "Daten werden geladen...",
+    "stats": "Erledigte Aufgaben",
+    "trashAriaLabel": "Papierkorb",
+    "statsTotal": "Gesamt {{count}}",
+    "statsCompleted": "Erledigt {{count}}",
+    "footer": "Premium Minimalism © {{year}}"
+  }
+}

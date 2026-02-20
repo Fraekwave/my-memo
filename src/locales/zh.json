@@ -1,0 +1,92 @@
+{
+  "common": {
+    "add": "添加",
+    "delete": "删除",
+    "edit": "编辑",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "close": "关闭",
+    "back": "返回"
+  },
+  "auth": {
+    "login": "登录",
+    "googleLogin": "通过 Google 登录",
+    "logout": "退出登录",
+    "subtitle_login": "登录以开始使用",
+    "subtitle_signup": "创建新账户",
+    "subtitle_reset": "重置密码",
+    "email": "邮箱",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "emailForReset": "注册邮箱",
+    "signup": "注册",
+    "processing": "处理中...",
+    "forgotPassword": "忘记密码？",
+    "switchToSignup": "没有账户？注册",
+    "switchToLogin": "已有账户？登录",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
+    "passwordMismatch": "密码不匹配",
+    "authError": "认证失败",
+    "googleConnecting": "连接中...",
+    "googleTimeout": "连接超时，请重试。",
+    "googleError": "Google 登录失败",
+    "resetSend": "发送重置邮件",
+    "resetSending": "发送中...",
+    "resetSent": "已发送",
+    "resetSentMessage": "密码重置邮件已发送。",
+    "resetError": "重置邮件发送失败",
+    "verifyEmailTitle": "请检查您的邮箱",
+    "verifyEmailMessage": "我们已向您的邮箱发送了验证链接。点击链接完成注册。",
+    "backToLogin": "返回登录",
+    "password_criteria": {
+      "minLength": "至少8个字符",
+      "uppercase": "包含大写字母",
+      "lowercase": "包含小写字母",
+      "number": "包含数字",
+      "special": "包含特殊字符"
+    }
+  },
+  "tabs": {
+    "newTab": "新标签页",
+    "tabLimit": "已达到标签页创建上限 (3/3)",
+    "allTab": "全部",
+    "scrollLeft": "向左滚动标签",
+    "scrollRight": "向右滚动标签",
+    "addTab": "添加新标签",
+    "deleteTitle": "删除标签页",
+    "deleteMessage": "删除 \"{{title}}\"？\n此标签页中的任务将移至回收站。"
+  },
+  "tasks": {
+    "placeholder": "输入任务",
+    "placeholderLimit": "已达到任务上限 (30/30)",
+    "proUpgrade": "升级到专业版",
+    "noTask": "暂无任务",
+    "placeholderAllTab": "无法在全部标签中添加任务",
+    "swipeHint": "右滑完成",
+    "ariaDelete": "删除",
+    "ariaEdit": "编辑"
+  },
+  "trash": {
+    "trashTitle": "回收站",
+    "purgeWarning": "回收站内容将在7天后永久删除",
+    "restore": "恢复",
+    "empty": "回收站为空",
+    "restored": "已恢复到 \"{{tab}}\"",
+    "purgedCount": "{{count}} 个项目已在30天后永久删除。",
+    "deletesToday": "今天删除",
+    "deletesTomorrow": "明天删除",
+    "deletesInDays": "剩余 {{days}} 天"
+  },
+  "app": {
+    "titlePlaceholder": "Today's Tasks",
+    "loading": "正在加载...",
+    "loadingData": "正在加载数据...",
+    "stats": "已完成任务",
+    "trashAriaLabel": "回收站",
+    "statsTotal": "共 {{count}} 个",
+    "statsCompleted": "已完成 {{count}} 个",
+    "footer": "Premium Minimalism © {{year}}"
+  }
+}

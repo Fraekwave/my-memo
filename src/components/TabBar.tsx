@@ -247,7 +247,7 @@ export const TabBar = ({
     // 3. 한도 초과: optimistic update 없이 알림 표시 후 종료
     if (newTabId === null) {
       if (limitTimerRef.current) clearTimeout(limitTimerRef.current);
-      setLimitMessage(t('tabs.limitReached'));
+      setLimitMessage(t('tabs.tabLimit'));
       limitTimerRef.current = setTimeout(() => {
         setLimitMessage(null);
         limitTimerRef.current = null;
@@ -345,7 +345,7 @@ export const TabBar = ({
                 }
               `}
             >
-              <span className="text-sm">{t('tabs.all')}</span>
+              <span className="text-sm">{t('tabs.allTab')}</span>
             </button>
           </div>
         </SortableContext>

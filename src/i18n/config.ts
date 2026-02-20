@@ -2,27 +2,35 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-import en from '../locales/en.json';
 import ko from '../locales/ko.json';
+import en from '../locales/en.json';
+import ja from '../locales/ja.json';
+import zh from '../locales/zh.json';
+import de from '../locales/de.json';
+import es from '../locales/es.json';
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
-      en: { translation: en },
       ko: { translation: ko },
+      en: { translation: en },
+      ja: { translation: ja },
+      zh: { translation: zh },
+      de: { translation: de },
+      es: { translation: es },
     },
-    // Always follow the live environment — no stale manual overrides.
-    // Priority: browser Accept-Language → <html lang> → URL path → subdomain
+    // Always follow the live browser/OS language — no stale persisted choice.
+    // Priority: navigator.language → <html lang> → URL path → subdomain
     detection: {
       order: ['navigator', 'htmlTag', 'path', 'subdomain'],
-      caches: [], // do not persist to localStorage or cookies
+      caches: [],
     },
     fallbackLng: 'ko',
-    supportedLngs: ['en', 'ko'],
+    supportedLngs: ['ko', 'en', 'ja', 'zh', 'de', 'es'],
     interpolation: {
-      escapeValue: false, // React already escapes values
+      escapeValue: false,
     },
   });
 

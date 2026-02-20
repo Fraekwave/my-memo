@@ -64,7 +64,7 @@ export const TrashView = ({
   return (
     <div className="space-y-4">
       <p className="text-zinc-500 text-xs font-light">
-        {t('trash.disclaimer')}
+        {t('trash.purgeWarning')}
       </p>
 
       {restoreFeedback && (
@@ -111,10 +111,10 @@ export const TrashView = ({
                   type="button"
                   onClick={() => handleRestore(task)}
                   className="flex items-center gap-1.5 px-2 py-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200 rounded-lg transition-colors text-xs font-medium"
-                  aria-label={t('common.restore')}
+                  aria-label={t('trash.restore')}
                 >
                   <RotateCcw className="w-4 h-4" strokeWidth={2} />
-                  {t('common.restore')}
+                  {t('trash.restore')}
                 </button>
               </li>
             );

@@ -57,7 +57,6 @@ function App() {
     fetchDeletedTasks,
     restoreTask,
     isAtTaskLimit,
-    totalActiveCount,
   } = useTasks(selectedTabId, userId, tabIds, {
     ensureTabExists,
     tabs,
@@ -142,7 +141,7 @@ function App() {
                 type="button"
                 onClick={() => signOut()}
                 className="p-2 -m-2 text-zinc-400 hover:text-zinc-600 transition-colors duration-200 rounded-lg"
-                aria-label={t('app.signOutAriaLabel')}
+                aria-label={t('auth.logout')}
               >
                 <LogOut className="w-5 h-5" />
               </button>
@@ -174,8 +173,6 @@ function App() {
               onSubmit={addTask}
               disabled={selectedTabId === ALL_TAB_ID}
               isAtTaskLimit={isAtTaskLimit}
-              totalActiveCount={totalActiveCount}
-              maxTasks={maxTasks}
             />
           </div>
           <div className="h-0 border-x border-zinc-200 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.06)]" />
@@ -188,7 +185,7 @@ function App() {
             {showTrashView ? (
               <>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-light text-zinc-900">{t('app.trashHeading')}</h2>
+                  <h2 className="text-lg font-light text-zinc-900">{t('trash.trashTitle')}</h2>
                   <button
                     type="button"
                     onClick={() => setShowTrashView(false)}
