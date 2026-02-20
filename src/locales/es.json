@@ -88,5 +88,29 @@
     "statsTotal": "Total {{count}}",
     "statsCompleted": "Completadas {{count}}",
     "footer": "Premium Minimalism © {{year}}"
+  },
+  "menu": {
+    "howToUse": "Cómo usar",
+    "proUpgrade": "Mejorar a PRO",
+    "legal": "Aviso legal y política de privacidad",
+    "admin": "Menú de administrador",
+    "tip1Title": "Organizar con pestañas",
+    "tip1Desc": "Toca + para añadir una pestaña y toca el nombre para renombrarla.",
+    "tip2Title": "Añadir tareas",
+    "tip2Desc": "Selecciona una pestaña, escribe tu tarea y toca Añadir.",
+    "tip3Title": "Marcar como hecho",
+    "tip3Desc": "Toca la casilla para completar una tarea; vuelve a tocarla para deshacer.",
+    "tip4Title": "Deslizar para eliminar",
+    "tip4Desc": "En móvil, desliza a la izquierda; en escritorio, pasa el cursor para ver el icono de eliminar.",
+    "tip5Title": "Reordenar tareas",
+    "tip5Desc": "Mantén pulsada una tarea y arrástrala para cambiar su posición.",
+    "tip6Title": "Papelera",
+    "tip6Desc": "Los elementos eliminados se conservan 7 días y luego se borran. Usa el icono de papelera para restaurar.",
+    "proTitle": "INA Done PRO",
+    "proDesc": "Desbloquea pestañas y tareas ilimitadas para maximizar tu productividad.",
+    "proFeature1": "Pestañas ilimitadas",
+    "proFeature2": "Tareas ilimitadas",
+    "proFeature3": "Soporte prioritario",
+    "proComingSoon": "Próximamente"
   }
 }

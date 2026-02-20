@@ -88,5 +88,29 @@
     "statsTotal": "共 {{count}} 个",
     "statsCompleted": "已完成 {{count}} 个",
     "footer": "Premium Minimalism © {{year}}"
+  },
+  "menu": {
+    "howToUse": "使用说明",
+    "proUpgrade": "升级到 PRO",
+    "legal": "免责声明及隐私政策",
+    "admin": "管理员菜单",
+    "tip1Title": "用标签分类",
+    "tip1Desc": "点击 + 按钮添加标签，点击标签名称可以重命名。",
+    "tip2Title": "添加任务",
+    "tip2Desc": "选择标签，在输入栏输入任务内容，然后点击添加。",
+    "tip3Title": "标记完成",
+    "tip3Desc": "点击复选框完成任务，再次点击可取消完成。",
+    "tip4Title": "滑动删除",
+    "tip4Desc": "手机上向左滑动删除，电脑上悬停显示删除图标。",
+    "tip5Title": "重新排序",
+    "tip5Desc": "长按并拖动任务可以调整顺序。",
+    "tip6Title": "回收站",
+    "tip6Desc": "已删除的任务保留7天后自动永久删除，可通过右上角图标恢复。",
+    "proTitle": "INA Done PRO",
+    "proDesc": "解锁无限标签和任务，最大化您的工作效率。",
+    "proFeature1": "无限标签创建",
+    "proFeature2": "无限任务添加",
+    "proFeature3": "优先客户支持",
+    "proComingSoon": "即将推出"
   }
 }

@@ -88,5 +88,29 @@
     "statsTotal": "Total {{count}}",
     "statsCompleted": "Done {{count}}",
     "footer": "Premium Minimalism © {{year}}"
+  },
+  "menu": {
+    "howToUse": "How to Use",
+    "proUpgrade": "Upgrade to PRO",
+    "legal": "Legal & Privacy Policy",
+    "admin": "Admin",
+    "tip1Title": "Organise with Tabs",
+    "tip1Desc": "Tap + to add a tab and tap any tab name to rename it.",
+    "tip2Title": "Add Tasks",
+    "tip2Desc": "Select a tab, type your task in the input field, then tap Add.",
+    "tip3Title": "Mark as Done",
+    "tip3Desc": "Tap a checkbox to complete a task; tap again to undo.",
+    "tip4Title": "Swipe to Delete",
+    "tip4Desc": "On mobile, swipe left to delete. On desktop, hover to reveal the delete icon.",
+    "tip5Title": "Reorder Tasks",
+    "tip5Desc": "Long-press and drag any task to rearrange its position.",
+    "tip6Title": "Trash",
+    "tip6Desc": "Deleted items are kept for 7 days then permanently removed. Use the Trash icon to restore.",
+    "proTitle": "INA Done PRO",
+    "proDesc": "Unlock unlimited tabs and tasks to maximise your productivity.",
+    "proFeature1": "Unlimited tabs",
+    "proFeature2": "Unlimited tasks",
+    "proFeature3": "Priority support",
+    "proComingSoon": "Coming soon"
   }
 }

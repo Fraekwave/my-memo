@@ -88,5 +88,29 @@
     "statsTotal": "전체 {{count}}개",
     "statsCompleted": "완료 {{count}}개",
     "footer": "Premium Minimalism © {{year}}"
+  },
+  "menu": {
+    "howToUse": "앱 사용법",
+    "proUpgrade": "PRO 업그레이드",
+    "legal": "면책공고 및 개인정보 처리방침",
+    "admin": "관리자 메뉴",
+    "tip1Title": "탭으로 분류하기",
+    "tip1Desc": "+ 버튼으로 탭을 추가하고, 탭 이름을 눌러 수정하세요.",
+    "tip2Title": "할 일 추가",
+    "tip2Desc": "탭을 선택한 뒤 입력창에 내용을 입력하고 추가 버튼을 눌러 등록하세요.",
+    "tip3Title": "완료 처리",
+    "tip3Desc": "체크박스를 눌러 완료 처리하고, 다시 누르면 취소됩니다.",
+    "tip4Title": "스와이프로 삭제",
+    "tip4Desc": "모바일에서 좌측으로 스와이프하거나, PC에서 마우스를 올리면 삭제 아이콘이 나타납니다.",
+    "tip5Title": "순서 변경",
+    "tip5Desc": "항목을 길게 눌러 드래그하면 순서를 자유롭게 변경할 수 있습니다.",
+    "tip6Title": "휴지통",
+    "tip6Desc": "삭제된 항목은 7일간 보관 후 자동 영구 삭제됩니다. 우상단 아이콘으로 복구할 수 있습니다.",
+    "proTitle": "INA Done PRO",
+    "proDesc": "더 많은 탭과 할 일로 업무 효율을 극대화하세요.",
+    "proFeature1": "탭 무제한 생성",
+    "proFeature2": "할 일 무제한 등록",
+    "proFeature3": "우선 고객 지원",
+    "proComingSoon": "출시 예정"
   }
 }

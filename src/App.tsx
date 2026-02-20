@@ -4,15 +4,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
 import { useTasks, ALL_TAB_ID } from '@/hooks/useTasks';
 import { useProfile } from '@/hooks/useProfile';
-import { useAppTitle } from '@/hooks/useAppTitle';
 import { Auth } from '@/components/Auth';
-import { EditableTitle } from '@/components/EditableTitle';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { TrashView } from '@/components/TrashView';
 import { TabBar } from '@/components/TabBar';
 import { VersionIndicator } from '@/components/VersionIndicator';
-import { LogOut, Trash2 } from 'lucide-react';
+import { GlobalMenu } from '@/components/GlobalMenu';
+import { Trash2 } from 'lucide-react';
 
 /**
  * 메인 애플리케이션 컴포넌트
@@ -25,8 +24,8 @@ function App() {
   const { t, i18n } = useTranslation();
   const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
 
-  const { title: appTitle, updateTitle } = useAppTitle(userId);
   const { isPro, isProfileLoading, maxTabs, maxTasks } = useProfile(userId);
+  const userEmail = session?.user?.email;
 
   const {
     tabs,
@@ -116,17 +115,19 @@ function App() {
     <VersionIndicator />
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
-        {/* 헤더 — 3열 그리드: 빈 좌측 | 중앙 제목 | 우측 아이콘 (수학적 중앙 정렬) */}
+        {/* 헤더 — 3열 그리드: 메뉴 | 브랜드명 | 휴지통 */}
         <div className="mb-8">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-            <div aria-hidden />
-            <EditableTitle
-              value={appTitle}
-              onSave={updateTitle}
-              placeholder={t('app.titlePlaceholder')}
-              className="text-4xl sm:text-5xl font-light text-zinc-900 tracking-tight mb-2 block text-center min-w-0 max-w-full"
-            />
-            <div className="flex items-center justify-end gap-1">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center">
+            <div className="flex items-center justify-start">
+              <GlobalMenu userEmail={userEmail} onSignOut={signOut} />
+            </div>
+            <h1
+              className="text-4xl sm:text-5xl font-semibold text-zinc-900 select-none"
+              style={{ letterSpacing: '-0.05em' }}
+            >
+              INA Done
+            </h1>
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setShowTrashView((v) => !v)}
@@ -137,17 +138,9 @@ function App() {
               >
                 <Trash2 className="w-5 h-5" strokeWidth={1.5} />
               </button>
-              <button
-                type="button"
-                onClick={() => signOut()}
-                className="p-2 -m-2 text-zinc-400 hover:text-zinc-600 transition-colors duration-200 rounded-lg"
-                aria-label={t('auth.logout')}
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
             </div>
           </div>
-          <p className="text-zinc-500 font-light text-center">{currentDate}</p>
+          <p className="text-zinc-500 font-light text-center mt-2">{currentDate}</p>
         </div>
 
         {/* Sticky 영역: 탭 바 + 입력 폼 (휴지통 뷰에서는 숨김) */}

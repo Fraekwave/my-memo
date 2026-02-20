@@ -88,5 +88,29 @@
     "statsTotal": "合計 {{count}} 件",
     "statsCompleted": "完了 {{count}} 件",
     "footer": "Premium Minimalism © {{year}}"
+  },
+  "menu": {
+    "howToUse": "使い方",
+    "proUpgrade": "PROにアップグレード",
+    "legal": "免責事項・プライバシーポリシー",
+    "admin": "管理者メニュー",
+    "tip1Title": "タブで整理する",
+    "tip1Desc": "+ ボタンでタブを追加し、タブ名をタップして名前を変更できます。",
+    "tip2Title": "タスクの追加",
+    "tip2Desc": "タブを選択し、入力欄にタスクを入力して追加ボタンを押してください。",
+    "tip3Title": "完了にする",
+    "tip3Desc": "チェックボックスをタップしてタスクを完了にし、再タップで取り消せます。",
+    "tip4Title": "スワイプで削除",
+    "tip4Desc": "モバイルでは左スワイプ、PCではホバーで削除アイコンが表示されます。",
+    "tip5Title": "並べ替え",
+    "tip5Desc": "タスクを長押ししてドラッグすると、順序を変更できます。",
+    "tip6Title": "ゴミ箱",
+    "tip6Desc": "削除されたタスクは7日間保管後、自動的に完全削除されます。ゴミ箱アイコンから復元できます。",
+    "proTitle": "INA Done PRO",
+    "proDesc": "タブとタスクを無制限に使って、作業効率を最大化しましょう。",
+    "proFeature1": "タブ無制限作成",
+    "proFeature2": "タスク無制限登録",
+    "proFeature3": "優先サポート",
+    "proComingSoon": "近日公開"
   }
 }
