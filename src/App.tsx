@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
@@ -14,6 +14,24 @@ import { GlobalMenu } from '@/components/GlobalMenu';
 import { AdminPage } from '@/components/AdminPage';
 import { Trash2 } from 'lucide-react';
 
+function MembershipBadge({ isPro }: { isPro: boolean }) {
+  return (
+    <span
+      className={`
+        inline-flex items-center px-2.5 py-0.5 rounded-full border
+        text-[10px] font-semibold uppercase tracking-[0.2em]
+        backdrop-blur-sm pointer-events-auto animate-fade-in
+        ${isPro
+          ? 'bg-amber-50/50 border-amber-200 text-amber-600'
+          : 'bg-zinc-50/50 border-zinc-200 text-zinc-500'
+        }
+      `}
+    >
+      {isPro ? 'PRO' : 'FREE'}
+    </span>
+  );
+}
+
 /**
  * 메인 애플리케이션 컴포넌트
  *
@@ -25,7 +43,7 @@ function App() {
   const { t, i18n } = useTranslation();
   const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
 
-  const { isPro, isProfileLoading, maxTabs, maxTasks, appTitle, updateAppTitle } = useProfile(userId);
+  const { isPro, isProfileLoading, maxTabs, maxTasks } = useProfile(userId);
   const userEmail = session?.user?.email;
 
   const {
@@ -67,31 +85,6 @@ function App() {
 
   const [showTrashView, setShowTrashView] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
-
-  // Inline title editing
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState('');
-  const titleInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isEditingTitle) {
-      titleInputRef.current?.focus();
-      titleInputRef.current?.select();
-    }
-  }, [isEditingTitle]);
-
-  const startEditTitle = () => {
-    setTitleDraft(appTitle || 'INA Done');
-    setIsEditingTitle(true);
-  };
-
-  const saveTitle = () => {
-    const trimmed = titleDraft.trim();
-    if (trimmed) updateAppTitle(trimmed);
-    setIsEditingTitle(false);
-  };
-
-  const cancelTitle = () => setIsEditingTitle(false);
 
   // Format current date in the active locale
   const currentDate = new Date().toLocaleDateString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
@@ -156,57 +149,9 @@ function App() {
               />
             </div>
 
-            {/* Centre — title + PRO badge, perfectly centred, truncates safely */}
-            <div className="absolute inset-x-0 flex items-end justify-center pointer-events-none">
-              <div className="flex items-end gap-2 min-w-0 max-w-[70%]">
-
-                {isEditingTitle ? (
-                  /* ── Edit mode ── */
-                  <input
-                    ref={titleInputRef}
-                    value={titleDraft}
-                    onChange={(e) => setTitleDraft(e.target.value)}
-                    onBlur={saveTitle}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') { e.preventDefault(); saveTitle(); }
-                      if (e.key === 'Escape') { e.preventDefault(); cancelTitle(); }
-                    }}
-                    className="min-w-[50px] max-w-full w-full bg-transparent border-none outline-none
-                      text-center text-4xl sm:text-5xl font-semibold text-zinc-900 pointer-events-auto
-                      border-b border-zinc-300 focus:border-zinc-500 transition-colors"
-                    style={{ letterSpacing: '-0.05em' }}
-                    maxLength={40}
-                    aria-label="Edit app title"
-                  />
-                ) : (
-                  /* ── View mode ── */
-                  <h1
-                    className="truncate text-4xl sm:text-5xl font-semibold text-zinc-900 select-none pointer-events-auto min-w-0 cursor-default"
-                    style={{ letterSpacing: '-0.05em' }}
-                    onDoubleClick={startEditTitle}
-                    title="Double-click to edit"
-                  >
-                    {appTitle || 'INA Done'}
-                  </h1>
-                )}
-
-                {isPro && !isEditingTitle && (
-                  <span
-                    className="flex-shrink-0 mb-1 sm:mb-1.5 px-1.5 py-0.5 rounded-full select-none pointer-events-auto"
-                    style={{
-                      background: 'rgba(212, 175, 55, 0.10)',
-                      border: '1px solid rgba(212, 175, 55, 0.25)',
-                      color: 'rgb(161, 120, 24)',
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      letterSpacing: '0.1em',
-                      lineHeight: 1,
-                    }}
-                  >
-                    PRO
-                  </span>
-                )}
-              </div>
+            {/* Centre — membership badge, perfectly centred */}
+            <div className="absolute inset-x-0 flex items-center justify-center pointer-events-none">
+              <MembershipBadge isPro={isPro} />
             </div>
 
             {/* Right — trash */}
