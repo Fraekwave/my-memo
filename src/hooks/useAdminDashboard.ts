@@ -4,17 +4,15 @@ import { supabase } from '@/lib/supabase';
 export interface AdminUser {
   id: string;
   email: string | null;
-  created_at: string | null;
-  is_pro: boolean;
-  membership_level: string;
-  max_tabs: number;
-  max_tasks: number;
+  joined_at: string | null;        // renamed from created_at
+  membership_level: string;        // 'free' | 'pro'
 }
 
 export interface AdminStats {
   totalUsers: number;
-  proUsers: number;
-  totalTasks: number;
+  proUsers: number;                // from total_pro
+  activeTasks: number;             // from active_tasks
+  deletedTasks: number;            // from deleted_tasks
 }
 
 /**
@@ -114,7 +112,7 @@ function extractError(err: unknown): string {
 
 export function useAdminDashboard() {
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [stats, setStats] = useState<AdminStats>({ totalUsers: 0, proUsers: 0, totalTasks: 0 });
+  const [stats, setStats] = useState<AdminStats>({ totalUsers: 0, proUsers: 0, activeTasks: 0, deletedTasks: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -146,19 +144,13 @@ export function useAdminDashboard() {
         (row: {
           id: string;
           email: string | null;
-          created_at: string | null;
-          is_pro: boolean;
+          joined_at: string | null;
           membership_level: string;
-          max_tabs: number;
-          max_tasks: number;
         }) => ({
           id: row.id,
           email: row.email,
-          created_at: row.created_at,
-          is_pro: row.is_pro ?? false,
+          joined_at: row.joined_at,
           membership_level: row.membership_level ?? 'free',
-          max_tabs: row.max_tabs ?? 3,
-          max_tasks: row.max_tasks ?? 30,
         })
       );
 
@@ -166,11 +158,17 @@ export function useAdminDashboard() {
 
       // count(*) inside jsonb_build_object serialises as bigint → string in some
       // PostgreSQL/PostgREST versions; Number() coerces both "5" and 5 safely.
-      const s = statsResult.data as { total_users: unknown; pro_users: unknown; total_tasks: unknown };
+      const s = statsResult.data as {
+        total_users: unknown;
+        total_pro: unknown;
+        active_tasks: unknown;
+        deleted_tasks: unknown;
+      };
       setStats({
         totalUsers: Number(s.total_users ?? 0),
-        proUsers: Number(s.pro_users ?? 0),
-        totalTasks: Number(s.total_tasks ?? 0),
+        proUsers: Number(s.total_pro ?? 0),
+        activeTasks: Number(s.active_tasks ?? 0),
+        deletedTasks: Number(s.deleted_tasks ?? 0),
       });
     } catch (err: unknown) {
       const msg = extractError(err);
@@ -186,20 +184,15 @@ export function useAdminDashboard() {
   }, [fetchData]);
 
   const togglePro = useCallback(
-    async (userId: string, currentIsPro: boolean) => {
+    async (userId: string, currentMembershipLevel: string) => {
+      const currentIsPro = currentMembershipLevel === 'pro';
       setTogglingId(userId);
       const newIsPro = !currentIsPro;
       const newLevel = newIsPro ? 'pro' : 'free';
-      const newMaxTabs = newIsPro ? 30 : 3;
-      const newMaxTasks = newIsPro ? 1000 : 30;
 
-      // Optimistic update
+      // Optimistic update — only membership_level is returned by the new RPC schema
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? { ...u, is_pro: newIsPro, membership_level: newLevel, max_tabs: newMaxTabs, max_tasks: newMaxTasks }
-            : u
-        )
+        prev.map((u) => (u.id === userId ? { ...u, membership_level: newLevel } : u))
       );
       setStats((prev) => ({
         ...prev,
@@ -216,17 +209,7 @@ export function useAdminDashboard() {
         console.error('[admin] admin_set_pro error:', err);
         // Rollback on failure
         setUsers((prev) =>
-          prev.map((u) =>
-            u.id === userId
-              ? {
-                  ...u,
-                  is_pro: currentIsPro,
-                  membership_level: currentIsPro ? 'pro' : 'free',
-                  max_tabs: currentIsPro ? 30 : 3,
-                  max_tasks: currentIsPro ? 1000 : 30,
-                }
-              : u
-          )
+          prev.map((u) => (u.id === userId ? { ...u, membership_level: currentMembershipLevel } : u))
         );
         setStats((prev) => ({
           ...prev,
