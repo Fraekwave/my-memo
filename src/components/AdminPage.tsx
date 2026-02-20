@@ -2,6 +2,26 @@ import { useState } from 'react';
 import { ArrowLeft, RefreshCw, Users, CheckSquare, Crown, AlertCircle, Loader2, Trash2 } from 'lucide-react';
 import { useAdminDashboard, type AdminUser } from '@/hooks/useAdminDashboard';
 
+/** Tiny gold capsule — reused in the user row */
+function ProPill() {
+  return (
+    <span
+      className="inline-block px-1.5 py-0.5 rounded-full select-none"
+      style={{
+        background: 'rgba(212, 175, 55, 0.10)',
+        border: '1px solid rgba(212, 175, 55, 0.25)',
+        color: 'rgb(161, 120, 24)',
+        fontSize: '10px',
+        fontWeight: 700,
+        letterSpacing: '0.1em',
+        lineHeight: 1,
+      }}
+    >
+      PRO
+    </span>
+  );
+}
+
 const ADMIN_EMAIL = 'choi.seunghoon@gmail.com';
 
 interface AdminPageProps {
@@ -52,22 +72,6 @@ function StatCard({
   );
 }
 
-function ProBadge() {
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-      style={{
-        background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-        color: '#92400e',
-        border: '1px solid #fcd34d',
-        letterSpacing: '0.04em',
-      }}
-    >
-      <Crown className="w-2.5 h-2.5" strokeWidth={2.5} />
-      PRO
-    </span>
-  );
-}
 
 function UserRow({
   user,
@@ -88,30 +92,11 @@ function UserRow({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-zinc-100 p-4 flex items-center gap-3">
-      {/* Avatar */}
-      <div
-        className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold select-none"
-        style={
-          isPro
-            ? {
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                color: '#fff',
-              }
-            : { background: '#f4f4f5', color: '#a1a1aa' }
-        }
-      >
-        {isPro ? (
-          <Crown className="w-4 h-4" strokeWidth={1.5} />
-        ) : (
-          (user.email?.[0]?.toUpperCase() ?? '?')
-        )}
-      </div>
-
-      {/* Info */}
+    <div className="bg-white rounded-xl border border-zinc-100 px-4 py-3 flex items-center gap-3">
+      {/* Identity */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <p className="text-sm font-medium text-zinc-800 truncate">
+          <p className="text-sm text-zinc-800 truncate">
             {user.email ?? (
               <button
                 onClick={handleCopyId}
@@ -122,40 +107,27 @@ function UserRow({
               </button>
             )}
           </p>
-          {isPro && <ProBadge />}
+          {isPro && <ProPill />}
         </div>
-        <p className="text-xs text-zinc-400 mt-0.5 font-mono">{formatDate(user.joined_at)}</p>
+        <p className="text-xs text-zinc-400 font-mono mt-0.5">{formatDate(user.joined_at)}</p>
       </div>
 
-      {/* Toggle button */}
+      {/* Action — plain text toggle */}
       <button
         onClick={onToggle}
         disabled={isToggling}
-        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold
-          transition-all duration-200 disabled:opacity-40"
-        style={
-          isPro
-            ? {
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                color: '#fff',
-                boxShadow: '0 1px 3px rgba(245,158,11,0.3)',
-              }
-            : {
-                background: '#f4f4f5',
-                color: '#52525b',
-              }
-        }
+        className={`flex-shrink-0 flex items-center gap-1 text-xs font-medium transition-colors duration-150 disabled:opacity-40
+          ${isPro
+            ? 'text-zinc-400 hover:text-red-500'
+            : 'text-zinc-500 hover:text-amber-600'
+          }`}
       >
-        {isToggling ? (
-          <Loader2 className="w-3 h-3 animate-spin" />
-        ) : isPro ? (
-          <>
-            <Crown className="w-3 h-3" strokeWidth={2} />
-            PRO
-          </>
-        ) : (
-          'Set PRO'
-        )}
+        {isToggling
+          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          : isPro
+            ? 'Revoke PRO'
+            : 'Grant PRO'
+        }
       </button>
     </div>
   );

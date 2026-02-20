@@ -127,12 +127,30 @@ function App() {
                 onOpenAdmin={() => setShowAdmin(true)}
               />
             </div>
-            <h1
-              className="text-4xl sm:text-5xl font-semibold text-zinc-900 select-none"
-              style={{ letterSpacing: '-0.05em' }}
-            >
-              INA Done
-            </h1>
+            <div className="flex items-end gap-2.5">
+              <h1
+                className="text-4xl sm:text-5xl font-semibold text-zinc-900 select-none"
+                style={{ letterSpacing: '-0.05em' }}
+              >
+                INA Done
+              </h1>
+              {isPro && (
+                <span
+                  className="mb-1 sm:mb-1.5 px-1.5 py-0.5 rounded-full select-none"
+                  style={{
+                    background: 'rgba(212, 175, 55, 0.10)',
+                    border: '1px solid rgba(212, 175, 55, 0.25)',
+                    color: 'rgb(161, 120, 24)',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    letterSpacing: '0.1em',
+                    lineHeight: 1,
+                  }}
+                >
+                  PRO
+                </span>
+              )}
+            </div>
             <div className="flex items-center justify-end">
               <button
                 type="button"
