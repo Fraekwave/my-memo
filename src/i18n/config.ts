@@ -21,9 +21,12 @@ i18n
       de: { translation: de },
       es: { translation: es },
     },
+    // Strip region suffixes so 'en-US', 'en-GB', 'zh-TW' etc. all match the
+    // base language resource ('en', 'zh') instead of falling back to English.
+    load: 'languageOnly',
     // Always read the live browser/OS language — no cache, no past selections.
     // Priority: navigator.language → <html lang>
-    // Any unsupported language falls back to English.
+    // Any language outside the 6 supported ones falls back to English.
     detection: {
       order: ['navigator', 'htmlTag'],
       caches: [],
