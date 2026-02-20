@@ -12,27 +12,28 @@ export const TRASH_RETENTION_DAYS = 30;
 /**
  * Task CRUD 로직 (mytask 테이블)
  *
- * Schema: mytask(text, tab_id, user_id, ...) | tabs(title, user_id, ...)
- * - All queries scoped to user_id for RLS + explicit defense-in-depth
+ * ✨ Hybrid Data Loading (Speed Tiering):
+ * - Pro:  initial load fetches ALL tasks in one query → tab switching is pure
+ *         in-memory filtering (0ms latency).
+ * - Free: on-demand per-tab fetch on every tab switch (original behavior).
  *
- * ✨ Optimistic UI Updates 패턴 적용:
- * - 즉시 로컬 상태 변경 → 빠른 사용자 피드백
- * - 백그라운드에서 서버 동기화
- * - 실패 시 이전 상태로 롤백
+ * isProfileReady gate prevents double-fetch: task fetching is deferred until
+ * useProfile has resolved membership_level, so only one fetch path is triggered.
  *
- * ✨ Tab 연동:
- * - selectedTabId에 해당하는 task만 조회
- * - task 추가 시 tab_id 포함
- *
- * ✨ Performance Optimization:
- * - 핸들러를 useCallback으로 안정화 (React.memo 호환)
- * - tasksRef로 최신 tasks 참조 (useCallback 내 stale closure 방지)
- * - 첫 로드와 탭 전환을 분리 (탭 전환 시 스피너 표시 안 함)
+ * ✨ Single source of truth: taskCache
+ * - Pro cache: all active tasks for user
+ * - Free cache: active tasks for selected tab
+ * All CRUD operations mutate taskCache directly (optimistic), with full-cache
+ * snapshot rollback on server error.
  */
 
 export interface UseTasksOptions {
   ensureTabExists?: (title: string) => Promise<number>;
   tabs?: Tab[];
+  isPro?: boolean;
+  /** Set true once useProfile has resolved; prevents task fetching before
+   *  membership is known (avoids the Free→Pro double-fetch on first load). */
+  isProfileReady?: boolean;
 }
 
 export const useTasks = (
@@ -41,60 +42,106 @@ export const useTasks = (
   tabIds: number[] = [],
   options: UseTasksOptions = {}
 ) => {
-  const { ensureTabExists, tabs = [] } = options;
-  const [rawTasks, setRawTasks] = useState<Task[]>([]);
+  const {
+    ensureTabExists,
+    tabs = [],
+    isPro = false,
+    isProfileReady = true,
+  } = options;
+
+  // ─── Single task store ───────────────────────────────────────────────────
+  // Pro:  all active tasks for user (filtered in displayTasks)
+  // Free: active tasks for selected tab only
+  const [taskCache, setTaskCache] = useState<Task[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  const tasksRef = useRef<Task[]>([]);
-  tasksRef.current = rawTasks;
+  // Full-cache snapshot for stale-closure-free callbacks and rollbacks
+  const taskCacheRef = useRef<Task[]>([]);
+  taskCacheRef.current = taskCache;
 
-  /**
-   * Pre-sorted display list (Zero-Flicker): sort once in useMemo before paint.
-   * For All tab: alphanumeric sort. For tab view: raw order_index from DB.
-   */
+  // ─── Display: filtered & sorted ─────────────────────────────────────────
   const displayTasks = useMemo(() => {
     if (selectedTabId === ALL_TAB_ID) {
-      return [...rawTasks].sort((a, b) =>
+      // Pro: scope to valid tabs (orphan rescue may not have run yet)
+      const base = isPro
+        ? taskCache.filter(t => t.tab_id !== null && tabIds.includes(t.tab_id))
+        : taskCache; // Free: DB query already scoped to tabIds
+      return [...base].sort((a, b) =>
         (a.text ?? '').localeCompare(b.text ?? '', 'ko', { numeric: true })
       );
     }
-    return rawTasks;
-  }, [rawTasks, selectedTabId]);
+    if (selectedTabId === null) return [];
+    if (isPro) {
+      return taskCache
+        .filter(t => t.tab_id === selectedTabId)
+        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+    }
+    // Free: cache already contains only current tab, ordered by DB
+    return taskCache;
+  }, [taskCache, selectedTabId, isPro, tabIds]);
 
-
-  // ── 첫 로드 추적 ──
+  // ─── First-load & race-condition guards ──────────────────────────────────
   const isFirstLoadRef = useRef(true);
-
-  // ── Race-condition 방지: 오래된 fetch 응답 무시 ──
-  // 탭 전환 시 이전 fetch가 나중에 완료되면 stale 데이터로 덮어쓰는 문제 해결
   const fetchIdRef = useRef(0);
 
-  /**
-   * 1. Read: 선택된 탭의 Task 가져오기
-   * Active notes only (deleted_at IS NULL). Trash uses fetchDeletedTasks.
-   */
-  const fetchTasks = useCallback(async () => {
+  // ─── Pro: fetch ALL tasks once ───────────────────────────────────────────
+  // Dependency: userId only — does NOT include selectedTabId so tab switching
+  // never triggers a re-fetch for Pro users.
+  const fetchProTasks = useCallback(async () => {
+    if (userId === null) {
+      startTransition(() => setTaskCache([]));
+      setIsInitialLoading(false);
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    const thisFetchId = ++fetchIdRef.current;
+    if (isFirstLoadRef.current) setIsInitialLoading(true);
+
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('mytask')
+        .select('*')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .order('order_index', { ascending: true });
+
+      if (fetchError) throw fetchError;
+      if (thisFetchId !== fetchIdRef.current) return;
+      startTransition(() => setTaskCache(data || []));
+    } catch (err) {
+      if (thisFetchId === fetchIdRef.current) {
+        console.error('불러오기 에러:', err);
+        setError(err instanceof Error ? err.message : '알 수 없는 에러');
+      }
+    } finally {
+      if (thisFetchId === fetchIdRef.current) {
+        setIsInitialLoading(false);
+        isFirstLoadRef.current = false;
+      }
+    }
+  }, [userId]);
+
+  // ─── Free: per-tab fetch (original on-demand behavior) ───────────────────
+  const fetchFreeTasks = useCallback(async () => {
     if (selectedTabId === null || userId === null) {
-      startTransition(() => setRawTasks([]));
+      startTransition(() => setTaskCache([]));
       isFirstLoadRef.current = false;
       setIsInitialLoading(false);
       return;
     }
 
     const thisFetchId = ++fetchIdRef.current;
+    if (isFirstLoadRef.current) setIsInitialLoading(true);
 
     try {
-      if (isFirstLoadRef.current) {
-        setIsInitialLoading(true);
-      }
-
       if (selectedTabId === ALL_TAB_ID) {
         if (tabIds.length === 0) {
-          if (thisFetchId === fetchIdRef.current) startTransition(() => setRawTasks([]));
+          if (thisFetchId === fetchIdRef.current) startTransition(() => setTaskCache([]));
         } else {
-          const { data, error } = await supabase
+          const { data, error: fetchError } = await supabase
             .from('mytask')
             .select('*')
             .eq('user_id', userId)
@@ -102,12 +149,12 @@ export const useTasks = (
             .is('deleted_at', null)
             .order('order_index', { ascending: true });
 
-          if (error) throw error;
+          if (fetchError) throw fetchError;
           if (thisFetchId !== fetchIdRef.current) return;
-          startTransition(() => setRawTasks(data || []));
+          startTransition(() => setTaskCache(data || []));
         }
       } else {
-        const { data, error } = await supabase
+        const { data, error: fetchError } = await supabase
           .from('mytask')
           .select('*')
           .eq('user_id', userId)
@@ -115,9 +162,9 @@ export const useTasks = (
           .is('deleted_at', null)
           .order('order_index', { ascending: true });
 
-        if (error) throw error;
+        if (fetchError) throw fetchError;
         if (thisFetchId !== fetchIdRef.current) return;
-        startTransition(() => setRawTasks(data || []));
+        startTransition(() => setTaskCache(data || []));
       }
     } catch (err) {
       if (thisFetchId === fetchIdRef.current) {
@@ -132,23 +179,43 @@ export const useTasks = (
     }
   }, [selectedTabId, userId, tabIds]);
 
-  /**
-   * 2. Create: 새로운 Task 추가
-   *
-   * ✨ Optimistic UI: 임시 Task를 즉시 UI에 추가
-   * ✨ useCallback으로 안정화 — TaskForm 불필요한 리렌더 방지
-   */
+  // ─── Fetch triggers ──────────────────────────────────────────────────────
+  // Pro: re-fetch only when userId changes (never on tab switch)
+  useEffect(() => {
+    if (isPro && isProfileReady) fetchProTasks();
+  }, [fetchProTasks, isPro, isProfileReady]);
+
+  // Free: re-fetch on every tab switch (fetchFreeTasks changes with selectedTabId)
+  useEffect(() => {
+    if (!isPro && isProfileReady) fetchFreeTasks();
+  }, [fetchFreeTasks, isPro, isProfileReady]);
+
+  // ─── Pro cache: evict tasks whose tab was deleted ────────────────────────
+  // Runs whenever tabIds changes (e.g. after deleteTab). Keeps the Pro cache
+  // consistent without a full server round-trip.
+  useEffect(() => {
+    if (!isPro || tabIds.length === 0) return;
+    setTaskCache(prev =>
+      prev.filter(t => t.tab_id !== null && tabIds.includes(t.tab_id))
+    );
+  }, [tabIds, isPro]);
+
+  // ─── 2. Create ───────────────────────────────────────────────────────────
   const addTask = useCallback(async (text: string): Promise<boolean> => {
-    if (!text.trim()) return false;
-    if (userId === null) return false;
-    if (selectedTabId === ALL_TAB_ID || selectedTabId === null) return false; // All 탭에서는 추가 불가
+    if (!text.trim() || userId === null) return false;
+    if (selectedTabId === ALL_TAB_ID || selectedTabId === null) return false;
 
     setError(null);
 
-    const currentTasks = tasksRef.current;
-    const nextOrderIndex = currentTasks.length > 0
-      ? Math.min(...currentTasks.map((t) => t.order_index ?? 0)) - 1
-      : 0;
+    // Compute order_index from visible tasks of the target tab
+    const currentTabTasks = isPro
+      ? taskCacheRef.current.filter(t => t.tab_id === selectedTabId)
+      : taskCacheRef.current;
+
+    const nextOrderIndex =
+      currentTabTasks.length > 0
+        ? Math.min(...currentTabTasks.map(t => t.order_index ?? 0)) - 1
+        : 0;
 
     const optimisticTask: Task = {
       id: -Date.now(),
@@ -161,10 +228,10 @@ export const useTasks = (
       user_id: userId ?? undefined,
     };
 
-    setRawTasks((prev) => [optimisticTask, ...prev]);
+    setTaskCache(prev => [optimisticTask, ...prev]);
 
     try {
-      const { data, error } = await supabase
+      const { data, error: insertError } = await supabase
         .from('mytask')
         .insert([{
           text: text.trim(),
@@ -175,139 +242,125 @@ export const useTasks = (
         }])
         .select();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
-      if (data && data[0]) {
-        setRawTasks((prev) =>
-          prev.map((task) =>
-            task.id === optimisticTask.id ? data[0] : task
-          )
+      if (data?.[0]) {
+        setTaskCache(prev =>
+          prev.map(t => t.id === optimisticTask.id ? data[0] : t)
         );
       }
-
       return true;
     } catch (err) {
       console.error('추가 에러:', err);
       setError(err instanceof Error ? err.message : '추가 실패');
-      setRawTasks((prev) => prev.filter((task) => task.id !== optimisticTask.id));
+      setTaskCache(prev => prev.filter(t => t.id !== optimisticTask.id));
       return false;
     }
-  }, [selectedTabId, userId]); // supabase is module-level stable
+  }, [selectedTabId, userId, isPro]);
 
-  /**
-   * 3. Update: Task 완료 상태 토글
-   * ✨ useCallback으로 안정화 — React.memo(TaskItem)과 호환
-   * ✨ Digital Detox: 완료 시 completed_at 저장, 미완료 시 null
-   */
+  // ─── 3. Toggle ───────────────────────────────────────────────────────────
   const toggleTask = useCallback(async (id: number, isCompleted: boolean) => {
     if (userId === null) return;
-    const previousTasks = tasksRef.current;
+
+    const previousCache = taskCacheRef.current;
     const completedAt = isCompleted ? new Date().toISOString() : null;
 
-    setRawTasks((prev) =>
-      prev.map((task) =>
-        task.id === id
-          ? { ...task, is_completed: isCompleted, completed_at: completedAt ?? undefined }
-          : task
+    setTaskCache(prev =>
+      prev.map(t =>
+        t.id === id
+          ? { ...t, is_completed: isCompleted, completed_at: completedAt ?? undefined }
+          : t
       )
     );
 
     try {
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('mytask')
         .update({ is_completed: isCompleted, completed_at: completedAt })
         .eq('id', id)
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
     } catch (err) {
       console.error('수정 에러:', err);
       setError(err instanceof Error ? err.message : '수정 실패');
-      setRawTasks(previousTasks);
+      setTaskCache(previousCache);
     }
   }, [userId]);
 
-  /**
-   * 4. Update: Task 텍스트 수정
-   * ✨ useCallback으로 안정화
-   */
+  // ─── 4. Update text ──────────────────────────────────────────────────────
   const updateTask = useCallback(async (id: number, newText: string) => {
     if (!newText.trim() || userId === null) return;
 
-    const previousTasks = tasksRef.current;
+    const previousCache = taskCacheRef.current;
 
-    setRawTasks((prev) =>
-      prev.map((task) =>
-        task.id === id ? { ...task, text: newText.trim() } : task
-      )
+    setTaskCache(prev =>
+      prev.map(t => t.id === id ? { ...t, text: newText.trim() } : t)
     );
 
     try {
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('mytask')
         .update({ text: newText.trim() })
         .eq('id', id)
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
     } catch (err) {
       console.error('수정 에러:', err);
       setError(err instanceof Error ? err.message : '수정 실패');
-      setRawTasks(previousTasks);
+      setTaskCache(previousCache);
     }
   }, [userId]);
 
-  /**
-   * 5. Delete: Soft Delete (deleted_at 설정)
-   */
+  // ─── 5. Soft Delete ──────────────────────────────────────────────────────
   const deleteTask = useCallback(async (id: number) => {
     if (userId === null) return;
 
-    const currentTasks = tasksRef.current;
-    const taskToDelete = currentTasks.find((task) => task.id === id);
-    if (!taskToDelete) return;
+    const previousCache = taskCacheRef.current;
+    if (!previousCache.find(t => t.id === id)) return;
 
-    setRawTasks((prev) => prev.filter((task) => task.id !== id));
+    setTaskCache(prev => prev.filter(t => t.id !== id));
 
     try {
-      const { error } = await supabase
+      const { error: deleteError } = await supabase
         .from('mytask')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
     } catch (err) {
       console.error('삭제 에러:', err);
       setError(err instanceof Error ? err.message : '삭제 실패');
-      setRawTasks((prev) => {
-        const restored = [...prev, taskToDelete].sort(
-          (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
-        );
-        return restored;
-      });
+      setTaskCache(previousCache);
     }
   }, [userId]);
 
-  /**
-   * 6. Reorder: Task 순서 변경 (Drag & Drop)
-   * ✨ useCallback으로 안정화
-   */
+  // ─── 6. Reorder (Drag & Drop) ────────────────────────────────────────────
   const reorderTasks = useCallback(async (activeId: number, overId: number) => {
-    const currentTasks = tasksRef.current;
-    const oldIndex = currentTasks.findIndex((t) => t.id === activeId);
-    const newIndex = currentTasks.findIndex((t) => t.id === overId);
+    // Reorder only within the visible tasks of the current tab
+    const currentTabTasks = isPro
+      ? taskCacheRef.current
+          .filter(t => t.tab_id === selectedTabId)
+          .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+      : taskCacheRef.current;
+
+    const oldIndex = currentTabTasks.findIndex(t => t.id === activeId);
+    const newIndex = currentTabTasks.findIndex(t => t.id === overId);
 
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
 
-    const previousTasks = currentTasks;
-    const reordered = arrayMove(currentTasks, oldIndex, newIndex);
+    const previousCache = taskCacheRef.current;
+    const reordered = arrayMove(currentTabTasks, oldIndex, newIndex);
+    const reorderedWithIndex = reordered.map((task, i) => ({ ...task, order_index: i }));
 
-    const reorderedWithIndex = reordered.map((task, i) => ({
-      ...task,
-      order_index: i,
-    }));
-    setRawTasks(reorderedWithIndex);
+    setTaskCache(prev => {
+      if (!isPro) return reorderedWithIndex; // Free: cache = current tab only
+      // Pro: patch only the reordered tasks into the full cache
+      const updatedMap = new Map(reorderedWithIndex.map(t => [t.id, t]));
+      return prev.map(t => updatedMap.get(t.id) ?? t);
+    });
 
     if (userId === null) return;
 
@@ -317,26 +370,15 @@ export const useTasks = (
           supabase.from('mytask').update({ order_index }).eq('id', id).eq('user_id', userId)
         )
       );
-      const failed = results.find((r) => r.error);
+      const failed = results.find(r => r.error);
       if (failed?.error) throw failed.error;
     } catch (err) {
       console.error('Task 순서 변경 에러:', err);
-      setRawTasks(previousTasks);
+      setTaskCache(previousCache);
     }
-  }, [userId]);
+  }, [selectedTabId, userId, isPro]);
 
-  /**
-   * 탭 변경 시 데이터 로드
-   * fetchTasks는 selectedTabId/tabIds 변경 시에만 재생성됨 (tabIds memo화 필요)
-   */
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-
-  /**
-   * Orphan Rescue: tab_id가 존재하지 않는 tab을 가리키는 task를 휴지통으로 이동
-   * (기존 19개 등 orphan 데이터 복구)
-   */
+  // ─── Orphan Rescue ───────────────────────────────────────────────────────
   const orphanRescueRunRef = useRef(false);
   const rescueOrphans = useCallback(async () => {
     if (userId === null || tabIds.length === 0 || orphanRescueRunRef.current) return;
@@ -353,8 +395,8 @@ export const useTasks = (
       if (error) throw error;
 
       const orphanIds = (allActive || [])
-        .filter((t) => t.tab_id == null || !tabIds.includes(t.tab_id))
-        .map((t) => t.id);
+        .filter(t => t.tab_id == null || !tabIds.includes(t.tab_id))
+        .map(t => t.id);
 
       if (orphanIds.length === 0) return;
 
@@ -367,35 +409,33 @@ export const useTasks = (
         .in('id', orphanIds);
 
       if (updateError) throw updateError;
+
+      // Evict rescued orphans from Pro cache immediately (Free cache won't contain them)
+      if (isPro) {
+        setTaskCache(prev => prev.filter(t => !orphanIds.includes(t.id)));
+      }
     } catch (err) {
       console.error('Orphan rescue 에러:', err);
       orphanRescueRunRef.current = false;
     }
-  }, [userId, tabIds]);
+  }, [userId, tabIds, isPro]);
 
   useEffect(() => {
     rescueOrphans();
   }, [rescueOrphans]);
 
-  /**
-   * Data Retention: Active notes (deleted_at IS NULL) are PERMANENT.
-   * No time-based filters. Main/All tab show all active notes.
-   * Trash (deleted_at IS NOT NULL) uses 30-day purge → TrashView.
-   */
+  // ─── Stats ───────────────────────────────────────────────────────────────
   const visibleTasks = displayTasks;
 
-  /**
-   * 통계 계산 (노출되는 Task 기준)
-   */
   const stats = useMemo(
     () => ({
       total: visibleTasks.length,
-      completed: visibleTasks.filter((t) => t.is_completed).length,
+      completed: visibleTasks.filter(t => t.is_completed).length,
     }),
     [visibleTasks]
   );
 
-  // ── 휴지통: 30일 보관 정책 (Trash만 해당) ──
+  // ─── Trash ───────────────────────────────────────────────────────────────
   const [deletedTasks, setDeletedTasks] = useState<Task[]>([]);
   const [deletedLoading, setDeletedLoading] = useState(false);
 
@@ -404,14 +444,14 @@ export const useTasks = (
     if (userId === null) return;
     setDeletedLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('mytask')
         .select('*')
         .eq('user_id', userId)
         .not('deleted_at', 'is', null)
         .order('deleted_at', { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
       setDeletedTasks(data || []);
     } catch (err) {
       console.error('휴지통 불러오기 에러:', err);
@@ -424,7 +464,8 @@ export const useTasks = (
    * Intelligent Restoration:
    * 1. If tab_id exists in tabs → restore to it
    * 2. Else: ensureTabExists(last_tab_title || 'Recovered') → reconstruct tab
-   * 3. Update task: deleted_at=null, tab_id=resolved
+   * 3. Pro: inject restored task into cache (0 extra fetch)
+   *    Free: refetch current tab from server
    */
   const restoreTask = useCallback(
     async (task: Task): Promise<string | null> => {
@@ -436,7 +477,7 @@ export const useTasks = (
       try {
         if (task.tab_id != null && tabIds.includes(task.tab_id)) {
           targetTabId = task.tab_id;
-          tabTitleForFeedback = tabs.find((t) => t.id === task.tab_id)?.title ?? '알 수 없는 탭';
+          tabTitleForFeedback = tabs.find(t => t.id === task.tab_id)?.title ?? '알 수 없는 탭';
         } else if (ensureTabExists) {
           const titleToUse = task.last_tab_title?.trim() || 'Recovered';
           targetTabId = await ensureTabExists(titleToUse);
@@ -445,25 +486,36 @@ export const useTasks = (
           const fallback = tabIds[0];
           if (fallback == null) return null;
           targetTabId = fallback;
-          tabTitleForFeedback = tabs.find((t) => t.id === fallback)?.title ?? '첫 번째 탭';
+          tabTitleForFeedback = tabs.find(t => t.id === fallback)?.title ?? '첫 번째 탭';
         }
 
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from('mytask')
           .update({ deleted_at: null, tab_id: targetTabId })
           .eq('id', task.id)
           .eq('user_id', userId);
 
-        if (error) throw error;
-        setDeletedTasks((prev) => prev.filter((t) => t.id !== task.id));
-        if (selectedTabId !== null) fetchTasks();
+        if (updateError) throw updateError;
+
+        setDeletedTasks(prev => prev.filter(t => t.id !== task.id));
+
+        if (isPro) {
+          // Inject restored task directly into Pro cache — no extra server round-trip
+          setTaskCache(prev => [
+            ...prev,
+            { ...task, deleted_at: undefined, tab_id: targetTabId },
+          ]);
+        } else {
+          if (selectedTabId !== null) fetchFreeTasks();
+        }
+
         return tabTitleForFeedback;
       } catch (err) {
         console.error('복구 에러:', err);
         return null;
       }
     },
-    [selectedTabId, fetchTasks, userId, tabIds, tabs, ensureTabExists]
+    [selectedTabId, fetchFreeTasks, userId, tabIds, tabs, ensureTabExists, isPro]
   );
 
   return {

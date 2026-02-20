@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
 import { useTasks, ALL_TAB_ID } from '@/hooks/useTasks';
+import { useProfile } from '@/hooks/useProfile';
 import { useAppTitle } from '@/hooks/useAppTitle';
 import { Auth } from '@/components/Auth';
 import { EditableTitle } from '@/components/EditableTitle';
@@ -22,6 +23,7 @@ import { LogOut, Trash2 } from 'lucide-react';
 function App() {
   const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
   const { title: appTitle, updateTitle } = useAppTitle(userId);
+  const { isPro, isProfileLoading } = useProfile(userId);
 
   const {
     tabs,
@@ -51,7 +53,12 @@ function App() {
     deletedLoading,
     fetchDeletedTasks,
     restoreTask,
-  } = useTasks(selectedTabId, userId, tabIds, { ensureTabExists, tabs });
+  } = useTasks(selectedTabId, userId, tabIds, {
+    ensureTabExists,
+    tabs,
+    isPro,
+    isProfileReady: !isProfileLoading,
+  });
 
   const [showTrashView, setShowTrashView] = useState(false);
 
