@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
@@ -25,7 +25,7 @@ function App() {
   const { t, i18n } = useTranslation();
   const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
 
-  const { isPro, isProfileLoading, maxTabs, maxTasks } = useProfile(userId);
+  const { isPro, isProfileLoading, maxTabs, maxTasks, appTitle, updateAppTitle } = useProfile(userId);
   const userEmail = session?.user?.email;
 
   const {
@@ -67,6 +67,31 @@ function App() {
 
   const [showTrashView, setShowTrashView] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+
+  // Inline title editing
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditingTitle) {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    }
+  }, [isEditingTitle]);
+
+  const startEditTitle = () => {
+    setTitleDraft(appTitle || 'INA Done');
+    setIsEditingTitle(true);
+  };
+
+  const saveTitle = () => {
+    const trimmed = titleDraft.trim();
+    if (trimmed) updateAppTitle(trimmed);
+    setIsEditingTitle(false);
+  };
+
+  const cancelTitle = () => setIsEditingTitle(false);
 
   // Format current date in the active locale
   const currentDate = new Date().toLocaleDateString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
@@ -134,13 +159,38 @@ function App() {
             {/* Centre — title + PRO badge, perfectly centred, truncates safely */}
             <div className="absolute inset-x-0 flex items-end justify-center pointer-events-none">
               <div className="flex items-end gap-2 min-w-0 max-w-[70%]">
-                <h1
-                  className="truncate text-4xl sm:text-5xl font-semibold text-zinc-900 select-none pointer-events-auto min-w-0"
-                  style={{ letterSpacing: '-0.05em' }}
-                >
-                  INA Done
-                </h1>
-                {isPro && (
+
+                {isEditingTitle ? (
+                  /* ── Edit mode ── */
+                  <input
+                    ref={titleInputRef}
+                    value={titleDraft}
+                    onChange={(e) => setTitleDraft(e.target.value)}
+                    onBlur={saveTitle}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); saveTitle(); }
+                      if (e.key === 'Escape') { e.preventDefault(); cancelTitle(); }
+                    }}
+                    className="min-w-[50px] max-w-full w-full bg-transparent border-none outline-none
+                      text-center text-4xl sm:text-5xl font-semibold text-zinc-900 pointer-events-auto
+                      border-b border-zinc-300 focus:border-zinc-500 transition-colors"
+                    style={{ letterSpacing: '-0.05em' }}
+                    maxLength={40}
+                    aria-label="Edit app title"
+                  />
+                ) : (
+                  /* ── View mode ── */
+                  <h1
+                    className="truncate text-4xl sm:text-5xl font-semibold text-zinc-900 select-none pointer-events-auto min-w-0 cursor-default"
+                    style={{ letterSpacing: '-0.05em' }}
+                    onDoubleClick={startEditTitle}
+                    title="Double-click to edit"
+                  >
+                    {appTitle || 'INA Done'}
+                  </h1>
+                )}
+
+                {isPro && !isEditingTitle && (
                   <span
                     className="flex-shrink-0 mb-1 sm:mb-1.5 px-1.5 py-0.5 rounded-full select-none pointer-events-auto"
                     style={{

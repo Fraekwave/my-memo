@@ -5,12 +5,14 @@ export interface Profile {
   membership_level: 'free' | 'pro';
   max_tabs: number;
   max_tasks: number;
+  app_title: string;
 }
 
 const DEFAULT_PROFILE: Profile = {
   membership_level: 'free',
   max_tabs: 3,
   max_tasks: 30,
+  app_title: '',
 };
 
 /**
@@ -38,7 +40,7 @@ export const useProfile = (userId: string | null) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('membership_level, max_tabs, max_tasks')
+        .select('membership_level, max_tabs, max_tasks, app_title')
         .eq('id', userId)
         .single();
 
@@ -49,6 +51,7 @@ export const useProfile = (userId: string | null) => {
           membership_level: (data.membership_level as 'free' | 'pro') ?? 'free',
           max_tabs: data.max_tabs ?? DEFAULT_PROFILE.max_tabs,
           max_tasks: data.max_tasks ?? DEFAULT_PROFILE.max_tasks,
+          app_title: data.app_title ?? '',
         });
       }
     } catch (err) {
@@ -63,11 +66,36 @@ export const useProfile = (userId: string | null) => {
     fetchProfile();
   }, [fetchProfile]);
 
+  const updateAppTitle = useCallback(
+    async (newTitle: string) => {
+      if (!userId) return;
+      const trimmed = newTitle.trim();
+
+      // Optimistic update
+      setProfile((prev) => ({ ...prev, app_title: trimmed }));
+
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ app_title: trimmed })
+          .eq('id', userId);
+        if (error) throw error;
+      } catch (err) {
+        console.error('updateAppTitle error:', err);
+        // Re-fetch to restore correct server state on failure
+        fetchProfile();
+      }
+    },
+    [userId, fetchProfile]
+  );
+
   return {
     profile,
     isPro: profile.membership_level === 'pro',
     maxTabs: profile.max_tabs,
     maxTasks: profile.max_tasks,
+    appTitle: profile.app_title,
+    updateAppTitle,
     isProfileLoading,
   };
 };
