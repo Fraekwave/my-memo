@@ -34,6 +34,8 @@ export interface UseTasksOptions {
   /** Set true once useProfile has resolved; prevents task fetching before
    *  membership is known (avoids the Free→Pro double-fetch on first load). */
   isProfileReady?: boolean;
+  /** Maximum total active tasks allowed for the user's plan (default: Infinity). */
+  maxTasks?: number;
 }
 
 export const useTasks = (
@@ -47,6 +49,7 @@ export const useTasks = (
     tabs = [],
     isPro = false,
     isProfileReady = true,
+    maxTasks = Infinity,
   } = options;
 
   // ─── Single task store ───────────────────────────────────────────────────
@@ -56,6 +59,34 @@ export const useTasks = (
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  // ─── Total active task count (cross-tab) ────────────────────────────────
+  // Pro:  derived directly from cache (cache = all tasks).
+  // Free: maintained by a lightweight server count query, then kept in sync
+  //       via optimistic +1/-1 on add/delete — avoids fetching all tasks just
+  //       to enforce a limit.
+  const [totalActiveCount, setTotalActiveCount] = useState(0);
+
+  const fetchTotalCount = useCallback(async () => {
+    if (userId === null) { setTotalActiveCount(0); return; }
+    const { count } = await supabase
+      .from('mytask')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .is('deleted_at', null);
+    setTotalActiveCount(count ?? 0);
+  }, [userId]);
+
+  // For Free: sync total count once on mount/userId change.
+  // For Pro:  totalActiveCount is kept in sync via the cache-length effect below.
+  useEffect(() => {
+    if (!isPro && isProfileReady && userId !== null) fetchTotalCount();
+  }, [fetchTotalCount, isPro, isProfileReady, userId]);
+
+  // For Pro: totalActiveCount = full cache length (always accurate).
+  useEffect(() => {
+    if (isPro) setTotalActiveCount(taskCache.length);
+  }, [isPro, taskCache.length]);
 
   // Full-cache snapshot for stale-closure-free callbacks and rollbacks
   const taskCacheRef = useRef<Task[]>([]);
@@ -205,6 +236,12 @@ export const useTasks = (
     if (!text.trim() || userId === null) return false;
     if (selectedTabId === ALL_TAB_ID || selectedTabId === null) return false;
 
+    // ── 멤버십 한도 초과 시 낙관적 업데이트 차단 ──
+    if (totalActiveCount >= maxTasks) {
+      setError(`할 일 한도(${maxTasks}개)에 도달했습니다. Pro로 업그레이드하면 무제한으로 사용할 수 있어요.`);
+      return false;
+    }
+
     setError(null);
 
     // Compute order_index from visible tasks of the target tab
@@ -249,14 +286,17 @@ export const useTasks = (
           prev.map(t => t.id === optimisticTask.id ? data[0] : t)
         );
       }
+      // Free: optimistically bumped above; confirm the count is correct
+      if (!isPro) setTotalActiveCount(c => c + 1);
       return true;
     } catch (err) {
       console.error('추가 에러:', err);
       setError(err instanceof Error ? err.message : '추가 실패');
       setTaskCache(prev => prev.filter(t => t.id !== optimisticTask.id));
+      if (!isPro) setTotalActiveCount(c => c - 1); // rollback count
       return false;
     }
-  }, [selectedTabId, userId, isPro]);
+  }, [selectedTabId, userId, isPro, totalActiveCount, maxTasks]);
 
   // ─── 3. Toggle ───────────────────────────────────────────────────────────
   const toggleTask = useCallback(async (id: number, isCompleted: boolean) => {
@@ -330,12 +370,13 @@ export const useTasks = (
         .eq('user_id', userId);
 
       if (deleteError) throw deleteError;
+      if (!isPro) setTotalActiveCount(c => c - 1);
     } catch (err) {
       console.error('삭제 에러:', err);
       setError(err instanceof Error ? err.message : '삭제 실패');
       setTaskCache(previousCache);
     }
-  }, [userId]);
+  }, [userId, isPro]);
 
   // ─── 6. Reorder (Drag & Drop) ────────────────────────────────────────────
   const reorderTasks = useCallback(async (activeId: number, overId: number) => {
@@ -532,5 +573,8 @@ export const useTasks = (
     deletedLoading,
     fetchDeletedTasks,
     restoreTask,
+    /** true when totalActiveCount >= maxTasks; use to disable the task input */
+    isAtTaskLimit: totalActiveCount >= maxTasks,
+    totalActiveCount,
   };
 };

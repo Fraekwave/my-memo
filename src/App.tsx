@@ -23,7 +23,7 @@ import { LogOut, Trash2 } from 'lucide-react';
 function App() {
   const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
   const { title: appTitle, updateTitle } = useAppTitle(userId);
-  const { isPro, isProfileLoading } = useProfile(userId);
+  const { isPro, isProfileLoading, maxTabs, maxTasks } = useProfile(userId);
 
   const {
     tabs,
@@ -35,7 +35,7 @@ function App() {
     deleteTab,
     reorderTabs,
     ensureTabExists,
-  } = useTabs(userId);
+  } = useTabs(userId, { maxTabs });
 
   const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
 
@@ -53,11 +53,13 @@ function App() {
     deletedLoading,
     fetchDeletedTasks,
     restoreTask,
+    isAtTaskLimit,
   } = useTasks(selectedTabId, userId, tabIds, {
     ensureTabExists,
     tabs,
     isPro,
     isProfileReady: !isProfileLoading,
+    maxTasks,
   });
 
   const [showTrashView, setShowTrashView] = useState(false);
@@ -164,7 +166,10 @@ function App() {
                 ⚠️ {error}
               </div>
             )}
-            <TaskForm onSubmit={addTask} disabled={selectedTabId === ALL_TAB_ID} />
+            <TaskForm
+              onSubmit={addTask}
+              disabled={selectedTabId === ALL_TAB_ID || isAtTaskLimit}
+            />
           </div>
           <div className="h-0 border-x border-zinc-200 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.06)]" />
         </div>

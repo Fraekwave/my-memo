@@ -9,6 +9,11 @@ const STORAGE_KEY = 'active_tab_id';
 /** Default categories for new users (when DB has no tabs). */
 const DEFAULT_TAB_TITLES = ['Job', 'Family', 'Personal'] as const;
 
+export interface UseTabsOptions {
+  /** Maximum number of tabs allowed for the user's plan (default: Infinity). */
+  maxTabs?: number;
+}
+
 /**
  * Tab CRUD 로직을 관리하는 커스텀 훅
  *
@@ -16,8 +21,10 @@ const DEFAULT_TAB_TITLES = ['Job', 'Family', 'Personal'] as const;
  * - 신규 유저: 기본 탭 (Job, Family, Personal) 자동 생성
  * - "All" 탭: Virtual System Tab (DB 없음, TabBar에서 항상 마지막에 고정)
  * - localStorage로 선택된 탭 유지
+ * - maxTabs 초과 시 addTab이 null을 반환 (낙관적 업데이트 차단)
  */
-export const useTabs = (userId: string | null) => {
+export const useTabs = (userId: string | null, options: UseTabsOptions = {}) => {
+  const { maxTabs = Infinity } = options;
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [selectedTabId, _setSelectedTabId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -110,9 +117,12 @@ export const useTabs = (userId: string | null) => {
    * 호출자가 flushSync와 함께 사용하여 iOS User Gesture 체인을 유지할 수 있습니다.
    * 서버 동기화는 백그라운드에서 비동기로 처리합니다.
    *
-   * @returns 생성된 탭의 optimistic ID
+   * @returns 생성된 탭의 optimistic ID, 또는 한도 초과 시 null
    */
-  const addTab = (title: string = 'New Tab'): number => {
+  const addTab = (title: string = 'New Tab'): number | null => {
+    // ── 멤버십 한도 초과 시 낙관적 업데이트 차단 ──
+    if (tabs.length >= maxTabs) return null;
+
     // 새 탭은 항상 맨 끝에 추가 — 기존 최대 order_index + 1
     const nextOrderIndex = tabs.length > 0
       ? Math.max(...tabs.map((t) => t.order_index ?? 0)) + 1

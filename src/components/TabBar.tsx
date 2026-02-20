@@ -24,7 +24,8 @@ interface TabBarProps {
   tabs: Tab[];
   selectedTabId: number | null;
   onSelect: (id: number) => void; // -1 = All (Master View)
-  onAdd: () => number;
+  /** Returns the new tab's optimistic ID, or null if the quota is exceeded. */
+  onAdd: () => number | null;
   onUpdate: (id: number, newTitle: string) => void;
   onDelete: (id: number) => void;
   onReorder: (activeId: number, overId: number) => void;
@@ -64,11 +65,13 @@ export const TabBar = ({
   const [deleteTabId, setDeleteTabId] = useState<number | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [limitMessage, setLimitMessage] = useState<string | null>(null);
 
   // --- Refs ---
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLDivElement>(null);
+  const limitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Derived ---
   const deleteTargetTab = deleteTabId !== null ? tabs.find((t) => t.id === deleteTabId) : null;
@@ -235,16 +238,27 @@ export const TabBar = ({
       onUpdate(editingTabId, editTitle.trim());
     }
 
-    // 2. 탭 생성 — 동기적 optimistic update, optimistic ID 반환
+    // 2. 탭 생성 — 한도 초과 시 null 반환
     const newTabId = onAdd();
 
-    // 3. flushSync: 편집 상태 + 새 탭 DOM을 같은 User Gesture 스택 안에서 커밋
+    // 3. 한도 초과: optimistic update 없이 알림 표시 후 종료
+    if (newTabId === null) {
+      if (limitTimerRef.current) clearTimeout(limitTimerRef.current);
+      setLimitMessage('탭 한도에 도달했습니다. Pro로 업그레이드하면 탭을 더 만들 수 있어요.');
+      limitTimerRef.current = setTimeout(() => {
+        setLimitMessage(null);
+        limitTimerRef.current = null;
+      }, 4000);
+      return;
+    }
+
+    // 4. flushSync: 편집 상태 + 새 탭 DOM을 같은 User Gesture 스택 안에서 커밋
     flushSync(() => {
       setEditingTabId(newTabId);
       setEditTitle('New Tab');
     });
 
-    // 4. DOM이 동기적으로 업데이트된 직후 — 같은 User Gesture 스택 내에서 focus
+    // 5. DOM이 동기적으로 업데이트된 직후 — 같은 User Gesture 스택 내에서 focus
     if (inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
@@ -255,7 +269,14 @@ export const TabBar = ({
   // Render
   // ──────────────────────────────────────────────
   return (
-    <div className="flex items-end gap-0 bg-zinc-100 pl-1 pr-1 pt-2 rounded-t-2xl overflow-hidden">
+    <div className="rounded-t-2xl overflow-hidden">
+      {/* Tab quota banner — fades in/out when limit is reached */}
+      {limitMessage && (
+        <div className="px-3 py-2 bg-amber-50 border-b border-amber-200 text-amber-800 text-xs font-medium text-center animate-fade-in">
+          {limitMessage}
+        </div>
+      )}
+    <div className="flex items-end gap-0 bg-zinc-100 pl-1 pr-1 pt-2 overflow-hidden">
       {/* 좌측 Chevron — 항상 DOM에 존재, disabled 시 투명 + 클릭 차단 */}
       <button
         onClick={() => scrollByAmount('left')}
@@ -371,6 +392,7 @@ export const TabBar = ({
         }}
         onCancel={() => setDeleteTabId(null)}
       />
+    </div>
     </div>
   );
 };
