@@ -1,11 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 
+// ─── Loop-prevention flag ─────────────────────────────────────────────────────
+// Written to sessionStorage before any redirect attempt.
+// If the in-app browser somehow re-renders the page after a failed scheme launch
+// (e.g. the URL scheme was unrecognised and the page reloaded), the second pass
+// reads this flag and bails out immediately instead of looping.
+const ESCAPE_ATTEMPTED_KEY = 'iae_escape_attempted';
+
+function markEscapeAttempted(): void {
+  try { sessionStorage.setItem(ESCAPE_ATTEMPTED_KEY, '1'); } catch { /* private mode */ }
+}
+
+function hasEscapeBeenAttempted(): boolean {
+  try { return sessionStorage.getItem(ESCAPE_ATTEMPTED_KEY) === '1'; } catch { return false; }
+}
+
 // ─── Detection ───────────────────────────────────────────────────────────────
 
 /**
  * Known in-app browser UA substrings.
- * Google OAuth rejects requests from embedded WebViews, so we need
- * to detect these and redirect to the system browser.
+ * Standard mobile browsers (Safari, Chrome, Firefox, Samsung Internet, Edge)
+ * do NOT contain any of these — so a positive match is a reliable in-app signal.
  */
 const IN_APP_UA_PATTERNS = [
   'KAKAOTALK',      // KakaoTalk (Android + iOS)
@@ -36,9 +51,12 @@ function detectUA(): UAInfo {
     return { isInApp: false, isAndroid: false, isIOS: false, isKakao: false };
   }
   const ua = navigator.userAgent;
+  // isInApp is true ONLY when a known in-app pattern is present.
+  // Standard mobile browser UAs (Safari, Chrome) never match these strings.
   const isInApp = IN_APP_UA_PATTERNS.some(p => ua.includes(p));
   const isAndroid = /Android/i.test(ua);
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  // Explicit KakaoTalk check — used for its dedicated URL scheme path.
   const isKakao = ua.includes('KAKAOTALK');
   return { isInApp, isAndroid, isIOS, isKakao };
 }
@@ -46,7 +64,23 @@ function detectUA(): UAInfo {
 // ─── Redirect helpers ────────────────────────────────────────────────────────
 
 /**
- * Build an Android Intent URL that forces the current page to open in Chrome.
+ * KakaoTalk URL scheme that instructs the in-app browser to open the given
+ * URL in the device's default external browser (Safari on iOS, Chrome on Android).
+ *
+ * Scheme: kakaotalk://web/openExternalApp?url=<encoded>
+ *
+ * "openExternalApp" is the correct action name (not "openExternal") that
+ * triggers a full external browser launch rather than just loading the URL
+ * inside KakaoTalk's own address-bar view.
+ */
+function buildKakaoExternalUrl(url: string): string {
+  return `kakaotalk://web/openExternalApp?url=${encodeURIComponent(url)}`;
+}
+
+/**
+ * Android Intent URL that forces the current page to open in Chrome.
+ * If Chrome is not installed Android falls back to the system default browser.
+ *
  * Format: intent://HOST/PATH?QUERY#Intent;scheme=https;package=com.android.chrome;end
  */
 function buildChromeIntentUrl(url: string): string {
@@ -60,15 +94,19 @@ function buildChromeIntentUrl(url: string): string {
 }
 
 /**
- * KakaoTalk iOS exposes a URL scheme to open a URL in the external browser.
- * Falls back to undefined if the current URL cannot be parsed.
+ * Fire a URL scheme and immediately stop the in-app browser from continuing
+ * to render the current page.
+ *
+ * Calling window.stop() cancels any pending resource loads in the WebView.
+ * The short setTimeout ensures the assignment to window.location.href is
+ * committed to the navigation stack before stop() is called, preventing
+ * the scheme from being aborted.
  */
-function buildKakaoIOSExternalUrl(url: string): string | undefined {
-  try {
-    return `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`;
-  } catch {
-    return undefined;
-  }
+function fireSchemeAndStop(schemeUrl: string): void {
+  window.location.href = schemeUrl;
+  setTimeout(() => {
+    try { window.stop(); } catch { /* older WebViews */ }
+  }, 50);
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -87,14 +125,18 @@ export interface InAppBrowserEscapeState {
 /**
  * Detects in-app browsers and escapes to the system browser.
  *
- * - Android: immediately redirects to Chrome via the `intent://` scheme.
- * - iOS KakaoTalk: attempts the `kakaotalk://web/openExternal` URL scheme.
- * - iOS other: sets `showIOSGuide = true` so the caller can render a manual guide.
+ * Escape paths:
+ * - KakaoTalk (Android + iOS): `kakaotalk://web/openExternalApp?url=<encoded>`
+ * - Other Android in-app browsers: Chrome intent:// scheme
+ * - Other iOS in-app browsers: sets showIOSGuide (manual copy-paste guide)
  *
- * @param enabled Pass `false` to disable the hook (e.g. user is already logged in).
+ * Loop prevention: a sessionStorage flag is written before any redirect so
+ * that a failed scheme launch that reloads the page does not re-trigger.
+ *
+ * @param enabled Pass `false` to disable (e.g. user is already authenticated).
  */
 export function useInAppBrowserEscape(enabled = true): InAppBrowserEscapeState {
-  // Run detection exactly once (stable ref, no re-render on UA read).
+  // UA detection runs exactly once per session (stable ref, no re-render cost).
   const uaRef = useRef<UAInfo | null>(null);
   if (uaRef.current === null) uaRef.current = detectUA();
   const { isInApp, isAndroid, isIOS, isKakao } = uaRef.current;
@@ -102,33 +144,45 @@ export function useInAppBrowserEscape(enabled = true): InAppBrowserEscapeState {
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
   useEffect(() => {
+    // Guard 1: hook is disabled or not in an in-app browser.
     if (!enabled || !isInApp) return;
+
+    // Guard 2: a redirect was already attempted this session — do not loop.
+    if (hasEscapeBeenAttempted()) return;
+
+    // Stamp the flag BEFORE firing the scheme so it is set even if the
+    // assignment throws or the WebView reloads synchronously.
+    markEscapeAttempted();
 
     const currentUrl = window.location.href;
 
-    if (isAndroid) {
-      // Redirect to Chrome via Android Intent scheme.
-      // If Chrome is not installed, Android falls back to the default browser.
-      window.location.replace(buildChromeIntentUrl(currentUrl));
+    // ── KakaoTalk (both Android and iOS) ─────────────────────────────────
+    // KakaoTalk has its own URL scheme on both platforms, so handle it
+    // first before the generic Android/iOS branches.
+    if (isKakao) {
+      fireSchemeAndStop(buildKakaoExternalUrl(currentUrl));
+      // Show the iOS guide as a safety net after 1.5 s in case the scheme
+      // was silently rejected (iOS only; Android scheme usually succeeds).
+      if (isIOS) {
+        setTimeout(() => setShowIOSGuide(true), 1500);
+      }
       return;
     }
 
+    // ── Other Android in-app browsers ────────────────────────────────────
+    if (isAndroid) {
+      window.location.replace(buildChromeIntentUrl(currentUrl));
+      try { window.stop(); } catch { /* ignore */ }
+      return;
+    }
+
+    // ── Other iOS in-app browsers ─────────────────────────────────────────
+    // No reliable URL scheme for generic iOS WebViews — show manual guide.
     if (isIOS) {
-      if (isKakao) {
-        // KakaoTalk iOS supports an openExternal URL scheme.
-        const externalUrl = buildKakaoIOSExternalUrl(currentUrl);
-        if (externalUrl) {
-          window.location.href = externalUrl;
-          // Show the guide as a fallback in case the scheme doesn't fire.
-          setTimeout(() => setShowIOSGuide(true), 1500);
-          return;
-        }
-      }
-      // All other iOS in-app browsers: cannot auto-redirect, show manual guide.
       setShowIOSGuide(true);
     }
   }, [enabled]); // eslint-disable-line react-hooks/exhaustive-deps
-  // ^ isInApp/isAndroid/isIOS/isKakao are derived from a stable ref, safe to omit.
+  // isInApp/isAndroid/isIOS/isKakao are from a stable ref — safe to omit.
 
   return {
     isInApp,
