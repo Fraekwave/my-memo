@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { truncateToTitleBudget } from '@/lib/titleWeight';
 
-const DEFAULT_TITLE = "Today's Tasks";
+const DEFAULT_TITLE = "INA Done";
 
 /**
  * 사용자별 앱 제목 관리 (profiles.app_title)

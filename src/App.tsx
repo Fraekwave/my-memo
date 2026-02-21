@@ -9,7 +9,6 @@ import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { TrashView } from '@/components/TrashView';
 import { TabBar } from '@/components/TabBar';
-import { VersionIndicator } from '@/components/VersionIndicator';
 import { GlobalMenu } from '@/components/GlobalMenu';
 import { AdminPage } from '@/components/AdminPage';
 import { Trash2 } from 'lucide-react';
@@ -100,12 +99,9 @@ function App() {
   // Auth: 세션 없으면 로그인 화면 (200ms 페이드)
   if (!isAuthLoading && !session) {
     return (
-      <>
-        <VersionIndicator />
-        <div className="h-full animate-fade-in">
+      <div className="h-full animate-fade-in">
           <Auth onSuccess={() => {}} />
         </div>
-      </>
     );
   }
 
@@ -135,7 +131,6 @@ function App() {
 
   return (
     <>
-    <VersionIndicator />
     <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
         {/* 헤더 — 시간 중심 레이아웃:
