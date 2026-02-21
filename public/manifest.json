@@ -1,11 +1,17 @@
 {
+  "id": "/",
   "name": "INA Done",
   "short_name": "INA Done",
+  "description": "Plan to Break. 복잡함 없는 할 일 관리.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#00324b",
   "theme_color": "#00324b",
-  "description": "Plan to Break. 복잡함 없는 할 일 관리.",
+  "lang": "ko",
+  "categories": ["productivity", "lifestyle"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "inadone_icon.png",
