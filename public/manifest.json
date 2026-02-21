@@ -1,0 +1,17 @@
+{
+  "name": "INA Done",
+  "short_name": "INA Done",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#00324b",
+  "theme_color": "#00324b",
+  "description": "Plan to Break. 복잡함 없는 할 일 관리.",
+  "icons": [
+    {
+      "src": "inadone_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
