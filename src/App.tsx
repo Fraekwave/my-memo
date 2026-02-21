@@ -5,6 +5,7 @@ import { useTabs } from '@/hooks/useTabs';
 import { useTasks, ALL_TAB_ID } from '@/hooks/useTasks';
 import { useProfile } from '@/hooks/useProfile';
 import { Auth } from '@/components/Auth';
+import { PasswordResetConfirm } from '@/components/PasswordResetConfirm';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { TrashView } from '@/components/TrashView';
@@ -40,7 +41,7 @@ function MembershipBadge({ isPro }: { isPro: boolean }) {
  */
 function App() {
   const { t, i18n } = useTranslation();
-  const { session, userId, isLoading: isAuthLoading, signOut } = useAuth();
+  const { session, userId, isLoading: isAuthLoading, isRecoveryMode, clearRecoveryMode, signOut } = useAuth();
 
   const { isPro, isProfileLoading, maxTabs, maxTasks } = useProfile(userId);
   const userEmail = session?.user?.email;
@@ -96,12 +97,21 @@ function App() {
     }).format(new Date());
   }, [i18n.language]);
 
-  // Auth: 세션 없으면 로그인 화면 (200ms 페이드)
+  // PASSWORD_RECOVERY: 이메일 링크 클릭 후 새 비밀번호 입력
+  if (!isAuthLoading && isRecoveryMode && session) {
+    return (
+      <div className="h-full animate-fade-in">
+        <PasswordResetConfirm onSuccess={clearRecoveryMode} />
+      </div>
+    );
+  }
+
+  // Auth: 세션 없으면 로그인 화면
   if (!isAuthLoading && !session) {
     return (
       <div className="h-full animate-fade-in">
-          <Auth onSuccess={() => {}} />
-        </div>
+        <Auth onSuccess={() => {}} />
+      </div>
     );
   }
 
