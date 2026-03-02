@@ -7,7 +7,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Task } from '@/lib/types';
 import { tryHaptic } from '@/lib/haptic';
 import { decomposeToJamoGrouped } from '@/lib/hangulUtils';
@@ -71,7 +71,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
   const [usePopFallback, setUsePopFallback] = useState(false);
   const [showDeconstruction, setShowDeconstruction] = useState(false);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
   const swipeWrapperRef = useRef<HTMLDivElement>(null);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,9 +105,12 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
   const dragProps = isEditing || disableDrag ? {} : { ...attributes, ...listeners };
 
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+    if (isEditing && textareaRef.current) {
+      const el = textareaRef.current;
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+      el.focus();
+      el.select();
     }
   }, [isEditing]);
 
@@ -178,8 +181,8 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       saveEdit();
     } else if (e.key === 'Escape') {
@@ -188,7 +191,27 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
     }
   };
 
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditText(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = e.target.scrollHeight + 'px';
+  };
+
   const isDeleting = deletingState !== null;
+
+  // 더블클릭/더블탭으로 편집 진입 (롱프레스는 드래그로 유지)
+  const lastTapRef = useRef<number>(0);
+  const handleTextDoubleTap = useCallback((e: React.MouseEvent) => {
+    if (isEditing || isDeleting || isDragging || showDeconstruction) return;
+    const now = Date.now();
+    if (now - lastTapRef.current < 350) {
+      e.stopPropagation();
+      startEditing();
+      lastTapRef.current = 0;
+    } else {
+      lastTapRef.current = now;
+    }
+  }, [isEditing, isDeleting, isDragging, showDeconstruction]);
 
   const triggerDelete = useCallback(() => {
     if (isDeleting) return;
@@ -298,9 +321,6 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
     [swipeOffset, task.id, triggerDelete]
   );
 
-  const iconClass = aging.isDark
-    ? 'text-white/20 hover:text-white transition-colors duration-300 p-1'
-    : 'text-zinc-400/20 hover:text-zinc-600 transition-colors duration-300 p-1';
 
   const completionAnimClass = justCompleted
     ? usePopFallback
@@ -417,15 +437,16 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
             className="relative flex-1 min-w-0 flex flex-col gap-0.5 min-h-[2rem] justify-center"
           >
             {isEditing ? (
-              <input
-                ref={inputRef}
-                type="text"
+              <textarea
+                ref={textareaRef}
                 name="task_text"
                 value={editText}
-                onChange={(e) => setEditText(e.target.value)}
+                onChange={handleTextareaChange}
                 onBlur={saveEdit}
                 onKeyDown={handleKeyDown}
-                className="w-full px-2 py-1 bg-white border border-zinc-300 rounded-lg text-zinc-900 outline-none focus:border-zinc-900 transition-colors select-text"
+                rows={1}
+                className="w-full p-0 bg-transparent border-0 outline-none select-text resize-none overflow-hidden leading-normal"
+                style={{ fontSize: 'inherit', color: aging.textColor }}
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="none"
@@ -440,6 +461,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
                     opacity: showDeconstruction ? 0 : 1,
                     visibility: showDeconstruction ? 'hidden' : 'visible',
                   }}
+                  onClick={handleTextDoubleTap}
                   aria-hidden={showDeconstruction}
                 >
                   {task.text}
@@ -460,36 +482,22 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
           </div>
 
           {!isEditing && !isDragging && (
-            <div className="flex justify-end items-center gap-2 min-w-0">
-              {/* Desktop: Trash slides in from left on hover; Mobile: w-0 so no space (group-hover never fires) */}
-              {/* PC only: @media (hover: hover) — strictly non-existent on touch (no ghost/sticky hover) */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerDelete();
-                }}
-                data-no-dnd="true"
-                className={`
-                  hidden hover-hover:inline-flex shrink-0 w-0 overflow-hidden opacity-0
-                  group-hover:w-6 group-hover:opacity-100
-                  transition-all duration-300 ease-out
-                  pointer-events-none group-hover:pointer-events-auto
-                  p-1 rounded items-center justify-center
-                  ${aging.isDark ? 'text-white/20 hover:text-white' : 'text-zinc-400/20 hover:text-red-500'}
-                `}
-                aria-label={t('tasks.ariaDelete')}
-              >
-                <Trash2 className="w-4 h-4 flex-shrink-0" />
-              </button>
-              <button
-                onClick={startEditing}
-                className={`${iconClass} shrink-0`}
-                aria-label={t('tasks.ariaEdit')}
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); triggerDelete(); }}
+              data-no-dnd="true"
+              className={`
+                hidden hover-hover:flex items-center justify-center
+                flex-shrink-0 p-1
+                opacity-0 group-hover:opacity-100
+                pointer-events-none group-hover:pointer-events-auto
+                transition-opacity duration-200
+                ${aging.isDark ? 'text-white/40 hover:text-white' : 'text-zinc-300 hover:text-red-500'}
+              `}
+              aria-label={t('tasks.ariaDelete')}
+            >
+              <Trash2 className="w-4 h-4 flex-shrink-0" />
+            </button>
           )}
         </motion.div>
       </div>

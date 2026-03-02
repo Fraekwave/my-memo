@@ -1,4 +1,5 @@
 import { useState, useMemo, type MouseEvent, type TouchEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   DragOverlay,
@@ -151,6 +152,7 @@ interface TaskListProps {
  * - SmartSensor: Checkbox, Button, Input 위의 이벤트는 드래그 차단
  */
 export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder, disableReorder = false }: TaskListProps) => {
+  const { t } = useTranslation();
   // DragOverlay용: 현재 드래그 중인 Task ID 추적
   const [activeId, setActiveId] = useState<number | null>(null);
   const activeTask = activeId !== null ? tasks.find((t) => t.id === activeId) : null;
@@ -184,8 +186,8 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder, disab
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-zinc-400 font-light">할 일이 없습니다</p>
-          <p className="text-zinc-300 text-sm mt-1">새로운 태스크를 추가해보세요</p>
+          <p className="text-zinc-400 font-light">{t('tasks.noTask')}</p>
+          <p className="text-zinc-300 text-sm mt-1">{t('tasks.noTaskSub')}</p>
         </div>
       </div>
     );

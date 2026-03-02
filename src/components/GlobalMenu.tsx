@@ -246,7 +246,7 @@ export function GlobalMenu({ userEmail, onSignOut, onOpenAdmin }: GlobalMenuProp
                     className="mt-12 text-center text-[10px] font-medium uppercase text-zinc-300"
                     style={{ letterSpacing: '0.2em' }}
                   >
-                    — v1.1.0 —
+                    — v1.2.0 —
                   </p>
                 </div>
               )}

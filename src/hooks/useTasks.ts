@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from
 import { supabase } from '@/lib/supabase';
 import { Task, Tab } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
+import i18n from '@/i18n/config';
 
 /** Virtual system tab (never in DB). Shows all user tasks across categories. */
 export const ALL_TAB_ID = -1;
@@ -145,7 +146,7 @@ export const useTasks = (
     } catch (err) {
       if (thisFetchId === fetchIdRef.current) {
         console.error('불러오기 에러:', err);
-        setError(err instanceof Error ? err.message : '알 수 없는 에러');
+        setError(err instanceof Error ? err.message : i18n.t('tasks.errorUnknown'));
       }
     } finally {
       if (thisFetchId === fetchIdRef.current) {
@@ -200,7 +201,7 @@ export const useTasks = (
     } catch (err) {
       if (thisFetchId === fetchIdRef.current) {
         console.error('불러오기 에러:', err);
-        setError(err instanceof Error ? err.message : '알 수 없는 에러');
+        setError(err instanceof Error ? err.message : i18n.t('tasks.errorUnknown'));
       }
     } finally {
       if (thisFetchId === fetchIdRef.current) {
@@ -238,7 +239,7 @@ export const useTasks = (
 
     // ── 멤버십 한도 초과 시 낙관적 업데이트 차단 ──
     if (totalActiveCount >= maxTasks) {
-      setError(`할 일 한도(${maxTasks}개)에 도달했습니다. Pro로 업그레이드하면 무제한으로 사용할 수 있어요.`);
+      setError(i18n.t('tasks.errorTaskLimit', { count: maxTasks }));
       return false;
     }
 
@@ -291,7 +292,7 @@ export const useTasks = (
       return true;
     } catch (err) {
       console.error('추가 에러:', err);
-      setError(err instanceof Error ? err.message : '추가 실패');
+      setError(err instanceof Error ? err.message : i18n.t('tasks.errorAdd'));
       setTaskCache(prev => prev.filter(t => t.id !== optimisticTask.id));
       if (!isPro) setTotalActiveCount(c => c - 1); // rollback count
       return false;
@@ -323,7 +324,7 @@ export const useTasks = (
       if (updateError) throw updateError;
     } catch (err) {
       console.error('수정 에러:', err);
-      setError(err instanceof Error ? err.message : '수정 실패');
+      setError(err instanceof Error ? err.message : i18n.t('tasks.errorUpdate'));
       setTaskCache(previousCache);
     }
   }, [userId]);
@@ -348,7 +349,7 @@ export const useTasks = (
       if (updateError) throw updateError;
     } catch (err) {
       console.error('수정 에러:', err);
-      setError(err instanceof Error ? err.message : '수정 실패');
+      setError(err instanceof Error ? err.message : i18n.t('tasks.errorUpdate'));
       setTaskCache(previousCache);
     }
   }, [userId]);
@@ -373,7 +374,7 @@ export const useTasks = (
       if (!isPro) setTotalActiveCount(c => c - 1);
     } catch (err) {
       console.error('삭제 에러:', err);
-      setError(err instanceof Error ? err.message : '삭제 실패');
+      setError(err instanceof Error ? err.message : i18n.t('tasks.errorDelete'));
       setTaskCache(previousCache);
     }
   }, [userId, isPro]);
@@ -518,7 +519,7 @@ export const useTasks = (
       try {
         if (task.tab_id != null && tabIds.includes(task.tab_id)) {
           targetTabId = task.tab_id;
-          tabTitleForFeedback = tabs.find(t => t.id === task.tab_id)?.title ?? '알 수 없는 탭';
+          tabTitleForFeedback = tabs.find(t => t.id === task.tab_id)?.title ?? i18n.t('trash.unknownTab');
         } else if (ensureTabExists) {
           const titleToUse = task.last_tab_title?.trim() || 'Recovered';
           targetTabId = await ensureTabExists(titleToUse);
