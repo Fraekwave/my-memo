@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "me.inadone.twa",
+    "sha256_cert_fingerprints": [
+      "26:3E:4C:2A:DB:EE:F6:97:3A:E7:7B:5B:F7:4F:D3:4A:93:A9:E6:54:5D:02:FC:F6:98:93:B0:5F:82:72:52:2F"
+    ]
+  }
+}]
