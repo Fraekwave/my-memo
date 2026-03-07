@@ -25,14 +25,20 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization');
 
   if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
-    return new Response(JSON.stringify({ error: 'Missing Supabase environment' }), {
+    return new Response(JSON.stringify({
+      error: 'Missing Supabase environment',
+      code: 'missing_environment',
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: 'Authorization header is required' }), {
+    return new Response(JSON.stringify({
+      error: 'Authorization header is required',
+      code: 'missing_authorization_header',
+    }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -57,8 +63,26 @@ Deno.serve(async (req) => {
     error: userError,
   } = await authedClient.auth.getUser();
 
-  if (userError || !user) {
-    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+  if (userError) {
+    console.error('[delete-account] auth.getUser failed', {
+      message: userError.message,
+      status: userError.status,
+    });
+    return new Response(JSON.stringify({
+      error: 'Authentication required',
+      code: 'auth_user_lookup_failed',
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!user) {
+    console.error('[delete-account] auth.getUser returned no user');
+    return new Response(JSON.stringify({
+      error: 'Authentication required',
+      code: 'auth_user_missing',
+    }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -71,7 +95,10 @@ Deno.serve(async (req) => {
 
   if (deleteDataError) {
     console.error('[delete-account] delete_account_data failed', deleteDataError);
-    return new Response(JSON.stringify({ error: 'Failed to delete account data' }), {
+    return new Response(JSON.stringify({
+      error: 'Failed to delete account data',
+      code: 'delete_account_data_failed',
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -81,7 +108,10 @@ Deno.serve(async (req) => {
 
   if (deleteUserError) {
     console.error('[delete-account] auth.admin.deleteUser failed', deleteUserError);
-    return new Response(JSON.stringify({ error: 'Failed to delete auth user' }), {
+    return new Response(JSON.stringify({
+      error: 'Failed to delete auth user',
+      code: 'delete_auth_user_failed',
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
