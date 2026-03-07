@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
   FunctionsFetchError,
-  FunctionsHttpError,
   FunctionsRelayError,
 } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +13,10 @@ type DeleteAccountErrorPayload = {
   code?: string;
 };
 
+type FreshSessionResult = {
+  accessToken: string;
+};
+
 export const useAccountDeletion = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +25,7 @@ export const useAccountDeletion = () => {
     setError(null);
   }, []);
 
-  const ensureFreshSession = useCallback(async () => {
+  const ensureFreshSession = useCallback(async (): Promise<FreshSessionResult | null> => {
     const {
       data: { session },
       error: sessionError,
@@ -33,14 +36,14 @@ export const useAccountDeletion = () => {
     }
 
     if (!session) {
-      return false;
+      return null;
     }
 
     const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
     const expiresSoon = expiresAtMs === 0 || expiresAtMs - Date.now() < 60_000;
 
     if (!expiresSoon) {
-      return true;
+      return { accessToken: session.access_token };
     }
 
     const {
@@ -49,29 +52,41 @@ export const useAccountDeletion = () => {
     } = await supabase.auth.refreshSession();
 
     if (refreshError || !refreshedSession) {
-      return false;
+      return null;
     }
 
-    return true;
+    return { accessToken: refreshedSession.access_token };
   }, []);
 
-  const invokeDeleteAccount = useCallback(async () => {
-    const { error: invokeError } = await supabase.functions.invoke('delete-account', {
+  const invokeDeleteAccount = useCallback(async (accessToken: string) => {
+    const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    const response = await fetch(functionUrl, {
       method: 'POST',
-      body: {},
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({}),
     });
 
-    if (invokeError) {
-      throw invokeError;
-    }
-  }, []);
+    if (!response.ok) {
+      const error = new Error(`Delete account failed with status ${response.status}`) as Error & {
+        status?: number;
+        payload?: DeleteAccountErrorPayload | null;
+      };
 
-  const parseHttpError = useCallback(async (err: FunctionsHttpError) => {
-    try {
-      const payload = (await err.context.clone().json()) as DeleteAccountErrorPayload;
-      return payload;
-    } catch {
-      return null;
+      error.status = response.status;
+
+      try {
+        error.payload = (await response.json()) as DeleteAccountErrorPayload;
+      } catch {
+        error.payload = null;
+      }
+
+      throw error;
     }
   }, []);
 
@@ -80,24 +95,24 @@ export const useAccountDeletion = () => {
     setError(null);
 
     try {
-      const hasFreshSession = await ensureFreshSession();
-      if (!hasFreshSession) {
+      const freshSession = await ensureFreshSession();
+      if (!freshSession) {
         setError(i18n.t('account.delete.errorSessionExpired'));
         return 'auth_required';
       }
 
       try {
-        await invokeDeleteAccount();
+        await invokeDeleteAccount(freshSession.accessToken);
         return 'success';
       } catch (err) {
-        if (err instanceof FunctionsHttpError && err.context.status === 401) {
+        if (err instanceof Error && 'status' in err && err.status === 401) {
           const {
             data: { session: refreshedSession },
             error: refreshError,
           } = await supabase.auth.refreshSession();
 
           if (!refreshError && refreshedSession) {
-            await invokeDeleteAccount();
+            await invokeDeleteAccount(refreshedSession.access_token);
             return 'success';
           }
         }
@@ -105,10 +120,14 @@ export const useAccountDeletion = () => {
         throw err;
       }
     } catch (err) {
-      if (err instanceof FunctionsHttpError) {
-        const payload = await parseHttpError(err);
+      if (err instanceof Error && 'status' in err) {
+        const status = typeof err.status === 'number' ? err.status : 500;
+        const payload =
+          'payload' in err && err.payload && typeof err.payload === 'object'
+            ? (err.payload as DeleteAccountErrorPayload)
+            : null;
 
-        if (err.context.status === 401) {
+        if (status === 401) {
           if (payload?.code) {
             console.warn('[delete-account] auth failure', payload.code);
           }
@@ -140,7 +159,7 @@ export const useAccountDeletion = () => {
     } finally {
       setIsDeleting(false);
     }
-  }, [ensureFreshSession, invokeDeleteAccount, parseHttpError]);
+  }, [ensureFreshSession, invokeDeleteAccount]);
 
   return {
     isDeleting,
