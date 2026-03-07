@@ -7,6 +7,27 @@ type DeleteAccountResult = {
   deleted_profiles: number;
 };
 
+const getUserIdFromAuthHeader = (authHeader: string): string | null => {
+  const [scheme, token] = authHeader.split(' ');
+  if (scheme?.toLowerCase() !== 'bearer' || !token) {
+    return null;
+  }
+
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const payload = JSON.parse(atob(padded)) as { sub?: string };
+    return typeof payload.sub === 'string' && payload.sub.length > 0 ? payload.sub : null;
+  } catch {
+    return null;
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -44,13 +65,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  const authedClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-  });
   const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
       autoRefreshToken: false,
@@ -58,30 +72,12 @@ Deno.serve(async (req) => {
     },
   });
 
-  const {
-    data: { user },
-    error: userError,
-  } = await authedClient.auth.getUser();
-
-  if (userError) {
-    console.error('[delete-account] auth.getUser failed', {
-      message: userError.message,
-      status: userError.status,
-    });
+  const userId = getUserIdFromAuthHeader(authHeader);
+  if (!userId) {
+    console.error('[delete-account] unable to parse user id from auth header');
     return new Response(JSON.stringify({
       error: 'Authentication required',
-      code: 'auth_user_lookup_failed',
-    }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (!user) {
-    console.error('[delete-account] auth.getUser returned no user');
-    return new Response(JSON.stringify({
-      error: 'Authentication required',
-      code: 'auth_user_missing',
+      code: 'invalid_jwt_payload',
     }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -90,7 +86,7 @@ Deno.serve(async (req) => {
 
   const { data: deletedData, error: deleteDataError } = await adminClient.rpc(
     'delete_account_data',
-    { target_user_id: user.id }
+    { target_user_id: userId }
   );
 
   if (deleteDataError) {
@@ -104,7 +100,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id);
+  const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(userId);
 
   if (deleteUserError) {
     console.error('[delete-account] auth.admin.deleteUser failed', deleteUserError);
