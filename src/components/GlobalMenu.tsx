@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   BookOpen,
   Sparkles,
-  FileText,
   ShieldCheck,
   LogOut,
   Check,
@@ -16,7 +15,6 @@ import {
 } from 'lucide-react';
 
 const ADMIN_EMAIL = 'choi.seunghoon@gmail.com';
-const SUPPORTED_LEGAL_LANGS = ['ko', 'en', 'ja', 'zh', 'de', 'es'];
 
 type Panel = null | 'howToUse' | 'pro';
 
@@ -33,12 +31,11 @@ export function GlobalMenu({
   onOpenAdmin,
   onOpenAccountPrivacy,
 }: GlobalMenuProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
 
   const isAdmin = userEmail === ADMIN_EMAIL;
-  const legalLang = SUPPORTED_LEGAL_LANGS.includes(i18n.language) ? i18n.language : 'en';
 
   const close = () => {
     setIsOpen(false);
@@ -103,16 +100,6 @@ export function GlobalMenu({
       label: t('menu.account'),
       icon: <User className="w-4 h-4" strokeWidth={1.5} />,
       action: () => { close(); onOpenAccountPrivacy(); },
-      external: true,
-    },
-    {
-      key: 'legal',
-      label: t('menu.legal'),
-      icon: <FileText className="w-4 h-4" strokeWidth={1.5} />,
-      action: () => {
-        window.open(`/legal_${legalLang}.html`, '_blank', 'noopener,noreferrer');
-        close();
-      },
       external: true,
     },
     ...(isAdmin
