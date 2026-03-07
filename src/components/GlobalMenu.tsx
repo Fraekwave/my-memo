@@ -260,7 +260,7 @@ export function GlobalMenu({
                     className="mt-12 text-center text-[10px] font-medium uppercase text-zinc-300"
                     style={{ letterSpacing: '0.2em' }}
                   >
-                    — v1.2.0 —
+                    — v1.3.0 —
                   </p>
                 </div>
               )}

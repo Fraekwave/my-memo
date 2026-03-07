@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface DeleteAccountDialogProps {
@@ -9,6 +9,7 @@ interface DeleteAccountDialogProps {
   confirmationText: string;
   onConfirmationTextChange: (value: string) => void;
   isDeleting: boolean;
+  isSuccess: boolean;
   error: string | null;
   requiresSignIn: boolean;
   onCancel: () => void;
@@ -25,6 +26,7 @@ export const DeleteAccountDialog = ({
   confirmationText,
   onConfirmationTextChange,
   isDeleting,
+  isSuccess,
   error,
   requiresSignIn,
   onCancel,
@@ -39,7 +41,7 @@ export const DeleteAccountDialog = ({
     normalizeConfirmationValue(confirmationWord, i18n.language);
 
   useEffect(() => {
-    if (!isOpen || requiresSignIn) return;
+    if (!isOpen || requiresSignIn || isSuccess) return;
 
     const timer = setTimeout(() => inputRef.current?.focus(), 50);
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -56,7 +58,7 @@ export const DeleteAccountDialog = ({
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
     };
-  }, [isOpen, isDeleting, onCancel, requiresSignIn]);
+  }, [isOpen, isDeleting, isSuccess, onCancel, requiresSignIn]);
 
   if (!isOpen) return null;
 
@@ -71,6 +73,20 @@ export const DeleteAccountDialog = ({
         className="relative w-full max-w-md rounded-3xl bg-white shadow-2xl p-6 sm:p-7 animate-modal-card"
         onClick={(e) => e.stopPropagation()}
       >
+        {isSuccess ? (
+          <div className="text-center py-6">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="h-7 w-7" strokeWidth={1.8} />
+            </div>
+            <h3 className="text-xl font-semibold text-zinc-900">
+              {t('account.delete.successTitle')}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-500 whitespace-pre-line">
+              {t('account.delete.successMessage')}
+            </p>
+          </div>
+        ) : (
+          <>
         <div className="mb-5 flex items-start gap-3">
           <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
             <AlertTriangle className="h-5 w-5" strokeWidth={1.8} />
@@ -108,6 +124,12 @@ export const DeleteAccountDialog = ({
             value={confirmationText}
             disabled={isDeleting || requiresSignIn}
             onChange={(e) => onConfirmationTextChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && canConfirm && !isDeleting) {
+                e.preventDefault();
+                onConfirm();
+              }
+            }}
             placeholder={t('account.delete.confirmPlaceholder', { word: confirmationWord })}
             autoCapitalize="characters"
             autoCorrect="off"
@@ -160,6 +182,8 @@ export const DeleteAccountDialog = ({
             </button>
           )}
         </div>
+          </>
+        )}
       </div>
     </div>,
     document.body

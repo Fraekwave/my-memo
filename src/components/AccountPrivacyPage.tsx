@@ -30,6 +30,7 @@ export const AccountPrivacyPage = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [isCompletingDeletion, setIsCompletingDeletion] = useState(false);
+  const [isDeleteSuccess, setIsDeleteSuccess] = useState(false);
   const [requiresSignIn, setRequiresSignIn] = useState(false);
 
   const legalLang = SUPPORTED_LEGAL_LANGS.includes(i18n.language) ? i18n.language : 'en';
@@ -41,6 +42,7 @@ export const AccountPrivacyPage = ({
     setRequiresSignIn(false);
     setConfirmationText('');
     setIsCompletingDeletion(false);
+    setIsDeleteSuccess(false);
     setIsDeleteDialogOpen(true);
   };
 
@@ -50,6 +52,7 @@ export const AccountPrivacyPage = ({
     setRequiresSignIn(false);
     setConfirmationText('');
     setIsCompletingDeletion(false);
+    setIsDeleteSuccess(false);
     setIsDeleteDialogOpen(false);
   };
 
@@ -58,6 +61,8 @@ export const AccountPrivacyPage = ({
 
     if (result === 'success') {
       setIsCompletingDeletion(true);
+      setIsDeleteSuccess(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
       await onDeleted();
       return;
     }
@@ -178,6 +183,7 @@ export const AccountPrivacyPage = ({
         confirmationText={confirmationText}
         onConfirmationTextChange={setConfirmationText}
         isDeleting={isBusy}
+        isSuccess={isDeleteSuccess}
         error={error}
         requiresSignIn={requiresSignIn}
         onCancel={closeDeleteDialog}
