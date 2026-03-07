@@ -3,11 +3,11 @@ import { supabase } from '@/lib/supabase';
 import { Tab } from '@/lib/types';
 import { arrayMove } from '@dnd-kit/sortable';
 import { ALL_TAB_ID } from './useTasks';
-
-const STORAGE_KEY = 'active_tab_id';
+import { loadSavedActiveTabId, saveActiveTabId } from '@/lib/localData';
 
 /** Default categories for new users (when DB has no tabs). */
 const DEFAULT_TAB_TITLES = ['Job', 'Family', 'Personal'] as const;
+const DEFAULT_TAB_TITLE_SET = new Set<string>(DEFAULT_TAB_TITLES);
 
 export interface UseTabsOptions {
   /** Maximum number of tabs allowed for the user's plan (default: Infinity). */
@@ -33,12 +33,104 @@ export const useTabs = (userId: string | null, options: UseTabsOptions = {}) => 
   const setSelectedTabId = useCallback((value: number | null | ((prev: number | null) => number | null)) => {
     _setSelectedTabId((prev) => {
       const next = typeof value === 'function' ? value(prev) : value;
-      if (next !== null) {
-        localStorage.setItem(STORAGE_KEY, String(next));
+      if (userId) {
+        saveActiveTabId(userId, next);
       }
       return next;
     });
-  }, []);
+  }, [userId]);
+
+  const fetchUserTabs = useCallback(async () => {
+    if (userId === null) return [];
+
+    const { data, error } = await supabase
+      .from('tabs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('order_index', { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as Tab[];
+  }, [userId]);
+
+  const repairBootstrapTabs = useCallback(
+    async (tabsToRepair: Tab[]): Promise<Tab[]> => {
+      if (userId === null || tabsToRepair.length === 0) return tabsToRepair;
+      if (tabsToRepair.some((tab) => !DEFAULT_TAB_TITLE_SET.has(tab.title))) {
+        return tabsToRepair;
+      }
+
+      let workingTabs = [...tabsToRepair].sort(
+        (a, b) => (a.order_index ?? Number.MAX_SAFE_INTEGER) - (b.order_index ?? Number.MAX_SAFE_INTEGER) || a.id - b.id
+      );
+
+      for (const [index, title] of DEFAULT_TAB_TITLES.entries()) {
+        let matchingTabs = workingTabs
+          .filter((tab) => tab.title === title)
+          .sort(
+            (a, b) =>
+              (a.order_index ?? Number.MAX_SAFE_INTEGER) - (b.order_index ?? Number.MAX_SAFE_INTEGER) || a.id - b.id
+          );
+
+        let primaryTab: Tab | null = matchingTabs[0] ?? null;
+
+        if (!primaryTab) {
+          const { data: insertedTabs, error: insertError } = await supabase
+            .from('tabs')
+            .insert([{ title, order_index: index, user_id: userId }])
+            .select();
+
+          if (insertError) throw insertError;
+
+          primaryTab = (insertedTabs?.[0] as Tab | undefined) ?? null;
+          if (!primaryTab) throw new Error('Default tab insert failed');
+          workingTabs = [...workingTabs, primaryTab];
+          matchingTabs = [primaryTab];
+        }
+
+        if (!primaryTab) {
+          throw new Error('Default tab initialization failed');
+        }
+
+        const duplicateIds = matchingTabs.slice(1).map((tab) => tab.id);
+
+        if (duplicateIds.length > 0) {
+          const { error: moveTasksError } = await supabase
+            .from('mytask')
+            .update({ tab_id: primaryTab.id })
+            .eq('user_id', userId)
+            .in('tab_id', duplicateIds);
+
+          if (moveTasksError) throw moveTasksError;
+
+          const { error: deleteDuplicateTabsError } = await supabase
+            .from('tabs')
+            .delete()
+            .eq('user_id', userId)
+            .in('id', duplicateIds);
+
+          if (deleteDuplicateTabsError) throw deleteDuplicateTabsError;
+
+          workingTabs = workingTabs.filter((tab) => !duplicateIds.includes(tab.id));
+        }
+
+        const { error: updateTabError } = await supabase
+          .from('tabs')
+          .update({ title, order_index: index })
+          .eq('id', primaryTab.id)
+          .eq('user_id', userId);
+
+        if (updateTabError) throw updateTabError;
+
+        workingTabs = workingTabs.map((tab) =>
+          tab.id === primaryTab.id ? { ...tab, title, order_index: index } : tab
+        );
+      }
+
+      return fetchUserTabs();
+    },
+    [fetchUserTabs, userId]
+  );
 
   /**
    * 탭 목록 가져오기 (현재 유저 전용)
@@ -53,40 +145,38 @@ export const useTabs = (userId: string | null, options: UseTabsOptions = {}) => 
     }
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('tabs')
-        .select('*')
-        .eq('user_id', userId)
-        .order('order_index', { ascending: true });
+      let tabsList = await fetchUserTabs();
 
-      if (error) throw error;
-
-      let tabsList = data || [];
-
-      // 신규 유저: 기본 카테고리 생성
       if (tabsList.length === 0) {
-        const { data: newTabs, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from('tabs')
           .insert(
-            DEFAULT_TAB_TITLES.map((title, i) => ({
+            DEFAULT_TAB_TITLES.map((title, index) => ({
               title,
-              order_index: i,
+              order_index: index,
               user_id: userId,
             }))
-          )
-          .select();
+          );
 
         if (insertError) throw insertError;
+        tabsList = await fetchUserTabs();
+      }
 
-        tabsList = newTabs || [];
+      if (
+        tabsList.length !== DEFAULT_TAB_TITLES.length ||
+        tabsList.some((tab) => !DEFAULT_TAB_TITLE_SET.has(tab.title))
+      ) {
+        const bootstrapOnlyTabs = tabsList.filter((tab) => DEFAULT_TAB_TITLE_SET.has(tab.title));
+        if (bootstrapOnlyTabs.length === tabsList.length) {
+          tabsList = await repairBootstrapTabs(tabsList);
+        }
       }
 
       setTabs(tabsList);
 
       // localStorage에서 이전에 선택했던 탭 ID 복원
       if (tabsList.length > 0) {
-        const savedId = localStorage.getItem(STORAGE_KEY);
-        const savedTabId = savedId ? Number(savedId) : null;
+        const savedTabId = loadSavedActiveTabId(userId);
 
         setSelectedTabId((prev) => {
           // 1) All 탭(-1) 복원
@@ -108,7 +198,7 @@ export const useTabs = (userId: string | null, options: UseTabsOptions = {}) => 
     } finally {
       setIsLoading(false);
     }
-  }, [userId, setSelectedTabId]);
+  }, [fetchUserTabs, repairBootstrapTabs, userId, setSelectedTabId]);
 
   /**
    * 새 탭 추가 (Synchronous Optimistic Update)

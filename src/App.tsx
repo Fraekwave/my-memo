@@ -13,7 +13,7 @@ import { TabBar } from '@/components/TabBar';
 import { GlobalMenu } from '@/components/GlobalMenu';
 import { AdminPage } from '@/components/AdminPage';
 import { AccountPrivacyPage } from '@/components/AccountPrivacyPage';
-import { clearTaskAutocompleteStorage } from '@/lib/localData';
+import { clearActiveTabStorage, clearTaskAutocompleteStorage } from '@/lib/localData';
 import { supabase } from '@/lib/supabase';
 import { Trash2 } from 'lucide-react';
 
@@ -130,6 +130,7 @@ function App() {
   const handleDeletedAccount = useCallback(async () => {
     if (userId) {
       clearTaskAutocompleteStorage(userId);
+      clearActiveTabStorage(userId);
     }
 
     try {
@@ -141,12 +142,26 @@ function App() {
   }, [userId]);
 
   const handleReauthenticateAccountDeletion = useCallback(async () => {
+    if (userId) {
+      clearTaskAutocompleteStorage(userId);
+      clearActiveTabStorage(userId);
+    }
+
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } finally {
       setShowAccountPrivacy(false);
     }
-  }, []);
+  }, [userId]);
+
+  const handleSignOut = useCallback(async () => {
+    if (userId) {
+      clearTaskAutocompleteStorage(userId);
+      clearActiveTabStorage(userId);
+    }
+
+    await signOut();
+  }, [signOut, userId]);
 
   // PASSWORD_RECOVERY: 이메일 링크 클릭 후 새 비밀번호 입력
   if (!isAuthLoading && isRecoveryMode && session) {
@@ -204,7 +219,7 @@ function App() {
             <div className="flex-shrink-0">
               <GlobalMenu
                 userEmail={userEmail}
-                onSignOut={signOut}
+                onSignOut={handleSignOut}
                 onOpenAdmin={() => setShowAdmin(true)}
                 onOpenAccountPrivacy={() => setShowAccountPrivacy(true)}
               />

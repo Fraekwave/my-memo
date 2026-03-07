@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inadone-v4';
+const CACHE_NAME = 'inadone-v5';
 
 const APP_SHELL = [
   '/',
