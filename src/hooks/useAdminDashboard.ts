@@ -127,7 +127,6 @@ export function useAdminDashboard() {
         supabase.rpc('admin_get_stats'),
       ]);
 
-      // Log raw responses for debugging — visible in browser DevTools console
       if (usersResult.error) {
         console.error('[admin] admin_get_users error:', usersResult.error);
         throw usersResult.error;
@@ -136,9 +135,6 @@ export function useAdminDashboard() {
         console.error('[admin] admin_get_stats error:', statsResult.error);
         throw statsResult.error;
       }
-
-      console.debug('[admin] admin_get_users raw data:', usersResult.data);
-      console.debug('[admin] admin_get_stats raw data:', statsResult.data);
 
       const userList: AdminUser[] = (usersResult.data ?? []).map(
         (row: {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
@@ -12,7 +12,22 @@ import { TrashView } from '@/components/TrashView';
 import { TabBar } from '@/components/TabBar';
 import { GlobalMenu } from '@/components/GlobalMenu';
 import { AdminPage } from '@/components/AdminPage';
+import { AccountPrivacyPage } from '@/components/AccountPrivacyPage';
+import { clearTaskAutocompleteStorage } from '@/lib/localData';
+import { supabase } from '@/lib/supabase';
 import { Trash2 } from 'lucide-react';
+
+function getRequestedScreen(): string | null {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('screen');
+}
+
+function clearRequestedScreen() {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete('screen');
+  window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+}
 
 function MembershipBadge({ isPro }: { isPro: boolean }) {
   return (
@@ -85,6 +100,7 @@ function App() {
 
   const [showTrashView, setShowTrashView] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showAccountPrivacy, setShowAccountPrivacy] = useState(false);
 
   const currentDate = useMemo(() => {
     const currentLang = i18n.language || 'en';
@@ -96,6 +112,41 @@ function App() {
       weekday: 'long',
     }).format(new Date());
   }, [i18n.language]);
+
+  useEffect(() => {
+    if (!session) return;
+    if (getRequestedScreen() === 'account') {
+      setShowAccountPrivacy(true);
+    }
+  }, [session]);
+
+  const closeAccountPrivacy = useCallback(() => {
+    setShowAccountPrivacy(false);
+    if (getRequestedScreen() === 'account') {
+      clearRequestedScreen();
+    }
+  }, []);
+
+  const handleDeletedAccount = useCallback(async () => {
+    if (userId) {
+      clearTaskAutocompleteStorage(userId);
+    }
+
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } finally {
+      setShowAccountPrivacy(false);
+      clearRequestedScreen();
+    }
+  }, [userId]);
+
+  const handleReauthenticateAccountDeletion = useCallback(async () => {
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } finally {
+      setShowAccountPrivacy(false);
+    }
+  }, []);
 
   // PASSWORD_RECOVERY: 이메일 링크 클릭 후 새 비밀번호 입력
   if (!isAuthLoading && isRecoveryMode && session) {
@@ -155,6 +206,7 @@ function App() {
                 userEmail={userEmail}
                 onSignOut={signOut}
                 onOpenAdmin={() => setShowAdmin(true)}
+                onOpenAccountPrivacy={() => setShowAccountPrivacy(true)}
               />
             </div>
 
@@ -207,6 +259,7 @@ function App() {
             )}
             <TaskForm
               onSubmit={addTask}
+              userId={userId}
               disabled={selectedTabId === ALL_TAB_ID}
               isAtTaskLimit={isAtTaskLimit}
             />
@@ -285,6 +338,15 @@ function App() {
       <AdminPage
         userEmail={userEmail}
         onClose={() => setShowAdmin(false)}
+      />
+    )}
+
+    {showAccountPrivacy && (
+      <AccountPrivacyPage
+        userEmail={userEmail}
+        onClose={closeAccountPrivacy}
+        onDeleted={handleDeletedAccount}
+        onRequireSignIn={handleReauthenticateAccountDeletion}
       />
     )}
     </>

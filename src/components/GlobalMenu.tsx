@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   LogOut,
   Check,
+  User,
 } from 'lucide-react';
 
 const ADMIN_EMAIL = 'choi.seunghoon@gmail.com';
@@ -23,9 +24,15 @@ interface GlobalMenuProps {
   userEmail: string | null | undefined;
   onSignOut: () => void;
   onOpenAdmin: () => void;
+  onOpenAccountPrivacy: () => void;
 }
 
-export function GlobalMenu({ userEmail, onSignOut, onOpenAdmin }: GlobalMenuProps) {
+export function GlobalMenu({
+  userEmail,
+  onSignOut,
+  onOpenAdmin,
+  onOpenAccountPrivacy,
+}: GlobalMenuProps) {
   const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
@@ -90,6 +97,13 @@ export function GlobalMenu({ userEmail, onSignOut, onOpenAdmin }: GlobalMenuProp
       label: t('menu.proUpgrade'),
       icon: <Sparkles className="w-4 h-4" strokeWidth={1.5} />,
       action: () => setPanel('pro'),
+    },
+    {
+      key: 'account',
+      label: t('menu.account'),
+      icon: <User className="w-4 h-4" strokeWidth={1.5} />,
+      action: () => { close(); onOpenAccountPrivacy(); },
+      external: true,
     },
     {
       key: 'legal',

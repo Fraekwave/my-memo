@@ -90,6 +90,35 @@
     "deletesTomorrow": "Deleted tomorrow",
     "deletesInDays": "{{days}} days left"
   },
+  "account": {
+    "title": "Account & Privacy",
+    "emailLabel": "Signed-in account",
+    "emailUnavailable": "Email unavailable",
+    "description": "Manage privacy settings and irreversible account deletion from one place.",
+    "privacyPolicy": "Legal & Privacy Policy",
+    "privacyPolicyDescription": "Open the current policy and deletion terms.",
+    "delete": {
+      "cardTitle": "Delete account",
+      "cardBody": "This permanently deletes your account and synced INA Done data.\nYou will lose access immediately after deletion.",
+    "dataLabel": "What gets removed",
+    "dataDescription": "Tasks, tabs, profile settings, and trash are deleted. This action cannot be undone.",
+    "openButton": "Delete account",
+    "title": "Delete account",
+    "body": "This permanently deletes your account and all synced INA Done data.\nType {{word}} to continue.",
+    "confirmWord": "DELETE",
+    "confirmLabel": "Type {{word}} to confirm",
+    "confirmPlaceholder": "Type {{word}}",
+    "confirmHint": "This action is permanent.",
+      "confirmButton": "Permanently delete",
+      "processing": "Deleting...",
+      "signInAgain": "Sign in again",
+      "successTitle": "Account deleted",
+      "successMessage": "Your account has been removed. Returning to sign-in...",
+      "errorSessionExpired": "Your session expired. Sign in again to delete your account.",
+      "errorNetwork": "Network error. Please try again.",
+      "errorGeneric": "Account deletion failed. Please try again."
+    }
+  },
   "app": {
     "titlePlaceholder": "Today's Tasks",
     "loading": "Loading...",
@@ -103,6 +132,7 @@
   "menu": {
     "howToUse": "How to Use",
     "proUpgrade": "Upgrade to PRO",
+    "account": "Account & Privacy",
     "legal": "Legal & Privacy Policy",
     "admin": "Admin",
     "tip1Title": "Organise with Tabs",

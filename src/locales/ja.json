@@ -90,6 +90,35 @@
     "deletesTomorrow": "明日削除",
     "deletesInDays": "残り{{days}}日"
   },
+  "account": {
+    "title": "アカウントとプライバシー",
+    "emailLabel": "ログイン中のアカウント",
+    "emailUnavailable": "メールアドレスを取得できません",
+    "description": "プライバシー関連の情報とアカウント削除をここで管理します。",
+    "privacyPolicy": "免責事項・プライバシーポリシー",
+    "privacyPolicyDescription": "最新のポリシーと削除条件を確認します。",
+    "delete": {
+      "cardTitle": "アカウントを削除",
+      "cardBody": "アカウントを削除すると、INA Done に同期されたデータも完全に削除されます。\n削除後はすぐにアクセスできなくなります。",
+    "dataLabel": "削除されるデータ",
+    "dataDescription": "タスク、タブ、プロフィール設定、ゴミ箱のデータが削除されます。この操作は元に戻せません。",
+    "openButton": "アカウントを削除",
+    "title": "アカウントを削除しますか？",
+    "body": "この操作により、アカウントと同期済みの INA Done データが完全に削除されます。\n続行するには {{word}} と入力してください。",
+    "confirmWord": "削除",
+    "confirmLabel": "確認のため {{word}} を入力",
+    "confirmPlaceholder": "{{word}} を入力",
+    "confirmHint": "この操作は取り消せません。",
+      "confirmButton": "完全に削除",
+      "processing": "削除中...",
+      "signInAgain": "再度ログイン",
+      "successTitle": "アカウントを削除しました",
+      "successMessage": "アカウントが削除されました。サインイン画面に戻ります...",
+      "errorSessionExpired": "セッションの有効期限が切れました。アカウント削除の前に再度ログインしてください。",
+      "errorNetwork": "ネットワークエラーが発生しました。もう一度お試しください。",
+      "errorGeneric": "アカウントを削除できませんでした。もう一度お試しください。"
+    }
+  },
   "app": {
     "titlePlaceholder": "Today's Tasks",
     "loading": "読み込み中...",
@@ -103,6 +132,7 @@
   "menu": {
     "howToUse": "使い方",
     "proUpgrade": "PROにアップグレード",
+    "account": "アカウントとプライバシー",
     "legal": "免責事項・プライバシーポリシー",
     "admin": "管理者メニュー",
     "tip1Title": "タブで整理する",

@@ -90,6 +90,35 @@
     "deletesTomorrow": "Eliminado mañana",
     "deletesInDays": "{{days}} días restantes"
   },
+  "account": {
+    "title": "Cuenta y privacidad",
+    "emailLabel": "Cuenta activa",
+    "emailUnavailable": "Correo no disponible",
+    "description": "Administra la privacidad y la eliminación irreversible de tu cuenta desde un solo lugar.",
+    "privacyPolicy": "Aviso legal y política de privacidad",
+    "privacyPolicyDescription": "Abre la política actual y las condiciones de eliminación.",
+    "delete": {
+      "cardTitle": "Eliminar cuenta",
+      "cardBody": "Al eliminar tu cuenta, también se borran de forma permanente los datos sincronizados de INA Done.\nPerderás el acceso inmediatamente.",
+    "dataLabel": "Qué se elimina",
+    "dataDescription": "Se eliminan tareas, pestañas, ajustes de perfil y papelera. Esta acción no se puede deshacer.",
+    "openButton": "Eliminar cuenta",
+    "title": "Eliminar cuenta",
+    "body": "Esto elimina permanentemente tu cuenta y todos los datos sincronizados de INA Done.\nEscribe {{word}} para continuar.",
+    "confirmWord": "ELIMINAR",
+    "confirmLabel": "Escribe {{word}} para confirmar",
+    "confirmPlaceholder": "Escribe {{word}}",
+    "confirmHint": "Esta acción es permanente.",
+      "confirmButton": "Eliminar permanentemente",
+      "processing": "Eliminando...",
+      "signInAgain": "Iniciar sesión otra vez",
+      "successTitle": "Cuenta eliminada",
+      "successMessage": "Tu cuenta se eliminó. Volviendo al inicio de sesión...",
+      "errorSessionExpired": "Tu sesión expiró. Inicia sesión de nuevo para eliminar la cuenta.",
+      "errorNetwork": "Error de red. Inténtalo de nuevo.",
+      "errorGeneric": "No se pudo eliminar la cuenta. Inténtalo de nuevo."
+    }
+  },
   "app": {
     "titlePlaceholder": "Today's Tasks",
     "loading": "Cargando...",
@@ -103,6 +132,7 @@
   "menu": {
     "howToUse": "Cómo usar",
     "proUpgrade": "Mejorar a PRO",
+    "account": "Cuenta y privacidad",
     "legal": "Aviso legal y política de privacidad",
     "admin": "Menú de administrador",
     "tip1Title": "Organizar con pestañas",

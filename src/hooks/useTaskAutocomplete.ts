@@ -1,4 +1,8 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
+import {
+  getLegacyTaskAutocompleteStorageKey,
+  getTaskAutocompleteStorageKey,
+} from '@/lib/localData';
 
 /**
 a * Local-First Autocomplete Hook — "Invisible Intelligence"
@@ -10,8 +14,6 @@ a * Local-First Autocomplete Hook — "Invisible Intelligence"
  * - Dynamic Merging: Levenshtein similarity on submit → merge corrupted variants
  * - Implicit Sanitation: Only suggest entries with count >= 2 (grace period)
  */
-
-const STORAGE_KEY = 'task_autocomplete_history';
 
 interface HistoryEntry {
   display: string;
@@ -67,18 +69,34 @@ function isSimilar(a: string, b: string): boolean {
 // ──────────────────────────────────────────────
 // localStorage I/O
 // ──────────────────────────────────────────────
-function loadFromStorage(): HistoryMap {
+function loadFromStorage(storageKey: string): HistoryMap {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
   }
 }
 
-function saveToStorage(history: HistoryMap): void {
+function saveToStorage(storageKey: string, history: HistoryMap): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    localStorage.setItem(storageKey, JSON.stringify(history));
+  } catch {
+    /* silent */
+  }
+}
+
+function migrateLegacyStorage(storageKey: string): void {
+  try {
+    const legacyKey = getLegacyTaskAutocompleteStorageKey();
+    const legacyRaw = localStorage.getItem(legacyKey);
+
+    if (!legacyRaw) return;
+    if (!localStorage.getItem(storageKey)) {
+      localStorage.setItem(storageKey, legacyRaw);
+    }
+
+    localStorage.removeItem(legacyKey);
   } catch {
     /* silent */
   }
@@ -87,14 +105,31 @@ function saveToStorage(history: HistoryMap): void {
 // ──────────────────────────────────────────────
 // Hook
 // ──────────────────────────────────────────────
-export function useTaskAutocomplete() {
+export function useTaskAutocomplete(userId: string | null) {
   const cacheRef = useRef<HistoryMap | null>(null);
   const penalizedRef = useRef<Set<string>>(new Set());
   const lastAcceptedRef = useRef<{ key: string; display: string; t: number } | null>(null);
+  const storageKeyRef = useRef<string | null>(
+    userId ? getTaskAutocompleteStorageKey(userId) : null
+  );
+
+  useEffect(() => {
+    storageKeyRef.current = userId ? getTaskAutocompleteStorageKey(userId) : null;
+    cacheRef.current = null;
+    penalizedRef.current.clear();
+    lastAcceptedRef.current = null;
+
+    if (storageKeyRef.current) {
+      migrateLegacyStorage(storageKeyRef.current);
+    }
+  }, [userId]);
 
   const getHistory = (): HistoryMap => {
+    const storageKey = storageKeyRef.current;
+    if (!storageKey) return {};
+
     if (cacheRef.current === null) {
-      cacheRef.current = loadFromStorage();
+      cacheRef.current = loadFromStorage(storageKey);
     }
     return cacheRef.current;
   };
@@ -136,6 +171,8 @@ export function useTaskAutocomplete() {
   const record = (text: string): void => {
     const trimmed = text.trim();
     if (!trimmed) return;
+    const storageKey = storageKeyRef.current;
+    if (!storageKey) return;
 
     const key = normalize(trimmed);
     const history = { ...getHistory() };
@@ -155,7 +192,7 @@ export function useTaskAutocomplete() {
       penalizedRef.current.delete(key);
       history[trueKey] = { display: trueDisplay, count: mergedCount };
       cacheRef.current = history;
-      saveToStorage(history);
+      saveToStorage(storageKey, history);
       return;
     }
 
@@ -167,7 +204,7 @@ export function useTaskAutocomplete() {
     }
 
     cacheRef.current = history;
-    saveToStorage(history);
+    saveToStorage(storageKey, history);
   };
 
   /**

@@ -4,6 +4,7 @@ import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
 
 interface TaskFormProps {
   onSubmit: (text: string) => Promise<boolean>;
+  userId: string | null;
   /** True when the user is on ALL_TAB_ID (cannot target a specific tab). */
   disabled?: boolean;
   /** True when the user has reached their max_tasks quota. */
@@ -35,6 +36,7 @@ const SWIPE_THRESHOLD = 50; // px — 의도적 스와이프와 탭/미세 터�
 
 export const TaskForm = memo(({
   onSubmit,
+  userId,
   disabled = false,
   isAtTaskLimit = false,
 }: TaskFormProps) => {
@@ -49,7 +51,7 @@ export const TaskForm = memo(({
       : t('tasks.placeholder');
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
-  const { record, suggest, onAcceptSuggestion, checkRejection } = useTaskAutocomplete();
+  const { record, suggest, onAcceptSuggestion, checkRejection } = useTaskAutocomplete(userId);
 
   // ── 자동완성 제안 ──
   const suggestion = isComposing && input.length < 2 ? null : suggest(input);
