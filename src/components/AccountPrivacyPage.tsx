@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ArrowLeft,
   ExternalLink,
@@ -29,36 +29,27 @@ export const AccountPrivacyPage = ({
   const { isDeleting, error, deleteAccount, reset } = useAccountDeletion();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
-  const [isDeleteSuccess, setIsDeleteSuccess] = useState(false);
+  const [isCompletingDeletion, setIsCompletingDeletion] = useState(false);
   const [requiresSignIn, setRequiresSignIn] = useState(false);
 
   const legalLang = SUPPORTED_LEGAL_LANGS.includes(i18n.language) ? i18n.language : 'en';
   const legalUrl = `/legal_${legalLang}.html`;
-
-  useEffect(() => {
-    if (!isDeleteSuccess) return;
-
-    const timer = setTimeout(() => {
-      void onDeleted();
-    }, 1200);
-
-    return () => clearTimeout(timer);
-  }, [isDeleteSuccess, onDeleted]);
+  const isBusy = isDeleting || isCompletingDeletion;
 
   const openDeleteDialog = () => {
     reset();
     setRequiresSignIn(false);
     setConfirmationText('');
-    setIsDeleteSuccess(false);
+    setIsCompletingDeletion(false);
     setIsDeleteDialogOpen(true);
   };
 
   const closeDeleteDialog = () => {
-    if (isDeleting) return;
+    if (isBusy) return;
     reset();
     setRequiresSignIn(false);
     setConfirmationText('');
-    setIsDeleteSuccess(false);
+    setIsCompletingDeletion(false);
     setIsDeleteDialogOpen(false);
   };
 
@@ -66,7 +57,8 @@ export const AccountPrivacyPage = ({
     const result = await deleteAccount();
 
     if (result === 'success') {
-      setIsDeleteSuccess(true);
+      setIsCompletingDeletion(true);
+      await onDeleted();
       return;
     }
 
@@ -185,8 +177,7 @@ export const AccountPrivacyPage = ({
         email={userEmail}
         confirmationText={confirmationText}
         onConfirmationTextChange={setConfirmationText}
-        isDeleting={isDeleting}
-        isSuccess={isDeleteSuccess}
+        isDeleting={isBusy}
         error={error}
         requiresSignIn={requiresSignIn}
         onCancel={closeDeleteDialog}
