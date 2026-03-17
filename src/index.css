@@ -12,6 +12,16 @@
 }
 
 /*
+ * Force Light Mode: Android WebView Force Dark 차단
+ *
+ * color-scheme: light only → 시스템 다크모드 강제 반전을 완전히 차단.
+ * Samsung Galaxy 등에서 배경/텍스트가 모두 검정으로 변하는 버그 방지.
+ */
+:root {
+  color-scheme: light only;
+}
+
+/*
  * App Shell 아키텍처: Viewport Lock
  *
  * html/body/#root를 뷰포트에 고정하고 overflow를 차단하여
@@ -22,6 +32,10 @@ html, body, #root {
   height: 100%;
   overflow: hidden;
   margin: 0;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Task 아이템 애니메이션 */
