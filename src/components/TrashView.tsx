@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Task } from '@/lib/types';
-import { getTaskAgingStyles } from '@/lib/visualAging';
+
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -78,7 +78,6 @@ export const TrashView = ({
       ) : (
         <ul className="space-y-2">
           {visibleDeleted.map((task) => {
-            const aging = getTaskAgingStyles(task.created_at);
             const daysRemaining = getDaysUntilPurge(task.deleted_at);
             const purgeLabel =
               daysRemaining === null
@@ -94,8 +93,7 @@ export const TrashView = ({
                 className="task-item flex items-center gap-3 p-4 rounded-xl border border-zinc-100 bg-zinc-50"
               >
                 <span
-                  className="flex-1 min-w-0 truncate text-sm"
-                  style={{ color: aging.textColor }}
+                  className="flex-1 min-w-0 truncate text-sm text-zinc-700"
                 >
                   {task.text}
                 </span>
