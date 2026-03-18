@@ -1,21 +1,23 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useTabs } from '@/hooks/useTabs';
 import { useTasks, ALL_TAB_ID } from '@/hooks/useTasks';
 import { useProfile } from '@/hooks/useProfile';
 import { Auth } from '@/components/Auth';
-import { PasswordResetConfirm } from '@/components/PasswordResetConfirm';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import { TrashView } from '@/components/TrashView';
 import { TabBar } from '@/components/TabBar';
 import { GlobalMenu } from '@/components/GlobalMenu';
-import { AdminPage } from '@/components/AdminPage';
-import { AccountPrivacyPage } from '@/components/AccountPrivacyPage';
+import { SkeletonAppContent, SkeletonTaskList } from '@/components/Skeleton';
 import { clearActiveTabStorage, clearTaskAutocompleteStorage } from '@/lib/localData';
 import { supabase } from '@/lib/supabase';
 import { Trash2 } from 'lucide-react';
+
+const AdminPage = lazy(() => import('@/components/AdminPage').then(m => ({ default: m.AdminPage })));
+const AccountPrivacyPage = lazy(() => import('@/components/AccountPrivacyPage').then(m => ({ default: m.AccountPrivacyPage })));
+const PasswordResetConfirm = lazy(() => import('@/components/PasswordResetConfirm').then(m => ({ default: m.PasswordResetConfirm })));
 
 function getRequestedScreen(): string | null {
   if (typeof window === 'undefined') return null;
@@ -167,7 +169,9 @@ function App() {
   if (!isAuthLoading && isRecoveryMode && session) {
     return (
       <div className="h-full animate-fade-in">
-        <PasswordResetConfirm onSuccess={clearRecoveryMode} />
+        <Suspense fallback={null}>
+          <PasswordResetConfirm onSuccess={clearRecoveryMode} />
+        </Suspense>
       </div>
     );
   }
@@ -181,29 +185,8 @@ function App() {
     );
   }
 
-  // Auth 로딩 중
-  if (isAuthLoading) {
-    return (
-      <div className="h-full bg-zinc-50 flex items-center justify-center p-4 sm:p-8">
-        <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4" />
-          <p className="text-zinc-500 font-light">{t('app.loading')}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // 초기 로딩 중 화면 (탭 로딩)
-  if (isTabsLoading) {
-    return (
-      <div className="h-full bg-zinc-50 flex items-center justify-center p-4 sm:p-8">
-        <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4" />
-          <p className="text-zinc-500 font-light">{t('app.loadingData')}</p>
-        </div>
-      </div>
-    );
-  }
+  // Auth 또는 탭 로딩 중 — 앱 셸은 즉시 렌더, 콘텐츠만 스켈레톤
+  const isShellLoading = isAuthLoading || isTabsLoading;
 
   return (
     <>
@@ -253,6 +236,11 @@ function App() {
           </div>
         </div>
 
+        {/* 앱 셸 로딩 중 — 스켈레톤 UI로 즉시 레이아웃 표시 */}
+        {isShellLoading ? (
+          <SkeletonAppContent />
+        ) : (
+        <>
         {/* Sticky 영역: 탭 바 + 입력 폼 (휴지통 뷰에서는 숨김) */}
         {!showTrashView && (
         <div className="sticky top-0 z-40 bg-zinc-50 -mx-4 sm:-mx-8 px-4 sm:px-8">
@@ -306,9 +294,7 @@ function App() {
                 />
               </>
             ) : isTasksLoading ? (
-              <div className="flex-1 flex items-center justify-center min-h-[300px]">
-                <div className="inline-block w-8 h-8 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
-              </div>
+              <SkeletonTaskList />
             ) : (
               <div
                 className="flex-1 flex flex-col min-h-[300px] transition-opacity duration-200 ease-out"
@@ -337,6 +323,8 @@ function App() {
           </div>
           )}
         </div>
+        </>
+        )}
 
         {/* 푸터 */}
         <div className="text-center mt-8 pb-[env(safe-area-inset-bottom)]">
@@ -348,21 +336,25 @@ function App() {
       </div>
     </div>
 
-    {/* Admin page — full-screen overlay, admin-only */}
+    {/* Admin page — full-screen overlay, admin-only (lazy-loaded) */}
     {showAdmin && (
-      <AdminPage
-        userEmail={userEmail}
-        onClose={() => setShowAdmin(false)}
-      />
+      <Suspense fallback={null}>
+        <AdminPage
+          userEmail={userEmail}
+          onClose={() => setShowAdmin(false)}
+        />
+      </Suspense>
     )}
 
     {showAccountPrivacy && (
-      <AccountPrivacyPage
-        userEmail={userEmail}
-        onClose={closeAccountPrivacy}
-        onDeleted={handleDeletedAccount}
-        onRequireSignIn={handleReauthenticateAccountDeletion}
-      />
+      <Suspense fallback={null}>
+        <AccountPrivacyPage
+          userEmail={userEmail}
+          onClose={closeAccountPrivacy}
+          onDeleted={handleDeletedAccount}
+          onRequireSignIn={handleReauthenticateAccountDeletion}
+        />
+      </Suspense>
     )}
     </>
   );

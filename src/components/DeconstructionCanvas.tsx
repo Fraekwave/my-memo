@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Matter from 'matter-js';
+import type MatterType from 'matter-js';
 import { decomposeToJamoGrouped } from '@/lib/hangulUtils';
 
 const FONT_SIZE = 14;
@@ -72,169 +72,179 @@ export const DeconstructionCanvas = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const engineRef = useRef<Matter.Engine | null>(null);
+  const engineRef = useRef<MatterType.Engine | null>(null);
 
   useEffect(() => {
-    const groupedJamo = decomposeToJamoGrouped(text);
-    const flatJamo = groupedJamo.flat();
-    if (flatJamo.length === 0 || width < 10 || height < 10) {
-      onComplete();
-      return;
-    }
+    let cancelled = false;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const run = async () => {
+      const Matter = (await import('matter-js')).default;
+      if (cancelled) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const positions = computeJamoPositions(ctx, text, groupedJamo, height);
-
-    const engine = Matter.Engine.create({
-      gravity: { x: 0, y: 1, scale: 0.002 },
-      enableSleeping: true,
-      positionIterations: 8,
-      velocityIterations: 6,
-    });
-    engineRef.current = engine;
-    const { world } = engine;
-
-    const floor = Matter.Bodies.rectangle(
-      width / 2,
-      height + FLOOR_THICKNESS,
-      width + 100,
-      FLOOR_THICKNESS * 2,
-      {
-        isStatic: true,
-        restitution: 0.8,
-        friction: 0.05,
+      const groupedJamo = decomposeToJamoGrouped(text);
+      const flatJamo = groupedJamo.flat();
+      if (flatJamo.length === 0 || width < 10 || height < 10) {
+        onComplete();
+        return;
       }
-    );
 
-    const leftWall = Matter.Bodies.rectangle(
-      -WALL_THICKNESS / 2,
-      height / 2,
-      WALL_THICKNESS,
-      height + 100,
-      {
-        isStatic: true,
-        restitution: 0.7,
-        friction: 0.05,
-      }
-    );
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    const rightWall = Matter.Bodies.rectangle(
-      width + WALL_THICKNESS / 2,
-      height / 2,
-      WALL_THICKNESS,
-      height + 100,
-      {
-        isStatic: true,
-        restitution: 0.7,
-        friction: 0.05,
-      }
-    );
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    Matter.Composite.add(world, [floor, leftWall, rightWall]);
+      const positions = computeJamoPositions(ctx, text, groupedJamo, height);
 
-    const jamoBodies: Matter.Body[] = positions.map(({ char, x, y }) => {
-      const body = Matter.Bodies.rectangle(x, y, BODY_WIDTH, BODY_HEIGHT, {
-        label: char,
-        chamfer: { radius: 2 },
-        density: 0.0015,
-        friction: 0.08,
-        frictionStatic: 0.1,
-        restitution: 0.82,
-        frictionAir: 0.003,
-        angularVelocity: randomInRange(-0.3, 0.3),
-        sleepThreshold: 30,
+      const engine = Matter.Engine.create({
+        gravity: { x: 0, y: 1, scale: 0.002 },
+        enableSleeping: true,
+        positionIterations: 8,
+        velocityIterations: 6,
       });
-      Matter.Composite.add(world, body);
-      return body;
-    });
+      engineRef.current = engine;
+      const { world } = engine;
 
-    let startTime: number | null = null;
-    let opacity = 1;
-    let completed = false;
-
-    const cleanup = () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      Matter.Composite.clear(world, false);
-      engineRef.current = null;
-    };
-
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-
-      Matter.Engine.update(engine, 1000 / 60);
-
-      ctx.clearRect(0, 0, width, height);
-
-      if (elapsed > DURATION_MS * 0.5) {
-        opacity = Math.max(0, 1 - (elapsed - DURATION_MS * 0.5) / (DURATION_MS * 0.5));
-      }
-
-      jamoBodies.forEach((body) => {
-        const char = body.label;
-        if (!char) return;
-
-        ctx.save();
-        ctx.translate(body.position.x, body.position.y);
-        ctx.rotate(body.angle);
-        ctx.font = `${FONT_SIZE}px ${FONT}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = textColor;
-        ctx.globalAlpha = opacity;
-        ctx.fillText(char, 0, 0);
-        ctx.restore();
-
-        if (DEBUG_PHYSICS) {
-          const verts = body.vertices;
-          ctx.strokeStyle = 'rgba(255,0,0,0.6)';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(verts[0].x, verts[0].y);
-          for (let i = 1; i < verts.length; i++) {
-            ctx.lineTo(verts[i].x, verts[i].y);
-          }
-          ctx.closePath();
-          ctx.stroke();
+      const floor = Matter.Bodies.rectangle(
+        width / 2,
+        height + FLOOR_THICKNESS,
+        width + 100,
+        FLOOR_THICKNESS * 2,
+        {
+          isStatic: true,
+          restitution: 0.8,
+          friction: 0.05,
         }
+      );
+
+      const leftWall = Matter.Bodies.rectangle(
+        -WALL_THICKNESS / 2,
+        height / 2,
+        WALL_THICKNESS,
+        height + 100,
+        {
+          isStatic: true,
+          restitution: 0.7,
+          friction: 0.05,
+        }
+      );
+
+      const rightWall = Matter.Bodies.rectangle(
+        width + WALL_THICKNESS / 2,
+        height / 2,
+        WALL_THICKNESS,
+        height + 100,
+        {
+          isStatic: true,
+          restitution: 0.7,
+          friction: 0.05,
+        }
+      );
+
+      Matter.Composite.add(world, [floor, leftWall, rightWall]);
+
+      const jamoBodies: MatterType.Body[] = positions.map(({ char, x, y }) => {
+        const body = Matter.Bodies.rectangle(x, y, BODY_WIDTH, BODY_HEIGHT, {
+          label: char,
+          chamfer: { radius: 2 },
+          density: 0.0015,
+          friction: 0.08,
+          frictionStatic: 0.1,
+          restitution: 0.82,
+          frictionAir: 0.003,
+          angularVelocity: randomInRange(-0.3, 0.3),
+          sleepThreshold: 30,
+        });
+        Matter.Composite.add(world, body);
+        return body;
       });
 
-      if (elapsed < DURATION_MS) {
-        rafRef.current = requestAnimationFrame(animate);
-      } else if (!completed) {
-        completed = true;
-        cleanup();
-        onComplete();
-      }
+      let startTime: number | null = null;
+      let opacity = 1;
+      let completed = false;
+
+      const cleanup = () => {
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        Matter.Composite.clear(world, false);
+        engineRef.current = null;
+      };
+
+      const animate = (timestamp: number) => {
+        if (cancelled) { cleanup(); return; }
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+
+        Matter.Engine.update(engine, 1000 / 60);
+
+        ctx.clearRect(0, 0, width, height);
+
+        if (elapsed > DURATION_MS * 0.5) {
+          opacity = Math.max(0, 1 - (elapsed - DURATION_MS * 0.5) / (DURATION_MS * 0.5));
+        }
+
+        jamoBodies.forEach((body) => {
+          const char = body.label;
+          if (!char) return;
+
+          ctx.save();
+          ctx.translate(body.position.x, body.position.y);
+          ctx.rotate(body.angle);
+          ctx.font = `${FONT_SIZE}px ${FONT}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = textColor;
+          ctx.globalAlpha = opacity;
+          ctx.fillText(char, 0, 0);
+          ctx.restore();
+
+          if (DEBUG_PHYSICS) {
+            const verts = body.vertices;
+            ctx.strokeStyle = 'rgba(255,0,0,0.6)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(verts[0].x, verts[0].y);
+            for (let i = 1; i < verts.length; i++) {
+              ctx.lineTo(verts[i].x, verts[i].y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+          }
+        });
+
+        if (elapsed < DURATION_MS) {
+          rafRef.current = requestAnimationFrame(animate);
+        } else if (!completed) {
+          completed = true;
+          cleanup();
+          onComplete();
+        }
+      };
+
+      rafRef.current = requestAnimationFrame(animate);
+
+      timeoutRef.current = setTimeout(() => {
+        if (!completed) {
+          completed = true;
+          cleanup();
+          onComplete();
+        }
+      }, DURATION_MS + 300);
     };
 
-    rafRef.current = requestAnimationFrame(animate);
-
-    timeoutRef.current = setTimeout(() => {
-      if (!completed) {
-        completed = true;
-        cleanup();
-        onComplete();
-      }
-    }, DURATION_MS + 300);
+    run();
 
     return () => {
-      if (!completed) {
-        completed = true;
-        cleanup();
-      }
+      cancelled = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (engineRef.current) engineRef.current = null;
     };
   }, [text, width, height, textColor, onComplete]);
 
