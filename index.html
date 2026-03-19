@@ -7,20 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="HandheldFriendly" content="true" />
     <meta name="color-scheme" content="light only" />
-    <script>
-      // Fix TWA/standalone viewport scale race on Android (Samsung Galaxy etc.)
-      // Re-stamp the viewport meta to force WebView to re-evaluate after DOM ready
-      (function() {
-        var vp = document.querySelector('meta[name="viewport"]');
-        if (!vp) return;
-        var content = vp.getAttribute('content');
-        // Schedule after first paint so WebView has initialized its layout
-        requestAnimationFrame(function() {
-          vp.setAttribute('content', '');
-          vp.setAttribute('content', content);
-        });
-      })();
-    </script>
+    <script src="/viewport-fix.js"></script>
     <title>INA Done - Break your Plan</title>
     <meta name="description" content="프리미엄 미니멀 할 일 관리 앱" />
   </head>

@@ -1,7 +1,8 @@
-const CACHE_NAME = 'inadone-v6';
+const CACHE_NAME = 'inadone-v7';
 
 const APP_SHELL = [
   '/',
+  '/viewport-fix.js',
   '/manifest.json',
   '/inadone_icon_192.png',
   '/inadone_icon_512.png'
