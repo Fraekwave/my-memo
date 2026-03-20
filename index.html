@@ -13,6 +13,16 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Inline fallback: fix TWA viewport even if old SW serves stale HTML without viewport-fix.js
+      // WebView ignores viewport meta on cold start → innerWidth=980 instead of device width
+      (function(){
+        if (window.innerWidth > window.screen.width * 1.5 && !sessionStorage.getItem('__vp_reloaded')) {
+          sessionStorage.setItem('__vp_reloaded', '1');
+          location.reload();
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator && location.hostname !== 'localhost') {

@@ -1,5 +1,7 @@
 // Fix TWA/standalone viewport scale race on Android (Samsung Galaxy etc.)
-// This file lives in public/ so Vite copies it as-is to dist/ — inline scripts get stripped.
+// The WebView ignores the viewport meta on TWA cold start, defaulting to 980px
+// desktop layout width. A forced reload makes it re-evaluate properly —
+// same reason OAuth redirect "fixes" the scale.
 (function() {
   var VIEWPORT = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
 
@@ -10,23 +12,45 @@
     vp.setAttribute('content', VIEWPORT);
   }
 
-  // 1. Synchronous — runs during head parse
-  stamp();
+  function needsReload() {
+    // If layout viewport (innerWidth) is much wider than physical screen,
+    // the WebView ignored the viewport meta tag
+    return window.innerWidth > window.screen.width * 1.5;
+  }
 
-  // 2. After first paint
+  function forceReload() {
+    if (needsReload() && !sessionStorage.getItem('__vp_reloaded')) {
+      sessionStorage.setItem('__vp_reloaded', '1');
+      location.reload();
+    }
+  }
+
+  // Try re-stamping first
+  stamp();
   requestAnimationFrame(stamp);
 
-  // 3. Delayed — covers slow WebView init on Samsung
-  setTimeout(stamp, 100);
-  setTimeout(stamp, 500);
+  // Check after WebView has settled — if still broken, force reload
+  setTimeout(function() {
+    stamp();
+    forceReload();
+  }, 150);
 
-  // 4. TWA brought back from background / task-switcher
+  // Background → foreground: re-stamp + check
   document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'visible') stamp();
+    if (document.visibilityState === 'visible') {
+      // Clear reload flag so a fresh background→foreground can retry if needed
+      sessionStorage.removeItem('__vp_reloaded');
+      stamp();
+      setTimeout(forceReload, 150);
+    }
   });
 
-  // 5. bfcache restoration
+  // bfcache restoration
   window.addEventListener('pageshow', function(e) {
-    if (e.persisted) stamp();
+    if (e.persisted) {
+      sessionStorage.removeItem('__vp_reloaded');
+      stamp();
+      setTimeout(forceReload, 150);
+    }
   });
 })();
