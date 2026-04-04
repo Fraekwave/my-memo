@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useEffect, useCallback, FormEvent, KeyboardEvent, TouchEvent } from 'react';
+import { memo, useState, useRef, useEffect, useCallback, FormEvent, KeyboardEvent, TouchEvent, ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTaskAutocomplete } from '@/hooks/useTaskAutocomplete';
 
@@ -62,7 +62,7 @@ export const TaskForm = memo(({
 
   // ── Swipe Detection ──
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Force IME commit before setInput to prevent ghost character appending
   const acceptSuggestionSafely = useCallback(
@@ -156,6 +156,7 @@ export const TaskForm = memo(({
 
       const taskText = input;
       setInput('');
+      resetTextareaHeight();
 
       record(taskText);
 
@@ -167,9 +168,17 @@ export const TaskForm = memo(({
     [input, onSubmit, record]
   );
 
-  // ── 키보드: Tab / ArrowRight로 제안 수락 (IME composition commit before setInput) ──
+  // ── 키보드: Enter=제출, Shift+Enter=줄바꿈, Tab/ArrowRight=제안 수락 ──
   const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLInputElement>) => {
+    (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // Enter without Shift = submit
+      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
+        e.preventDefault();
+        const form = e.currentTarget.closest('form');
+        if (form) form.requestSubmit();
+        return;
+      }
+
       if (!suggestion) return;
 
       if (e.key === 'Tab') {
@@ -185,8 +194,25 @@ export const TaskForm = memo(({
         }
       }
     },
-    [suggestion, acceptSuggestionSafely]
+    [suggestion, acceptSuggestionSafely, isComposing]
   );
+
+  // ── Textarea auto-resize ──
+  const handleInputChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
+    const next = e.target.value;
+    checkRejection(input, next);
+    setInput(next);
+    // Auto-resize height
+    e.target.style.height = 'auto';
+    e.target.style.height = e.target.scrollHeight + 'px';
+  }, [input, checkRejection]);
+
+  // Reset textarea height after submit
+  const resetTextareaHeight = useCallback(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
+  }, []);
 
   // ── IME Composition Guard ──
   const handleCompositionStart = () => {
@@ -231,23 +257,19 @@ export const TaskForm = memo(({
             </div>
           )}
 
-          {/* Standard input — basic clean attributes */}
-          <input
+          {/* Textarea — Enter=submit, Shift+Enter=newline */}
+          <textarea
             ref={inputRef}
-            type="text"
             name="task_text"
             value={input}
             disabled={isDisabled}
-            onChange={(e) => {
-              const next = e.target.value;
-              checkRejection(input, next);
-              setInput(next);
-            }}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             placeholder={placeholder}
-            className="relative w-full px-4 py-3 bg-transparent text-zinc-900 placeholder-zinc-400 outline-none rounded-xl"
+            rows={1}
+            className="relative w-full px-4 py-3 bg-transparent text-zinc-900 placeholder-zinc-400 outline-none rounded-xl resize-none overflow-hidden leading-normal"
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="none"

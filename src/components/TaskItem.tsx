@@ -8,6 +8,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import { Task } from '@/lib/types';
 import { tryHaptic } from '@/lib/haptic';
 import { decomposeToJamoGrouped } from '@/lib/hangulUtils';
@@ -67,6 +69,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [usePopFallback, setUsePopFallback] = useState(false);
   const [showDeconstruction, setShowDeconstruction] = useState(false);
@@ -199,19 +202,27 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
 
   const isDeleting = deletingState !== null;
 
-  // 더블클릭/더블탭으로 편집 진입 (롱프레스는 드래그로 유지)
+  // Single tap = expand/collapse (instant), double-tap = edit mode
   const lastTapRef = useRef<number>(0);
+  const isLongText = task.text.length > 80 || task.text.includes('\n');
+
   const handleTextDoubleTap = useCallback((e: React.MouseEvent) => {
     if (isEditing || isDeleting || isDragging || showDeconstruction) return;
     const now = Date.now();
-    if (now - lastTapRef.current < 350) {
+    if (now - lastTapRef.current < 300) {
+      // Double-tap → edit mode (undo the expand that just happened)
       e.stopPropagation();
+      if (isLongText) setIsExpanded(false);
       startEditing();
       lastTapRef.current = 0;
     } else {
+      // Single tap → expand/collapse instantly
       lastTapRef.current = now;
+      if (isLongText) {
+        setIsExpanded(prev => !prev);
+      }
     }
-  }, [isEditing, isDeleting, isDragging, showDeconstruction]);
+  }, [isEditing, isDeleting, isDragging, showDeconstruction, isLongText]);
 
   const triggerDelete = useCallback(() => {
     if (isDeleting) return;
@@ -334,7 +345,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
   return (
     <motion.div
       ref={setNodeRef}
-      layout={!disableDrag}
+      layout={!disableDrag ? "position" : false}
       style={{
         ...style,
         ...(isDeleting ? { marginTop: 0, marginBottom: 0 } : {}),
@@ -454,8 +465,8 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
               />
             ) : (
               <>
-                <span
-                  className={`block select-none ${task.is_completed ? 'completed' : ''}`}
+                <div
+                  className={`block select-none task-markdown ${task.is_completed ? 'completed' : ''} ${isLongText && !isExpanded ? 'task-markdown-collapsed' : ''}`}
                   style={{
                     color: aging.textColor,
                     opacity: showDeconstruction ? 0 : 1,
@@ -464,8 +475,25 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
                   onClick={handleTextDoubleTap}
                   aria-hidden={showDeconstruction}
                 >
-                  {task.text}
-                </span>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkBreaks]}
+                    components={{
+                      // Open links in new tab
+                      a: ({ children, ...props }) => (
+                        <a {...props} target="_blank" rel="noopener noreferrer">{children}</a>
+                      ),
+                      // Prevent nesting block-level <p> inside our div causing layout issues
+                      p: ({ children }) => <span className="block">{children}</span>,
+                    }}
+                  >
+                    {/* Preserve multiple blank lines: fill empty lines with zero-width space
+                        so remark-breaks converts each \n into a visible <br> */}
+                    {task.text.replace(/\n(\s*\n)+/g, (match) => {
+                      const breaks = match.split('\n').length - 1;
+                      return '\n' + '\u200B\n'.repeat(breaks - 1);
+                    })}
+                  </ReactMarkdown>
+                </div>
                 {showDeconstruction &&
                   canvasSize &&
                   task.is_completed && (

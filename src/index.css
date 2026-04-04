@@ -59,6 +59,67 @@ html, body, #root {
   opacity: 0.5;
 }
 
+/* ── Task Markdown Display ── */
+.task-markdown {
+  line-height: 1.5;
+}
+.task-markdown strong { font-weight: 600; }
+.task-markdown em { font-style: italic; }
+.task-markdown code {
+  font-size: 0.85em;
+  background: rgba(0,0,0,0.06);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+}
+.task-markdown ul, .task-markdown ol {
+  padding-left: 1.25em;
+  margin: 0.15em 0;
+}
+.task-markdown ul { list-style-type: disc; }
+.task-markdown ol { list-style-type: decimal; }
+.task-markdown li { margin: 0.05em 0; }
+.task-markdown a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.task-markdown h1, .task-markdown h2, .task-markdown h3,
+.task-markdown h4, .task-markdown h5, .task-markdown h6 {
+  font-weight: 600;
+  margin: 0;
+}
+.task-markdown h1 { font-size: 1.15em; }
+.task-markdown h2 { font-size: 1.05em; }
+.task-markdown h3 { font-size: 1em; }
+.task-markdown h4 { font-size: 0.95em; }
+.task-markdown h5 { font-size: 0.9em; }
+.task-markdown h6 { font-size: 0.85em; }
+.task-markdown blockquote {
+  border-left: 2px solid currentColor;
+  opacity: 0.7;
+  padding-left: 0.5em;
+  margin: 0.15em 0;
+}
+.task-markdown pre {
+  font-size: 0.85em;
+  background: rgba(0,0,0,0.06);
+  padding: 0.4em 0.6em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.15em 0;
+}
+.task-markdown pre code {
+  background: none;
+  padding: 0;
+}
+/* Collapsed state: show first 3 lines */
+.task-markdown-collapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Hairline checkbox: 1px ring, premium translucent fill */
 .task-checkbox {
   appearance: none;
