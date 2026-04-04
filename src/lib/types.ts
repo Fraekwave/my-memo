@@ -32,3 +32,19 @@ export interface TaskResponse {
   data: Task[] | null;
   error: Error | null;
 }
+
+/**
+ * SermonNote: sermon_notes 테이블
+ */
+export interface SermonNote {
+  id: number;
+  user_id?: string;
+  date: string;
+  pastor: string;
+  topic: string;
+  bible_ref: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+}

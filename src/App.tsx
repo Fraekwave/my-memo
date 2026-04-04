@@ -18,6 +18,7 @@ import { Trash2 } from 'lucide-react';
 const AdminPage = lazy(() => import('@/components/AdminPage').then(m => ({ default: m.AdminPage })));
 const AccountPrivacyPage = lazy(() => import('@/components/AccountPrivacyPage').then(m => ({ default: m.AccountPrivacyPage })));
 const PasswordResetConfirm = lazy(() => import('@/components/PasswordResetConfirm').then(m => ({ default: m.PasswordResetConfirm })));
+const SermonMode = lazy(() => import('@/components/sermon/SermonMode').then(m => ({ default: m.SermonMode })));
 
 function getRequestedScreen(): string | null {
   if (typeof window === 'undefined') return null;
@@ -29,6 +30,22 @@ function clearRequestedScreen() {
   const url = new URL(window.location.href);
   url.searchParams.delete('screen');
   window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+}
+
+type AppMode = 'todo' | 'sermon';
+
+function getStoredMode(userId: string | null): AppMode {
+  if (!userId) return 'todo';
+  try {
+    const stored = localStorage.getItem(`app_mode:${userId}`);
+    if (stored === 'sermon') return 'sermon';
+  } catch {}
+  return 'todo';
+}
+
+function storeMode(userId: string | null, mode: AppMode) {
+  if (!userId) return;
+  try { localStorage.setItem(`app_mode:${userId}`, mode); } catch {}
 }
 
 function MembershipBadge({ isPro }: { isPro: boolean }) {
@@ -100,9 +117,18 @@ function App() {
     maxTasks,
   });
 
+  const [mode, setMode] = useState<AppMode>(() => getStoredMode(userId));
   const [showTrashView, setShowTrashView] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showAccountPrivacy, setShowAccountPrivacy] = useState(false);
+
+  const toggleMode = useCallback(() => {
+    setMode(prev => {
+      const next = prev === 'todo' ? 'sermon' : 'todo';
+      storeMode(userId, next);
+      return next;
+    });
+  }, [userId]);
 
   const currentDate = useMemo(() => {
     const currentLang = i18n.language || 'en';
@@ -208,7 +234,7 @@ function App() {
               />
             </div>
 
-            {/* Centre — bold date + status badge stacked vertically */}
+            {/* Centre — bold date + mode toggle + badge stacked vertically */}
             <div className="absolute inset-x-0 flex items-center justify-center pointer-events-none">
               <div className="flex flex-col items-center gap-1.5">
                 <p
@@ -216,12 +242,39 @@ function App() {
                 >
                   {currentDate}
                 </p>
+
+                {/* Mode toggle pills */}
+                <div className="flex items-center gap-1 bg-zinc-100 rounded-full p-0.5 pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={() => { if (mode !== 'todo') toggleMode(); }}
+                    className={`text-[11px] font-medium px-3 py-1 rounded-full transition-all duration-200 ${
+                      mode === 'todo'
+                        ? 'bg-zinc-900 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-600'
+                    }`}
+                  >
+                    {t('sermon.modeToggleTodo')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { if (mode !== 'sermon') toggleMode(); }}
+                    className={`text-[11px] font-medium px-3 py-1 rounded-full transition-all duration-200 ${
+                      mode === 'sermon'
+                        ? 'bg-zinc-900 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-600'
+                    }`}
+                  >
+                    {t('sermon.modeToggleNotes')}
+                  </button>
+                </div>
+
                 <MembershipBadge isPro={isPro} />
               </div>
             </div>
 
-            {/* Right — trash */}
-            <div className="flex-shrink-0 ml-auto">
+            {/* Right — trash (invisible in sermon mode to preserve layout) */}
+            <div className={`flex-shrink-0 ml-auto ${mode !== 'todo' ? 'invisible' : ''}`}>
               <button
                 type="button"
                 onClick={() => setShowTrashView((v) => !v)}
@@ -239,6 +292,11 @@ function App() {
         {/* 앱 셸 로딩 중 — 스켈레톤 UI로 즉시 레이아웃 표시 */}
         {isShellLoading ? (
           <SkeletonAppContent />
+        ) : mode === 'sermon' ? (
+          /* ─── Sermon Notes Mode ─── */
+          <Suspense fallback={<SkeletonAppContent />}>
+            <SermonMode userId={userId} />
+          </Suspense>
         ) : (
         <>
         {/* Sticky 영역: 탭 바 + 입력 폼 (휴지통 뷰에서는 숨김) */}

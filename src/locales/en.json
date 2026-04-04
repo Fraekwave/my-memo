@@ -154,5 +154,28 @@
     "proFeature3": "Lifetime upgrades",
     "proFeature4": "Faster data handling",
     "proComingSoon": "Coming soon"
+  },
+  "sermon": {
+    "sermonNotes": "Sermon Notes",
+    "todoMode": "To-Do List",
+    "modeToggleTodo": "To-Do",
+    "modeToggleNotes": "Notes",
+    "dateLabel": "DATE",
+    "topicLabel": "TITLE",
+    "pastorLabel": "PASTOR",
+    "bibleRefLabel": "TEXT",
+    "newNote": "New Sermon Note",
+    "noNotes": "No sermon notes yet",
+    "noNotesSub": "Create your first note",
+    "pastor": "Pastor name",
+    "topic": "Sermon title",
+    "bibleRef": "Bible reference (e.g. Matt 28:1-10)",
+    "contentPlaceholder": "Write your sermon notes...\n\nType @창1:1 to insert Bible text.",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "copy": "Copy",
+    "copied": "Copied",
+    "deleteNote": "Delete note",
+    "deleteConfirm": "Delete this note?"
   }
 }

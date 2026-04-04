@@ -154,5 +154,28 @@
     "proFeature3": "Lebenslange Upgrades",
     "proFeature4": "Schnellere Datenverarbeitung",
     "proComingSoon": "Demnächst verfügbar"
+  },
+  "sermon": {
+    "sermonNotes": "Predigtnotizen",
+    "todoMode": "Aufgabenliste",
+    "modeToggleTodo": "Aufgaben",
+    "modeToggleNotes": "Notizen",
+    "dateLabel": "DATUM",
+    "topicLabel": "TITEL",
+    "pastorLabel": "PASTOR",
+    "bibleRefLabel": "TEXT",
+    "newNote": "Neue Predigtnotiz",
+    "noNotes": "Keine Predigtnotizen",
+    "noNotesSub": "Erstelle deine erste Notiz",
+    "pastor": "Name des Pastors",
+    "topic": "Predigttitel",
+    "bibleRef": "Bibelstelle",
+    "contentPlaceholder": "Predigtnotizen eingeben...",
+    "saving": "Speichern...",
+    "saved": "Gespeichert",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "deleteNote": "Notiz löschen",
+    "deleteConfirm": "Diese Notiz löschen?"
   }
 }

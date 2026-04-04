@@ -154,5 +154,28 @@
     "proFeature3": "평생 무료 업그레이드",
     "proFeature4": "빠른 데이터 처리",
     "proComingSoon": "출시 예정"
+  },
+  "sermon": {
+    "sermonNotes": "설교 노트",
+    "todoMode": "할 일 목록",
+    "modeToggleTodo": "할 일",
+    "modeToggleNotes": "노트",
+    "dateLabel": "날짜",
+    "topicLabel": "제목",
+    "pastorLabel": "설교자",
+    "bibleRefLabel": "본문",
+    "newNote": "새 설교 노트",
+    "noNotes": "설교 노트가 없습니다",
+    "noNotesSub": "새 노트를 추가해 보세요",
+    "pastor": "목사님 이름",
+    "topic": "설교 제목",
+    "bibleRef": "성경 본문 (예: 마28:1-10)",
+    "contentPlaceholder": "설교 내용을 입력하세요...\n\n@창1:1 을 입력하면 성경 본문이 삽입됩니다.",
+    "saving": "저장 중...",
+    "saved": "저장됨",
+    "copy": "복사",
+    "copied": "복사됨",
+    "deleteNote": "노트 삭제",
+    "deleteConfirm": "이 노트를 삭제하시겠습니까?"
   }
 }

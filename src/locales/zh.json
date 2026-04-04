@@ -154,5 +154,28 @@
     "proFeature3": "终身升级",
     "proFeature4": "更快的数据处理",
     "proComingSoon": "即将推出"
+  },
+  "sermon": {
+    "sermonNotes": "讲道笔记",
+    "todoMode": "待办列表",
+    "modeToggleTodo": "待办",
+    "modeToggleNotes": "笔记",
+    "dateLabel": "日期",
+    "topicLabel": "标题",
+    "pastorLabel": "牧师",
+    "bibleRefLabel": "经文",
+    "newNote": "新讲道笔记",
+    "noNotes": "暂无讲道笔记",
+    "noNotesSub": "创建您的第一个笔记",
+    "pastor": "牧师姓名",
+    "topic": "讲道标题",
+    "bibleRef": "圣经经文",
+    "contentPlaceholder": "输入讲道笔记...",
+    "saving": "保存中...",
+    "saved": "已保存",
+    "copy": "复制",
+    "copied": "已复制",
+    "deleteNote": "删除笔记",
+    "deleteConfirm": "确定删除此笔记？"
   }
 }

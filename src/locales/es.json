@@ -154,5 +154,28 @@
     "proFeature3": "Actualizaciones de por vida",
     "proFeature4": "Procesamiento de datos más rápido",
     "proComingSoon": "Próximamente"
+  },
+  "sermon": {
+    "sermonNotes": "Notas de sermón",
+    "todoMode": "Lista de tareas",
+    "modeToggleTodo": "Tareas",
+    "modeToggleNotes": "Notas",
+    "dateLabel": "FECHA",
+    "topicLabel": "TÍTULO",
+    "pastorLabel": "PASTOR",
+    "bibleRefLabel": "TEXTO",
+    "newNote": "Nueva nota de sermón",
+    "noNotes": "No hay notas de sermón",
+    "noNotesSub": "Crea tu primera nota",
+    "pastor": "Nombre del pastor",
+    "topic": "Título del sermón",
+    "bibleRef": "Referencia bíblica",
+    "contentPlaceholder": "Escribe tus notas del sermón...",
+    "saving": "Guardando...",
+    "saved": "Guardado",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "deleteNote": "Eliminar nota",
+    "deleteConfirm": "¿Eliminar esta nota?"
   }
 }

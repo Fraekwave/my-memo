@@ -218,22 +218,12 @@ html, body, #root {
   display: none;
 }
 
-/* 스크롤바 스타일링 — 스크롤 컨테이너 대상 */
+/* 스크롤바 숨김 — 네이티브 앱처럼 터치 스크롤만 사용 */
+.app-scroll-container {
+  scrollbar-width: none; /* Firefox */
+}
 .app-scroll-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.app-scroll-container::-webkit-scrollbar-track {
-  background: #f4f4f5;
-}
-
-.app-scroll-container::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-  border-radius: 4px;
-}
-
-.app-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: #a1a1aa;
+  display: none; /* Chrome, Safari, Android WebView */
 }
 
 /* ──────────────────────────────────────────────

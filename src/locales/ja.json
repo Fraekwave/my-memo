@@ -154,5 +154,28 @@
     "proFeature3": "生涯アップグレード",
     "proFeature4": "高速データ処理",
     "proComingSoon": "近日公開"
+  },
+  "sermon": {
+    "sermonNotes": "説教ノート",
+    "todoMode": "タスクリスト",
+    "modeToggleTodo": "タスク",
+    "modeToggleNotes": "ノート",
+    "dateLabel": "日付",
+    "topicLabel": "題名",
+    "pastorLabel": "牧師",
+    "bibleRefLabel": "聖書",
+    "newNote": "新しい説教ノート",
+    "noNotes": "説教ノートがありません",
+    "noNotesSub": "最初のノートを作成してください",
+    "pastor": "牧師名",
+    "topic": "説教タイトル",
+    "bibleRef": "聖書箇所",
+    "contentPlaceholder": "説教ノートを入力...",
+    "saving": "保存中...",
+    "saved": "保存済み",
+    "copy": "コピー",
+    "copied": "コピー済み",
+    "deleteNote": "ノートを削除",
+    "deleteConfirm": "このノートを削除しますか？"
   }
 }
