@@ -176,6 +176,7 @@
     "copy": "Copy",
     "copied": "Copied",
     "deleteNote": "Delete note",
-    "deleteConfirm": "Delete this note?"
+    "deleteConfirm": "Delete this note?",
+    "trashRestored": "Note has been restored"
   }
 }

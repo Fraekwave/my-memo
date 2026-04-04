@@ -44,6 +44,7 @@ export interface SermonNote {
   topic: string;
   bible_ref: string;
   content: string;
+  order_index: number;
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;

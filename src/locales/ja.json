@@ -176,6 +176,7 @@
     "copy": "コピー",
     "copied": "コピー済み",
     "deleteNote": "ノートを削除",
-    "deleteConfirm": "このノートを削除しますか？"
+    "deleteConfirm": "このノートを削除しますか？",
+    "trashRestored": "ノートが復元されました"
   }
 }

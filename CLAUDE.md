@@ -156,6 +156,12 @@ If something could not be verified, say that clearly.
 
 7. **Mode switch loading delay**: `React.lazy` + Supabase fetch creates two sequential network round-trips on every mode switch. Fix: use module-level cache in the hook so subsequent switches show cached data instantly and refresh silently in the background.
 
+8. **Mode persistence flicker on refresh**: `useState(() => getStoredMode(userId))` is called when `userId` is still `null` (auth loading), so it always defaults to `'todo'`. A `useEffect` to re-read after auth causes a visible flash. Fix: store a non-user-scoped `app_mode_hint` in localStorage alongside the user-scoped key, so the correct mode is read even before auth resolves.
+
+9. **Prose classes cause layout shift on edit/preview toggle**: Tailwind's `prose` typography plugin applies its own font-size, line-height, and margins, causing the container to resize when switching between textarea and ReactMarkdown preview. Fix: strip `prose` classes entirely and use the same raw Tailwind classes (`text-base leading-relaxed`) for both modes, with explicit component overrides only for headings, lists, and blockquotes.
+
+10. **Shared DnD utilities**: When multiple list views need drag-to-reorder (TaskList, SermonNoteList), extract common DnD-kit setup (sensors, collision detection, modifiers, interactive element filter) into `src/lib/dndUtils.ts` to avoid duplication.
+
 ### Documentation
 
 - `docs/feature-markdown-display.md` — Markdown rendering & multi-line input feature
@@ -177,3 +183,14 @@ If something could not be verified, say that clearly.
 - Clipboard copy formatted for KakaoTalk sharing
 - Components in `src/components/sermon/`
 - i18n: all 6 languages supported (ko, en, ja, zh, de, es)
+- Swipe-to-delete (touch) + hover trash icon (PC) on note cards
+- Drag-to-reorder via `@dnd-kit` with `order_index` column
+- Trash view with 30-day soft-delete, restore, purge countdown (mirrors todo trash)
+- Shared DnD utilities in `src/lib/dndUtils.ts` (used by TaskList + SermonNoteList)
+- `sermon_notes` table: `order_index` column (migration `20260404_add_sermon_order_index.sql`)
+- `purge_deleted_sermon_notes()` SQL function for 30-day auto-purge
+
+#### Remaining Tasks (Phase 2+)
+- Church bulletin OCR auto-fill
+- AI expansion via Claude API (organize rough notes)
+- Integrate sermon note purge into existing cron/edge function schedule

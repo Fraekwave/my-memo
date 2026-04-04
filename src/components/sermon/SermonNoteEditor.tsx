@@ -13,11 +13,10 @@ import { SermonHeader } from './SermonHeader';
 interface SermonNoteEditorProps {
   note: SermonNote;
   onUpdate: (id: number, updates: Partial<Pick<SermonNote, 'pastor' | 'topic' | 'bible_ref' | 'content'>>) => Promise<boolean>;
-  onDelete: (id: number) => Promise<boolean>;
   onBack: () => void;
 }
 
-export function SermonNoteEditor({ note, onUpdate, onDelete, onBack }: SermonNoteEditorProps) {
+export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorProps) {
   const { t } = useTranslation();
   const { formatInsertText } = useBible();
 
@@ -27,7 +26,6 @@ export function SermonNoteEditor({ note, onUpdate, onDelete, onBack }: SermonNot
   const [content, setContent] = useState(note.content);
   const [showPreview, setShowPreview] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -92,12 +90,6 @@ export function SermonNoteEditor({ note, onUpdate, onDelete, onBack }: SermonNot
     }
   }, [note, pastor, topic, bibleRef, content]);
 
-  // Delete note
-  const handleDelete = useCallback(async () => {
-    const ok = await onDelete(note.id);
-    if (ok) onBack();
-  }, [note.id, onDelete, onBack]);
-
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -156,68 +148,44 @@ export function SermonNoteEditor({ note, onUpdate, onDelete, onBack }: SermonNot
           onBibleRefChange={updateBibleRef}
         />
 
-        {showPreview ? (
-          <div className="mt-4 prose prose-zinc prose-sm max-w-none task-markdown">
-            <ReactMarkdown
-              remarkPlugins={[remarkBreaks]}
-              components={{
-                a: ({ children, ...props }) => (
-                  <a {...props} target="_blank" rel="noopener noreferrer">{children}</a>
-                ),
-                p: ({ children }) => <span className="block mb-2">{children}</span>,
-              }}
-            >
-              {content}
-            </ReactMarkdown>
-          </div>
-        ) : (
-          <div className="mt-4">
+        <div className="mt-4 min-h-[300px]">
+          {showPreview ? (
+            <div className="text-base text-zinc-800 leading-relaxed task-markdown">
+              <ReactMarkdown
+                remarkPlugins={[remarkBreaks]}
+                components={{
+                  a: ({ children, ...props }) => (
+                    <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{children}</a>
+                  ),
+                  p: ({ children }) => <span className="block mb-2">{children}</span>,
+                  h1: ({ children }) => <h1 className="text-2xl font-bold mb-2 mt-4">{children}</h1>,
+                  h2: ({ children }) => <h2 className="text-xl font-bold mb-2 mt-3">{children}</h2>,
+                  h3: ({ children }) => <h3 className="text-lg font-semibold mb-1 mt-2">{children}</h3>,
+                  ul: ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>,
+                  li: ({ children }) => <li className="mb-0.5">{children}</li>,
+                  blockquote: ({ children }) => <blockquote className="border-l-4 border-zinc-300 pl-3 italic text-zinc-600 mb-2">{children}</blockquote>,
+                  code: ({ children }) => <code className="bg-zinc-100 px-1 py-0.5 rounded text-sm">{children}</code>,
+                }}
+              >
+                {content}
+              </ReactMarkdown>
+            </div>
+          ) : (
             <textarea
               ref={textareaRef}
               value={content}
               onChange={handleContentChange}
               placeholder={t('sermon.contentPlaceholder')}
-              className="w-full bg-transparent text-zinc-800 placeholder-zinc-300 outline-none resize-none leading-relaxed text-sm min-h-[300px]"
+              className="w-full bg-transparent text-zinc-800 placeholder-zinc-300 outline-none resize-none leading-relaxed text-base min-h-[300px]"
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Delete button at bottom */}
-      <div className="px-4 py-3 border-t border-zinc-100">
-        {showDeleteConfirm ? (
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-red-500">{t('sermon.deleteConfirm')}</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="text-xs text-zinc-500 hover:text-zinc-700 px-3 py-1.5 rounded-lg"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="text-xs text-red-500 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg"
-              >
-                {t('common.delete')}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
-          >
-            {t('sermon.deleteNote')}
-          </button>
-        )}
-      </div>
     </div>
   );
 }

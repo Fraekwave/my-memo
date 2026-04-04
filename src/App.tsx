@@ -35,17 +35,24 @@ function clearRequestedScreen() {
 type AppMode = 'todo' | 'sermon';
 
 function getStoredMode(userId: string | null): AppMode {
-  if (!userId) return 'todo';
   try {
-    const stored = localStorage.getItem(`app_mode:${userId}`);
-    if (stored === 'sermon') return 'sermon';
+    if (userId) {
+      const stored = localStorage.getItem(`app_mode:${userId}`);
+      if (stored === 'sermon') return 'sermon';
+      if (stored === 'todo') return 'todo';
+    }
+    // Pre-auth fallback: non-user-scoped hint
+    const hint = localStorage.getItem('app_mode_hint');
+    if (hint === 'sermon') return 'sermon';
   } catch {}
   return 'todo';
 }
 
 function storeMode(userId: string | null, mode: AppMode) {
-  if (!userId) return;
-  try { localStorage.setItem(`app_mode:${userId}`, mode); } catch {}
+  try {
+    if (userId) localStorage.setItem(`app_mode:${userId}`, mode);
+    localStorage.setItem('app_mode_hint', mode);
+  } catch {}
 }
 
 function MembershipBadge({ isPro }: { isPro: boolean }) {
@@ -128,6 +135,7 @@ function App() {
       storeMode(userId, next);
       return next;
     });
+    setShowTrashView(false);
   }, [userId]);
 
   const currentDate = useMemo(() => {
@@ -248,7 +256,7 @@ function App() {
                   <button
                     type="button"
                     onClick={() => { if (mode !== 'todo') toggleMode(); }}
-                    className={`text-[11px] font-medium px-3 py-1 rounded-full transition-all duration-200 ${
+                    className={`text-lg font-medium px-3 py-1 rounded-full transition-all duration-200 ${
                       mode === 'todo'
                         ? 'bg-zinc-900 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-600'
@@ -259,7 +267,7 @@ function App() {
                   <button
                     type="button"
                     onClick={() => { if (mode !== 'sermon') toggleMode(); }}
-                    className={`text-[11px] font-medium px-3 py-1 rounded-full transition-all duration-200 ${
+                    className={`text-lg font-medium px-3 py-1 rounded-full transition-all duration-200 ${
                       mode === 'sermon'
                         ? 'bg-zinc-900 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-600'
@@ -273,8 +281,8 @@ function App() {
               </div>
             </div>
 
-            {/* Right — trash (invisible in sermon mode to preserve layout) */}
-            <div className={`flex-shrink-0 ml-auto ${mode !== 'todo' ? 'invisible' : ''}`}>
+            {/* Right — trash */}
+            <div className="flex-shrink-0 ml-auto">
               <button
                 type="button"
                 onClick={() => setShowTrashView((v) => !v)}
@@ -295,7 +303,7 @@ function App() {
         ) : mode === 'sermon' ? (
           /* ─── Sermon Notes Mode ─── */
           <Suspense fallback={<SkeletonAppContent />}>
-            <SermonMode userId={userId} />
+            <SermonMode userId={userId} showTrash={showTrashView} onCloseTrash={() => setShowTrashView(false)} />
           </Suspense>
         ) : (
         <>

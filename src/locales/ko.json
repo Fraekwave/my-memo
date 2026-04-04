@@ -176,6 +176,7 @@
     "copy": "복사",
     "copied": "복사됨",
     "deleteNote": "노트 삭제",
-    "deleteConfirm": "이 노트를 삭제하시겠습니까?"
+    "deleteConfirm": "이 노트를 삭제하시겠습니까?",
+    "trashRestored": "노트가 복원되었습니다"
   }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { arrayMove } from '@dnd-kit/sortable';
 import { supabase } from '@/lib/supabase';
 import { SermonNote } from '@/lib/types';
 
@@ -13,6 +14,20 @@ export function useSermonNotes(userId: string | null) {
   const [isLoading, setIsLoading] = useState(!hasCachedData);
   const cacheRef = useRef<SermonNote[]>(hasCachedData ? moduleCache! : []);
 
+  // Trash state
+  const [deletedNotes, setDeletedNotes] = useState<SermonNote[]>([]);
+  const [isTrashLoading, setIsTrashLoading] = useState(false);
+
+  // Sync helper
+  const updateCache = useCallback((updater: (prev: SermonNote[]) => SermonNote[]) => {
+    setNotes(prev => {
+      const next = updater(prev);
+      cacheRef.current = next;
+      moduleCache = next;
+      return next;
+    });
+  }, []);
+
   // Fetch all notes for user
   useEffect(() => {
     if (!userId) {
@@ -24,7 +39,6 @@ export function useSermonNotes(userId: string | null) {
     let cancelled = false;
 
     async function fetchNotes() {
-      // Only show spinner if no cached data
       if (!hasCachedData) setIsLoading(true);
 
       const { data, error } = await supabase
@@ -32,7 +46,7 @@ export function useSermonNotes(userId: string | null) {
         .select('*')
         .eq('user_id', userId)
         .is('deleted_at', null)
-        .order('date', { ascending: false });
+        .order('order_index', { ascending: true });
 
       if (cancelled) return;
 
@@ -53,6 +67,7 @@ export function useSermonNotes(userId: string | null) {
     if (!userId) return null;
 
     const today = new Date().toISOString().split('T')[0];
+    const maxOrder = cacheRef.current.reduce((max, n) => Math.max(max, n.order_index ?? 0), -1);
     const optimistic: SermonNote = {
       id: -Date.now(),
       user_id: userId,
@@ -61,15 +76,13 @@ export function useSermonNotes(userId: string | null) {
       topic: '',
       bible_ref: '',
       content: '',
+      order_index: maxOrder + 1,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    // Optimistic insert
     const prev = [...cacheRef.current];
-    cacheRef.current = [optimistic, ...cacheRef.current];
-    moduleCache = cacheRef.current;
-    setNotes(cacheRef.current);
+    updateCache(p => [...p, optimistic]);
 
     const { data, error } = await supabase
       .from('sermon_notes')
@@ -80,24 +93,21 @@ export function useSermonNotes(userId: string | null) {
         topic: '',
         bible_ref: '',
         content: '',
+        order_index: maxOrder + 1,
       })
       .select()
       .single();
 
     if (error || !data) {
-      // Rollback
       cacheRef.current = prev;
       moduleCache = prev;
       setNotes(prev);
       return null;
     }
 
-    // Replace optimistic with server data
-    cacheRef.current = cacheRef.current.map(n => n.id === optimistic.id ? data : n);
-    moduleCache = cacheRef.current;
-    setNotes(cacheRef.current);
+    updateCache(p => p.map(n => n.id === optimistic.id ? data : n));
     return data;
-  }, [userId]);
+  }, [userId, updateCache]);
 
   const updateNote = useCallback(async (
     id: number,
@@ -105,12 +115,9 @@ export function useSermonNotes(userId: string | null) {
   ): Promise<boolean> => {
     const prev = [...cacheRef.current];
 
-    // Optimistic update
-    cacheRef.current = cacheRef.current.map(n =>
+    updateCache(p => p.map(n =>
       n.id === id ? { ...n, ...updates, updated_at: new Date().toISOString() } : n
-    );
-    moduleCache = cacheRef.current;
-    setNotes(cacheRef.current);
+    ));
 
     const { error } = await supabase
       .from('sermon_notes')
@@ -125,15 +132,12 @@ export function useSermonNotes(userId: string | null) {
     }
 
     return true;
-  }, []);
+  }, [updateCache]);
 
   const deleteNote = useCallback(async (id: number): Promise<boolean> => {
     const prev = [...cacheRef.current];
 
-    // Optimistic: soft delete (remove from list)
-    cacheRef.current = cacheRef.current.filter(n => n.id !== id);
-    moduleCache = cacheRef.current;
-    setNotes(cacheRef.current);
+    updateCache(p => p.filter(n => n.id !== id));
 
     const { error } = await supabase
       .from('sermon_notes')
@@ -148,7 +152,80 @@ export function useSermonNotes(userId: string | null) {
     }
 
     return true;
-  }, []);
+  }, [updateCache]);
 
-  return { notes, isLoading, addNote, updateNote, deleteNote };
+  const reorderNotes = useCallback(async (activeId: number, overId: number) => {
+    const current = [...cacheRef.current];
+    const oldIndex = current.findIndex(n => n.id === activeId);
+    const newIndex = current.findIndex(n => n.id === overId);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(current, oldIndex, newIndex)
+      .map((note, i) => ({ ...note, order_index: i }));
+
+    const prev = [...cacheRef.current];
+    updateCache(() => reordered);
+
+    try {
+      await Promise.all(
+        reordered.map(({ id, order_index }) =>
+          supabase.from('sermon_notes')
+            .update({ order_index })
+            .eq('id', id)
+        )
+      );
+    } catch {
+      cacheRef.current = prev;
+      moduleCache = prev;
+      setNotes(prev);
+    }
+  }, [updateCache]);
+
+  // Trash: fetch deleted notes
+  const fetchDeletedNotes = useCallback(async () => {
+    if (!userId) return;
+    setIsTrashLoading(true);
+    const { data } = await supabase
+      .from('sermon_notes')
+      .select('*')
+      .eq('user_id', userId)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+    setDeletedNotes(data || []);
+    setIsTrashLoading(false);
+  }, [userId]);
+
+  // Trash: restore a note
+  const restoreNote = useCallback(async (note: SermonNote): Promise<boolean> => {
+    const maxOrder = cacheRef.current.reduce((max, n) => Math.max(max, n.order_index ?? 0), -1);
+
+    const { error } = await supabase
+      .from('sermon_notes')
+      .update({ deleted_at: null, order_index: maxOrder + 1 })
+      .eq('id', note.id);
+
+    if (error) return false;
+
+    // Remove from trash list
+    setDeletedNotes(prev => prev.filter(n => n.id !== note.id));
+
+    // Add back to active notes
+    const restored = { ...note, deleted_at: undefined, order_index: maxOrder + 1 };
+    updateCache(p => [...p, restored]);
+
+    return true;
+  }, [updateCache]);
+
+  return {
+    notes,
+    isLoading,
+    addNote,
+    updateNote,
+    deleteNote,
+    reorderNotes,
+    deletedNotes,
+    isTrashLoading,
+    fetchDeletedNotes,
+    restoreNote,
+  };
 }

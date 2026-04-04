@@ -176,6 +176,7 @@
     "copy": "复制",
     "copied": "已复制",
     "deleteNote": "删除笔记",
-    "deleteConfirm": "确定删除此笔记？"
+    "deleteConfirm": "确定删除此笔记？",
+    "trashRestored": "笔记已恢复"
   }
 }

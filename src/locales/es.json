@@ -176,6 +176,7 @@
     "copy": "Copiar",
     "copied": "Copiado",
     "deleteNote": "Eliminar nota",
-    "deleteConfirm": "¿Eliminar esta nota?"
+    "deleteConfirm": "¿Eliminar esta nota?",
+    "trashRestored": "Nota restaurada"
   }
 }

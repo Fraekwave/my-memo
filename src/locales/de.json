@@ -176,6 +176,7 @@
     "copy": "Kopieren",
     "copied": "Kopiert",
     "deleteNote": "Notiz löschen",
-    "deleteConfirm": "Diese Notiz löschen?"
+    "deleteConfirm": "Diese Notiz löschen?",
+    "trashRestored": "Notiz wurde wiederhergestellt"
   }
 }
