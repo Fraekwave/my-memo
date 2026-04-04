@@ -228,7 +228,7 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
 
               {/* Topic */}
               {note.topic ? (
-                <div className="text-base font-semibold text-zinc-900 mb-1 truncate">{note.topic}</div>
+                <div className="text-base font-semibold text-black mb-1 truncate">{note.topic}</div>
               ) : (
                 <div className="text-base font-medium text-zinc-300 italic mb-1">제목 없음</div>
               )}
@@ -242,7 +242,7 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
 
               {/* Content preview */}
               {preview && (
-                <div className="text-base text-zinc-500 leading-relaxed line-clamp-2">{preview}</div>
+                <div className="text-base text-black leading-relaxed line-clamp-2">{preview}</div>
               )}
             </div>
 

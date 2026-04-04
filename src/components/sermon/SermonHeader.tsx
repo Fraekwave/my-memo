@@ -26,7 +26,7 @@ export function SermonHeader({
       {/* Date */}
       <div>
         <span className="text-base uppercase tracking-widest text-amber-600 font-semibold">{t('sermon.dateLabel')}</span>
-        <div className="text-base font-semibold text-zinc-800 mt-0.5">{date}</div>
+        <div className="text-base font-semibold text-black mt-0.5">{date}</div>
       </div>
 
       {/* Topic — largest field */}
@@ -37,7 +37,7 @@ export function SermonHeader({
           value={topic}
           onChange={(e) => onTopicChange(e.target.value)}
           placeholder={t('sermon.topic')}
-          className="w-full text-base font-semibold text-zinc-900 placeholder-zinc-300 bg-transparent outline-none mt-0.5"
+          className="w-full text-base font-semibold text-black placeholder-zinc-300 bg-transparent outline-none mt-0.5"
         />
       </div>
 
@@ -50,7 +50,7 @@ export function SermonHeader({
             value={pastor}
             onChange={(e) => onPastorChange(e.target.value)}
             placeholder={t('sermon.pastor')}
-            className="w-full text-base text-zinc-700 placeholder-zinc-300 bg-transparent outline-none mt-0.5"
+            className="w-full text-base text-black placeholder-zinc-300 bg-transparent outline-none mt-0.5"
           />
         </div>
         <div className="flex-1 min-w-0">
@@ -60,7 +60,7 @@ export function SermonHeader({
             value={bibleRef}
             onChange={(e) => onBibleRefChange(e.target.value)}
             placeholder={t('sermon.bibleRef')}
-            className="w-full text-base text-zinc-600 placeholder-zinc-300 bg-transparent outline-none mt-0.5"
+            className="w-full text-base text-black placeholder-zinc-300 bg-transparent outline-none mt-0.5"
           />
         </div>
       </div>

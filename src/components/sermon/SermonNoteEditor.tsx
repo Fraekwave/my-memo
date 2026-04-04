@@ -6,7 +6,7 @@ import { ArrowLeft, Copy, Eye, Edit3 } from 'lucide-react';
 import { SermonNote } from '@/lib/types';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useBible } from '@/hooks/useBible';
-import { detectPartialBibleRef } from '@/lib/bibleParser';
+import { detectPartialBibleRef, parseBareRef } from '@/lib/bibleParser';
 import { formatSermonNote } from '@/lib/formatSermonNote';
 import { SermonHeader } from './SermonHeader';
 
@@ -46,10 +46,27 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
     2000
   );
 
+  // Track last bible ref that was auto-inserted to avoid duplicates
+  const lastInsertedRef = useRef<string>('');
+
   // Trigger save on any field change
   const updatePastor = (v: string) => { setPastor(v); triggerSave(); };
   const updateTopic = (v: string) => { setTopic(v); triggerSave(); };
-  const updateBibleRef = (v: string) => { setBibleRef(v); triggerSave(); };
+  const updateBibleRef = useCallback(async (v: string) => {
+    setBibleRef(v);
+    triggerSave();
+
+    // Auto-insert bible text when a valid reference is entered in header
+    const ref = parseBareRef(v);
+    if (ref && v !== lastInsertedRef.current) {
+      const insertText = await formatInsertText(ref);
+      if (insertText) {
+        lastInsertedRef.current = v;
+        setContent(prev => insertText.trimStart() + '\n' + prev);
+        triggerSave();
+      }
+    }
+  }, [triggerSave, formatInsertText]);
 
   const handleContentChange = useCallback(async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
@@ -150,7 +167,7 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
 
         <div className="mt-4 min-h-[300px]">
           {showPreview ? (
-            <div className="text-base text-zinc-800 leading-relaxed task-markdown">
+            <div className="text-base text-black leading-relaxed task-markdown">
               <ReactMarkdown
                 remarkPlugins={[remarkBreaks]}
                 components={{
@@ -177,7 +194,7 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
               value={content}
               onChange={handleContentChange}
               placeholder={t('sermon.contentPlaceholder')}
-              className="w-full bg-transparent text-zinc-800 placeholder-zinc-300 outline-none resize-none leading-relaxed text-base min-h-[300px]"
+              className="w-full bg-transparent text-black placeholder-zinc-300 outline-none resize-none leading-relaxed text-base min-h-[300px]"
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
