@@ -162,6 +162,14 @@ If something could not be verified, say that clearly.
 
 10. **Shared DnD utilities**: When multiple list views need drag-to-reorder (TaskList, SermonNoteList), extract common DnD-kit setup (sensors, collision detection, modifiers, interactive element filter) into `src/lib/dndUtils.ts` to avoid duplication.
 
+11. **Textarea auto-resize causes iOS cursor jump**: Setting `height: auto` then `height: scrollHeight` on every keystroke causes layout reflow; iOS Safari aggressively scrolls to keep cursor visible but misjudges position when keyboard is open. Fix: grow-only on content change (`scrollHeight > clientHeight`), full recalc only on blur (keyboard is dismissing, so scroll jump is imperceptible).
+
+12. **Bible `@` detection must use keydown, not onChange**: Detecting `@ref` patterns on every `onChange` is unreliable — the regex with `$` (end-of-string) fails mid-text, and intermediate partial refs trigger false positives. Fix: detect on `onKeyDown` for Space/Enter, using `detectBibleRefBeforeCursor(text, cursorPos)` which checks only the text before the cursor. This also naturally supports both Space and Enter as triggers.
+
+13. **Header input auto-insert must be commit-based**: Auto-inserting bible text on every keystroke in an input field triggers for partial values (e.g., `마2:1` while typing `마2:12-20`). Fix: trigger only on Enter key or blur via a separate `onBibleRefCommit` callback, not on `onChange`.
+
+14. **Bible text special characters**: Korean bible JSON files contain `!`, `'`, and `` ` `` that cause unintended markdown formatting. Fix: strip at runtime in `getVerseText()` rather than regenerating 66 JSON files.
+
 ### Documentation
 
 - `docs/feature-markdown-display.md` — Markdown rendering & multi-line input feature
