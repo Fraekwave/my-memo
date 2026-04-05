@@ -185,10 +185,15 @@ If something could not be verified, say that clearly.
 ### Sermon Notes Feature
 
 - Mode switch via header toggle pills (not hamburger menu)
-- Bible `@` command: `@창1:1` inserts Korean bible text from split JSON files in `public/bible/`
+- Bible `@` command: `@창1:1` + Space/Enter inserts Korean bible text from split JSON files in `public/bible/`
+- Bible detection uses `onKeyDown` (Space/Enter) with cursor-position-aware `detectBibleRefBeforeCursor()` — not `onChange`
+- Header bible_ref field: auto-inserts bible text on Enter or blur only (not every keystroke) via `onBibleRefCommit`
+- Supports both abbreviated (`마1:3`) and full name (`마태복음1:3`) bible references via `parseBareRef()`
 - 66 per-book JSON files split from `bible_krv.json` via `scripts/split-bible.js`
+- Special characters (`!`, `'`, `` ` ``) stripped at runtime in `getVerseText()` to prevent markdown artifacts
 - Auto-save with 2s debounce (`useAutoSave` hook)
-- Clipboard copy formatted for KakaoTalk sharing
+- Share button on each note card using `navigator.share` API (OS native share sheet on mobile, clipboard fallback on desktop)
+- Clipboard copy in editor formatted for KakaoTalk sharing (`formatSermonNote()`)
 - Components in `src/components/sermon/`
 - i18n: all 6 languages supported (ko, en, ja, zh, de, es)
 - Swipe-to-delete (touch) + hover trash icon (PC) on note cards
@@ -197,6 +202,9 @@ If something could not be verified, say that clearly.
 - Shared DnD utilities in `src/lib/dndUtils.ts` (used by TaskList + SermonNoteList)
 - `sermon_notes` table: `order_index` column (migration `20260404_add_sermon_order_index.sql`)
 - `purge_deleted_sermon_notes()` SQL function for 30-day auto-purge
+- Note list cards: condensed 2-row layout (date+pastor / topic), gray background `#f4f4f4`, no body preview
+- All sermon note text uses pure black (`text-black`) for readability
+- Textarea auto-resize: grow-only on keystroke, full recalc on blur only (prevents iOS cursor jump)
 
 #### Remaining Tasks (Phase 2+)
 - Church bulletin OCR auto-fill
