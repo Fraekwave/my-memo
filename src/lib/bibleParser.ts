@@ -113,3 +113,27 @@ export function detectPartialBibleRef(text: string): BibleRef | null {
     raw: match[0].trimEnd(),
   };
 }
+
+/**
+ * Detect @bibleRef immediately before cursor position.
+ * Called on Space/Enter keydown — no trailing whitespace needed.
+ */
+export function detectBibleRefBeforeCursor(text: string, cursorPos: number): BibleRef | null {
+  const before = text.slice(0, cursorPos);
+  const pattern = /@([가-힣]+)(\d+):(\d+)(?:-(\d+))?$/;
+  const match = pattern.exec(before);
+  if (!match) return null;
+
+  const bookAbbr = match[1];
+  const matchedKey = BIBLE_BOOK_KEYS.find((key) => bookAbbr.startsWith(key));
+  if (!matchedKey) return null;
+
+  return {
+    book: matchedKey,
+    bookName: BIBLE_BOOKS[matchedKey].name,
+    chapter: parseInt(match[2], 10),
+    verseStart: parseInt(match[3], 10),
+    verseEnd: match[4] ? parseInt(match[4], 10) : parseInt(match[3], 10),
+    raw: match[0],
+  };
+}

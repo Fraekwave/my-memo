@@ -31,7 +31,10 @@ export function useBible() {
     const lines: string[] = [];
     for (let v = ref.verseStart; v <= ref.verseEnd; v++) {
       const verse = chapter[String(v)];
-      if (verse) lines.push(`${v}. ${verse}`);
+      if (verse) {
+        const cleaned = verse.replace(/[!'`]/g, '');
+        lines.push(`${v}. ${cleaned}`);
+      }
     }
 
     return lines.length > 0 ? lines.join('\n') : null;

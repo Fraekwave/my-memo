@@ -8,6 +8,7 @@ interface SermonHeaderProps {
   onPastorChange: (v: string) => void;
   onTopicChange: (v: string) => void;
   onBibleRefChange: (v: string) => void;
+  onBibleRefCommit?: (v: string) => void;
 }
 
 export function SermonHeader({
@@ -18,6 +19,7 @@ export function SermonHeader({
   onPastorChange,
   onTopicChange,
   onBibleRefChange,
+  onBibleRefCommit,
 }: SermonHeaderProps) {
   const { t } = useTranslation();
 
@@ -59,6 +61,8 @@ export function SermonHeader({
             type="text"
             value={bibleRef}
             onChange={(e) => onBibleRefChange(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && onBibleRefCommit) onBibleRefCommit(bibleRef); }}
+            onBlur={() => { if (onBibleRefCommit) onBibleRefCommit(bibleRef); }}
             placeholder={t('sermon.bibleRef')}
             className="w-full text-base text-black placeholder-zinc-300 bg-transparent outline-none mt-0.5"
           />

@@ -6,7 +6,7 @@ import { ArrowLeft, Copy, Eye, Edit3 } from 'lucide-react';
 import { SermonNote } from '@/lib/types';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useBible } from '@/hooks/useBible';
-import { detectPartialBibleRef, parseBareRef } from '@/lib/bibleParser';
+import { detectBibleRefBeforeCursor, parseBareRef } from '@/lib/bibleParser';
 import { formatSermonNote } from '@/lib/formatSermonNote';
 import { SermonHeader } from './SermonHeader';
 
@@ -29,14 +29,22 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
+  // Auto-resize textarea — grow only; shrink on blur to avoid cursor jump
   useEffect(() => {
-    if (textareaRef.current && !showPreview) {
-      const el = textareaRef.current;
-      el.style.height = 'auto';
-      el.style.height = Math.max(el.scrollHeight, 300) + 'px';
+    const el = textareaRef.current;
+    if (!el || showPreview) return;
+    if (el.scrollHeight > el.clientHeight) {
+      el.style.height = el.scrollHeight + 'px';
     }
   }, [content, showPreview]);
+
+  // Full recalc on initial mount and when switching from preview to edit
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el || showPreview) return;
+    el.style.height = 'auto';
+    el.style.height = Math.max(el.scrollHeight, 300) + 'px';
+  }, [showPreview]);
 
   // Auto-save
   const { trigger: triggerSave, saveStatus } = useAutoSave(
@@ -46,17 +54,16 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
     2000
   );
 
-  // Track last bible ref that was auto-inserted to avoid duplicates
+  // Track last bible ref that was auto-inserted from header to avoid duplicates
   const lastInsertedRef = useRef<string>('');
 
   // Trigger save on any field change
   const updatePastor = (v: string) => { setPastor(v); triggerSave(); };
   const updateTopic = (v: string) => { setTopic(v); triggerSave(); };
-  const updateBibleRef = useCallback(async (v: string) => {
-    setBibleRef(v);
-    triggerSave();
+  const updateBibleRef = (v: string) => { setBibleRef(v); triggerSave(); };
 
-    // Auto-insert bible text when a valid reference is entered in header
+  // Header bible_ref commit: only on Enter or blur
+  const commitBibleRef = useCallback(async (v: string) => {
     const ref = parseBareRef(v);
     if (ref && v !== lastInsertedRef.current) {
       const insertText = await formatInsertText(ref);
@@ -68,23 +75,49 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
     }
   }, [triggerSave, formatInsertText]);
 
-  const handleContentChange = useCallback(async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    setContent(newValue);
+  // Simple content change — no bible detection here (moved to keydown)
+  const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+    triggerSave();
+  }, [triggerSave]);
+
+  // Bible @-command: detect on Space or Enter keydown
+  const handleKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+
+    const el = e.currentTarget;
+    const cursorPos = el.selectionStart;
+    const text = el.value;
+
+    const ref = detectBibleRefBeforeCursor(text, cursorPos);
+    if (!ref) return;
+
+    const insertText = await formatInsertText(ref);
+    if (!insertText) return;
+
+    e.preventDefault();
+
+    // Replace @ref with bible text
+    const before = text.slice(0, cursorPos - ref.raw.length);
+    const after = text.slice(cursorPos);
+    const newContent = before + insertText + after;
+    setContent(newContent);
     triggerSave();
 
-    // Detect @bible reference followed by space
-    const ref = detectPartialBibleRef(newValue);
-    if (ref) {
-      const insertText = await formatInsertText(ref);
-      if (insertText) {
-        // Replace the @reference with the bible text
-        const replaced = newValue.replace(ref.raw + ' ', insertText);
-        setContent(replaced);
-        triggerSave();
-      }
-    }
-  }, [triggerSave, formatInsertText]);
+    // Place cursor after inserted text
+    requestAnimationFrame(() => {
+      const newPos = before.length + insertText.length;
+      el.setSelectionRange(newPos, newPos);
+    });
+  }, [formatInsertText, triggerSave]);
+
+  // Shrink textarea on blur (safe — no scroll jump since keyboard is dismissing)
+  const handleBlur = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.max(el.scrollHeight, 300) + 'px';
+  }, []);
 
   // Copy to clipboard
   const handleCopy = useCallback(async () => {
@@ -163,6 +196,7 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
           onPastorChange={updatePastor}
           onTopicChange={updateTopic}
           onBibleRefChange={updateBibleRef}
+          onBibleRefCommit={commitBibleRef}
         />
 
         <div className="mt-4 min-h-[300px]">
@@ -193,6 +227,8 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
               ref={textareaRef}
               value={content}
               onChange={handleContentChange}
+              onKeyDown={handleKeyDown}
+              onBlur={handleBlur}
               placeholder={t('sermon.contentPlaceholder')}
               className="w-full bg-transparent text-black placeholder-zinc-300 outline-none resize-none leading-relaxed text-base min-h-[300px]"
               autoComplete="off"
