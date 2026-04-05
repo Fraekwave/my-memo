@@ -117,8 +117,8 @@ export function SermonNoteList({ notes, isLoading, onSelectNote, onNewNote, onDe
 
           <DragOverlay dropAnimation={null}>
             {activeNote ? (
-              <div className="p-4 rounded-xl border border-zinc-200 shadow-xl select-none cursor-grabbing bg-white">
-                <div className="text-base text-zinc-400 font-medium mb-1">{activeNote.date}</div>
+              <div className="px-4 py-3 rounded-xl border border-zinc-200 shadow-xl select-none cursor-grabbing" style={{ backgroundColor: '#f4f4f4' }}>
+                <div className="text-sm text-zinc-400">{activeNote.date}</div>
                 {activeNote.topic ? (
                   <div className="text-base font-semibold text-zinc-900 truncate">{activeNote.topic}</div>
                 ) : (

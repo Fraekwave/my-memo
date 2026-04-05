@@ -40,10 +40,6 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
     opacity: isDragging ? 0.4 : 1,
   };
 
-  const preview = note.content.length > 80
-    ? note.content.slice(0, 80) + '...'
-    : note.content;
-
   // Swipe state
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [deletingState, setDeletingState] = useState<{ height: number } | null>(null);
@@ -212,8 +208,9 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
 
           {/* Card content */}
           <motion.div
-            className="relative z-10 w-full text-left p-4 bg-white group flex items-center gap-2"
+            className="relative z-10 w-full text-left px-4 py-3 group flex items-center gap-2"
             style={{
+              backgroundColor: '#f4f4f4',
               opacity: isDeleting ? 0 : 1,
               pointerEvents: isDeleting ? 'none' : 'auto',
               transition: isDeleting ? 'none' : undefined,
@@ -223,26 +220,22 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
             onClick={modeRef.current === 'idle' && !isDeleting ? onClick : undefined}
           >
             <div className="flex-1 min-w-0">
-              {/* Date */}
-              <div className="text-base text-zinc-400 font-medium mb-1.5">{note.date}</div>
-
-              {/* Topic */}
-              {note.topic ? (
-                <div className="text-base font-semibold text-black mb-1 truncate">{note.topic}</div>
-              ) : (
-                <div className="text-base font-medium text-zinc-300 italic mb-1">제목 없음</div>
-              )}
-
-              {/* Pastor + Bible Ref */}
-              <div className="flex items-center gap-2 text-base text-zinc-400 mb-2">
-                {note.pastor && <span>{note.pastor}</span>}
-                {note.pastor && note.bible_ref && <span>·</span>}
-                {note.bible_ref && <span>{note.bible_ref}</span>}
+              {/* Row 1: Date + Pastor */}
+              <div className="flex items-center gap-2 text-sm text-zinc-400">
+                <span>{note.date}</span>
+                {note.pastor && <><span>·</span><span>{note.pastor}</span></>}
               </div>
 
-              {/* Content preview */}
-              {preview && (
-                <div className="text-base text-black leading-relaxed line-clamp-2">{preview}</div>
+              {/* Row 2: Topic */}
+              {note.topic ? (
+                <div className="text-base font-semibold text-black truncate">{note.topic}</div>
+              ) : (
+                <div className="text-base font-medium text-zinc-300 italic">제목 없음</div>
+              )}
+
+              {/* Row 3: Bible Ref */}
+              {note.bible_ref && (
+                <div className="text-sm text-zinc-500">{note.bible_ref}</div>
               )}
             </div>
 
