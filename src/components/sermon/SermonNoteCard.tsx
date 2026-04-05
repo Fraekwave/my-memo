@@ -2,8 +2,9 @@ import { useState, useRef, useCallback } from 'react';
 import { useSortable, defaultAnimateLayoutChanges, type AnimateLayoutChanges } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Share2 } from 'lucide-react';
 import { SermonNote } from '@/lib/types';
+import { formatSermonNote } from '@/lib/formatSermonNote';
 import { isInteractiveElement } from '@/lib/dndUtils';
 
 const DELETE_DISTANCE_RATIO = 0.38;
@@ -232,12 +233,26 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
               ) : (
                 <div className="text-base font-medium text-zinc-300 italic">제목 없음</div>
               )}
-
-              {/* Row 3: Bible Ref */}
-              {note.bible_ref && (
-                <div className="text-sm text-zinc-500">{note.bible_ref}</div>
-              )}
             </div>
+
+            {/* Share button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const text = formatSermonNote(note);
+                if (navigator.share) {
+                  navigator.share({ text }).catch(() => {});
+                } else {
+                  navigator.clipboard.writeText(text).catch(() => {});
+                }
+              }}
+              data-no-dnd="true"
+              className="flex-shrink-0 p-1.5 text-zinc-300 hover:text-zinc-600 transition-colors"
+              aria-label="Share"
+            >
+              <Share2 className="w-4 h-4" strokeWidth={1.5} />
+            </button>
 
             {/* Hover delete (PC only) */}
             <button
