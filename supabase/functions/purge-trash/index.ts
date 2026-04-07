@@ -39,19 +39,30 @@ Deno.serve(async (req) => {
     },
   });
 
-  const { data, error } = await adminClient.rpc('purge_deleted_tasks', {
-    retention_days: 30,
-  });
+  const [tasksResult, notesResult] = await Promise.all([
+    adminClient.rpc('purge_deleted_tasks', { retention_days: 30 }),
+    adminClient.rpc('purge_deleted_sermon_notes', { retention_days: 30 }),
+  ]);
 
-  if (error) {
-    console.error('[purge-trash] purge_deleted_tasks failed', error);
+  if (tasksResult.error) {
+    console.error('[purge-trash] purge_deleted_tasks failed', tasksResult.error);
+  }
+  if (notesResult.error) {
+    console.error('[purge-trash] purge_deleted_sermon_notes failed', notesResult.error);
+  }
+
+  if (tasksResult.error && notesResult.error) {
     return new Response(JSON.stringify({ error: 'Failed to purge trash' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  return new Response(JSON.stringify({ ok: true, purged_count: Number(data ?? 0) }), {
+  return new Response(JSON.stringify({
+    ok: true,
+    purged_tasks: Number(tasksResult.data ?? 0),
+    purged_notes: Number(notesResult.data ?? 0),
+  }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });

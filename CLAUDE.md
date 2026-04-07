@@ -209,4 +209,3 @@ If something could not be verified, say that clearly.
 #### Remaining Tasks (Phase 2+)
 - Church bulletin OCR auto-fill
 - AI expansion via Claude API (organize rough notes)
-- Integrate sermon note purge into existing cron/edge function schedule
