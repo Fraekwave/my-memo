@@ -76,7 +76,7 @@ export const EditableTitle = ({
         aria-label="앱 제목 (클릭하여 수정)"
       >
         <span
-          className="block border-b border-transparent hover:border-zinc-300/70 transition-colors duration-150 truncate"
+          className="block border-b border-transparent hover:border-stone-300/70 transition-colors duration-150 truncate"
           style={{ paddingBottom: '1px' }}
         >
           {value || placeholder}
@@ -97,8 +97,8 @@ export const EditableTitle = ({
       className={`
         w-full max-w-full min-w-0 text-4xl sm:text-5xl font-light tracking-tight
         bg-transparent border-none outline-none
-        text-zinc-900 placeholder:text-zinc-400
-        border-b border-zinc-300 focus:border-zinc-500
+        text-stone-900 placeholder:text-stone-400
+        border-b border-stone-300 focus:border-stone-500
         transition-colors duration-150
         ${inputClassName} ${className}
       `}

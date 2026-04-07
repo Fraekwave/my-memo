@@ -1,5 +1,5 @@
-/* Google Fonts Import - @import는 최상단에 위치 */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Pretendard Font — Korean-optimized, warm, distinctive */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
 /* Tailwind 기본 설정 */
 @tailwind base;
@@ -8,7 +8,7 @@
 
 /* 전역 스타일 */
 * {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
 
 /*
@@ -16,18 +16,18 @@
  *
  * color-scheme: light only → 시스템 다크모드 강제 반전을 완전히 차단.
  * Samsung Galaxy 등에서 배경/텍스트가 모두 검정으로 변하는 버그 방지.
+ * 명시적 background-color로 Samsung WebView의 투명→검정 반전 방지.
  */
 :root {
   color-scheme: light only;
 }
 
 /*
- * App Shell 아키텍처: Viewport Lock
- *
- * html/body/#root를 뷰포트에 고정하고 overflow를 차단하여
- * 브라우저가 주소창/하단바를 리사이즈하는 것을 방지합니다.
- * 모든 스크롤은 내부 .app-scroll-container에서 처리합니다.
+ * App Shell 아키텍처: Viewport Lock + Galaxy Dark Mode Defense
  */
+html {
+  font-size: 17px; /* Accessibility: 30-50대 readability without losing sleekness */
+}
 html, body, #root {
   height: 100%;
   overflow: hidden;
@@ -36,6 +36,16 @@ html, body, #root {
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  background-color: #fafaf5; /* warm white — explicit to prevent Samsung force-dark inversion */
+  color: #1c1917; /* stone-900 warm black */
+}
+
+/* Samsung WebView force-dark override — defense in depth */
+@media (prefers-color-scheme: dark) {
+  html, body, #root {
+    background-color: #fafaf5 !important;
+    color: #1c1917 !important;
+  }
 }
 
 /* Task 아이템 애니메이션 */
@@ -148,13 +158,14 @@ html, body, #root {
   transform: translate(-50%, -60%) rotate(45deg);
 }
 
-/* 로딩 스피너 */
+/* 로딩 스피너 — conic gradient to avoid border-accent-on-rounded pattern */
 .spinner {
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #18181b;
-  border-radius: 50%;
   width: 20px;
   height: 20px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0%, #1c1917 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
   animation: spin 1s linear infinite;
 }
 

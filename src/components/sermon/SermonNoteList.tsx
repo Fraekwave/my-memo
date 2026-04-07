@@ -76,17 +76,20 @@ export function SermonNoteList({ notes, isLoading, onSelectNote, onNewNote, onDe
       <button
         type="button"
         onClick={onNewNote}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 mb-4 rounded-xl border-2 border-dashed border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 transition-colors"
+        className="w-full flex flex-col items-center gap-1 px-4 py-4 mb-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
       >
-        <Plus className="w-4 h-4" strokeWidth={2} />
-        <span className="text-base font-medium">{t('sermon.newNote')}</span>
+        <div className="flex items-center gap-2">
+          <Plus className="w-4 h-4" strokeWidth={2} />
+          <span className="text-base font-semibold">{t('sermon.newNote')}</span>
+        </div>
+        <span className="text-sm text-amber-500">{t('sermon.noNotesSub')}</span>
       </button>
 
       {/* Notes list */}
       {notes.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-zinc-400 text-base">{t('sermon.noNotes')}</p>
-          <p className="text-zinc-300 text-base mt-1">{t('sermon.noNotesSub')}</p>
+          <p className="text-stone-400 text-base">{t('sermon.noNotes')}</p>
+          <p className="text-stone-300 text-base mt-1">{t('sermon.noNotesSub')}</p>
         </div>
       ) : (
         <DndContext
@@ -117,12 +120,12 @@ export function SermonNoteList({ notes, isLoading, onSelectNote, onNewNote, onDe
 
           <DragOverlay dropAnimation={null}>
             {activeNote ? (
-              <div className="px-4 py-3 rounded-xl border border-zinc-200 shadow-xl select-none cursor-grabbing" style={{ backgroundColor: '#f4f4f4' }}>
-                <div className="text-sm text-zinc-400">{activeNote.date}</div>
+              <div className="px-4 py-3 rounded-xl border border-stone-200 shadow-xl select-none cursor-grabbing" style={{ backgroundColor: '#f4f4f4' }}>
+                <div className="text-sm text-stone-400">{activeNote.date}</div>
                 {activeNote.topic ? (
-                  <div className="text-base font-semibold text-zinc-900 truncate">{activeNote.topic}</div>
+                  <div className="text-base font-semibold text-stone-900 truncate">{activeNote.topic}</div>
                 ) : (
-                  <div className="text-base font-medium text-zinc-300 italic">제목 없음</div>
+                  <div className="text-base font-medium text-stone-300 italic">제목 없음</div>
                 )}
               </div>
             ) : null}

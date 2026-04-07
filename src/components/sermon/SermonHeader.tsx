@@ -39,7 +39,7 @@ export function SermonHeader({
           value={topic}
           onChange={(e) => onTopicChange(e.target.value)}
           placeholder={t('sermon.topic')}
-          className="w-full text-base font-semibold text-black placeholder-zinc-300 bg-transparent outline-none mt-0.5"
+          className="w-full text-base font-semibold text-black placeholder-stone-300 bg-transparent outline-none mt-0.5"
         />
       </div>
 
@@ -52,7 +52,7 @@ export function SermonHeader({
             value={pastor}
             onChange={(e) => onPastorChange(e.target.value)}
             placeholder={t('sermon.pastor')}
-            className="w-full text-base text-black placeholder-zinc-300 bg-transparent outline-none mt-0.5"
+            className="w-full text-base text-black placeholder-stone-300 bg-transparent outline-none mt-0.5"
           />
         </div>
         <div className="flex-1 min-w-0">
@@ -64,7 +64,7 @@ export function SermonHeader({
             onKeyDown={(e) => { if (e.key === 'Enter' && onBibleRefCommit) onBibleRefCommit(bibleRef); }}
             onBlur={() => { if (onBibleRefCommit) onBibleRefCommit(bibleRef); }}
             placeholder={t('sermon.bibleRef')}
-            className="w-full text-base text-black placeholder-zinc-300 bg-transparent outline-none mt-0.5"
+            className="w-full text-base text-black placeholder-stone-300 bg-transparent outline-none mt-0.5"
           />
         </div>
       </div>

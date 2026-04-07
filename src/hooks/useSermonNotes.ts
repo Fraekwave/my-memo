@@ -70,6 +70,7 @@ export function useSermonNotes(userId: string | null) {
 
     const today = new Date().toISOString().split('T')[0];
     const maxOrder = cacheRef.current.reduce((max, n) => Math.max(max, n.order_index ?? 0), -1);
+    const template = '## 핵심 말씀\n\n\n## 받은 은혜\n\n\n## 적용\n\n\n## 기도제목\n\n';
     const optimistic: SermonNote = {
       id: -Date.now(),
       user_id: userId,
@@ -77,7 +78,7 @@ export function useSermonNotes(userId: string | null) {
       pastor: '',
       topic: '',
       bible_ref: '',
-      content: '',
+      content: template,
       order_index: maxOrder + 1,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -94,7 +95,7 @@ export function useSermonNotes(userId: string | null) {
         pastor: '',
         topic: '',
         bible_ref: '',
-        content: '',
+        content: template,
         order_index: maxOrder + 1,
       })
       .select()

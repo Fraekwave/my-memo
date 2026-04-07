@@ -120,7 +120,7 @@ export function GlobalMenu({
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-zinc-900/5 backdrop-blur-[8px] transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 bg-stone-900/5 backdrop-blur-[8px] transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={close}
@@ -141,16 +141,16 @@ export function GlobalMenu({
         style={{ WebkitBackdropFilter: 'blur(20px)' }}
       >
         {/* Panel header */}
-        <div className="flex items-center justify-between px-6 pt-14 pb-5 border-b border-zinc-100">
+        <div className="flex items-center justify-between px-6 pt-14 pb-5 border-b border-stone-100">
           <span
-            className="text-xl font-semibold text-zinc-900"
+            className="text-xl font-semibold text-stone-900"
             style={{ letterSpacing: '-0.05em' }}
           >
             INA Done
           </span>
           <button
             onClick={close}
-            className="p-1.5 -mr-1.5 text-zinc-400 hover:text-zinc-700 transition-colors rounded-lg"
+            className="p-1.5 -mr-1.5 text-stone-400 hover:text-stone-700 transition-colors rounded-lg"
             aria-label={t('common.close')}
           >
             <X className="w-4 h-4" strokeWidth={1.5} />
@@ -171,12 +171,12 @@ export function GlobalMenu({
                   role="menuitem"
                   onClick={item.action}
                   className={`w-full flex items-center gap-3 px-6 py-3.5 text-left
-                    transition-colors duration-150 hover:bg-black/5 active:bg-black/[0.08] group
-                    ${item.isAdmin ? 'text-zinc-400' : 'text-zinc-800'}`}
+                    transition-colors duration-150 hover:bg-stone-900/5 active:bg-stone-900/[0.08] group
+                    ${item.isAdmin ? 'text-stone-400' : 'text-stone-800'}`}
                 >
                   <span
                     className={`flex-shrink-0 transition-colors duration-150
-                      ${item.isAdmin ? 'text-zinc-300' : 'text-zinc-400 group-hover:text-zinc-700'}`}
+                      ${item.isAdmin ? 'text-stone-300' : 'text-stone-400 group-hover:text-stone-700'}`}
                   >
                     {item.icon}
                   </span>
@@ -185,12 +185,12 @@ export function GlobalMenu({
                   >
                     {item.label}
                     {item.isAdmin && (
-                      <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-zinc-300 align-middle" />
+                      <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-stone-300 align-middle" />
                     )}
                   </span>
                   {!item.external && (
                     <ChevronRight
-                      className="w-3.5 h-3.5 text-zinc-300 group-hover:text-zinc-400 transition-colors flex-shrink-0"
+                      className="w-3.5 h-3.5 text-stone-300 group-hover:text-stone-400 transition-colors flex-shrink-0"
                       strokeWidth={2}
                     />
                   )}
@@ -199,10 +199,10 @@ export function GlobalMenu({
             </nav>
 
             {/* Sign out — pinned to bottom */}
-            <div className="px-6 pb-10 pt-4 border-t border-zinc-100">
+            <div className="px-6 pb-10 pt-4 border-t border-stone-100">
               <button
                 onClick={() => { onSignOut(); close(); }}
-                className="flex items-center gap-2.5 text-sm text-zinc-400 hover:text-zinc-600 transition-colors"
+                className="flex items-center gap-2.5 text-sm text-stone-400 hover:text-stone-600 transition-colors"
               >
                 <LogOut className="w-4 h-4" strokeWidth={1.5} />
                 <span>{t('auth.logout')}</span>
@@ -216,15 +216,15 @@ export function GlobalMenu({
               ${panel ? 'translate-x-0 opacity-100' : 'translate-x-8 opacity-0 pointer-events-none'}`}
           >
             {/* Sub-panel back header */}
-            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-zinc-100">
+            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-stone-100">
               <button
                 onClick={() => setPanel(null)}
-                className="p-1.5 -ml-1.5 text-zinc-400 hover:text-zinc-700 transition-colors rounded-lg"
+                className="p-1.5 -ml-1.5 text-stone-400 hover:text-stone-700 transition-colors rounded-lg"
                 aria-label={t('common.back')}
               >
                 <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
               </button>
-              <span className="text-sm font-medium text-zinc-700">
+              <span className="text-sm font-medium text-stone-700">
                 {panel === 'howToUse' && t('menu.howToUse')}
                 {panel === 'pro' && t('menu.proUpgrade')}
               </span>
@@ -238,13 +238,13 @@ export function GlobalMenu({
                   <div className="space-y-6">
                     {tips.map((tip, i) => (
                       <div key={i}>
-                        <p className="text-sm font-semibold text-zinc-800 mb-1">{tip.title}</p>
-                        <p className="text-xs text-zinc-500 leading-relaxed">{tip.desc}</p>
+                        <p className="text-sm font-semibold text-stone-800 mb-1">{tip.title}</p>
+                        <p className="text-xs text-stone-500 leading-relaxed">{tip.desc}</p>
                       </div>
                     ))}
                   </div>
                   <p
-                    className="mt-12 text-center text-[10px] font-medium uppercase text-zinc-300"
+                    className="mt-12 text-center text-[10px] font-medium uppercase text-stone-300"
                     style={{ letterSpacing: '0.2em' }}
                   >
                     — v1.3.0 —
@@ -255,27 +255,27 @@ export function GlobalMenu({
               {/* ── PRO Upgrade ── */}
               {panel === 'pro' && (
                 <div className="flex flex-col items-center text-center pt-2">
-                  <div className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center mb-5">
+                  <div className="w-12 h-12 rounded-2xl bg-stone-900 flex items-center justify-center mb-5">
                     <Sparkles className="w-5 h-5 text-white" strokeWidth={1.5} />
                   </div>
                   <p
-                    className="text-xl font-semibold text-zinc-900 mb-2"
+                    className="text-xl font-semibold text-stone-900 mb-2"
                     style={{ letterSpacing: '-0.04em' }}
                   >
                     {t('menu.proTitle')}
                   </p>
-                  <p className="text-sm text-zinc-500 mb-7 leading-relaxed">{t('menu.proDesc')}</p>
+                  <p className="text-sm text-stone-500 mb-7 leading-relaxed">{t('menu.proDesc')}</p>
                   <ul className="w-full space-y-3 mb-8 text-left">
                     {proFeatures.map((feature, i) => (
-                      <li key={i} className="flex items-center gap-3 text-sm text-zinc-700">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-100 flex items-center justify-center">
-                          <Check className="w-3 h-3 text-zinc-500" strokeWidth={2.5} />
+                      <li key={i} className="flex items-center gap-3 text-sm text-stone-700">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-stone-100 flex items-center justify-center">
+                          <Check className="w-3 h-3 text-stone-500" strokeWidth={2.5} />
                         </span>
                         {feature}
                       </li>
                     ))}
                   </ul>
-                  <span className="text-xs text-zinc-400 bg-zinc-100 px-4 py-1.5 rounded-full font-medium">
+                  <span className="text-xs text-stone-400 bg-stone-100 px-4 py-1.5 rounded-full font-medium">
                     {t('menu.proComingSoon')}
                   </span>
                 </div>
@@ -292,7 +292,7 @@ export function GlobalMenu({
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="p-2 -m-2 text-zinc-400 hover:text-zinc-700 transition-colors duration-200 rounded-lg"
+        className="p-2 -m-2 text-stone-400 hover:text-stone-700 transition-colors duration-200 rounded-lg"
         aria-label="Menu"
         aria-expanded={isOpen}
         aria-haspopup="dialog"

@@ -171,7 +171,7 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
       transition={isDeleting ? { layout: EXIT_SPRING } : undefined}
       {...dragProps}
       className={`
-        rounded-xl border border-zinc-100 select-none cursor-grab
+        rounded-xl border border-stone-100 select-none cursor-grab
         ${isDeleting ? 'pointer-events-none' : ''}
       `}
     >
@@ -222,7 +222,7 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
           >
             <div className="flex-1 min-w-0">
               {/* Row 1: Date + Pastor */}
-              <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <div className="flex items-center gap-2 text-sm text-stone-400">
                 <span>{note.date}</span>
                 {note.pastor && <><span>·</span><span>{note.pastor}</span></>}
               </div>
@@ -231,7 +231,7 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
               {note.topic ? (
                 <div className="text-base font-semibold text-black truncate">{note.topic}</div>
               ) : (
-                <div className="text-base font-medium text-zinc-300 italic">제목 없음</div>
+                <div className="text-base font-medium text-stone-300 italic">제목 없음</div>
               )}
             </div>
 
@@ -248,7 +248,7 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
                 }
               }}
               data-no-dnd="true"
-              className="flex-shrink-0 p-1.5 text-zinc-300 hover:text-zinc-600 transition-colors"
+              className="flex-shrink-0 p-1.5 text-stone-300 hover:text-stone-600 transition-colors"
               aria-label="Share"
             >
               <Share2 className="w-4 h-4" strokeWidth={1.5} />
@@ -265,7 +265,7 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
                 opacity-0 group-hover:opacity-100
                 pointer-events-none group-hover:pointer-events-auto
                 transition-opacity duration-200
-                text-zinc-300 hover:text-red-500
+                text-stone-300 hover:text-red-500
               "
               aria-label="Delete"
             >

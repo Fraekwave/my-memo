@@ -361,8 +361,8 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
       }
       {...dragProps}
       className={`
-        task-item group rounded-xl border border-zinc-100
-        hover:border-zinc-200 hover:shadow-sm select-none
+        task-item group rounded-xl border border-stone-100
+        hover:border-stone-200 hover:shadow-sm select-none
         ${isEditing ? 'cursor-auto' : 'cursor-grab'}
         ${isDeleting ? 'pointer-events-none' : ''}
       `}
@@ -520,7 +520,7 @@ export const TaskItem = memo(({ task, activeDragId, onToggle, onUpdate, onDelete
                 opacity-0 group-hover:opacity-100
                 pointer-events-none group-hover:pointer-events-auto
                 transition-opacity duration-200
-                ${aging.isDark ? 'text-white/40 hover:text-white' : 'text-zinc-300 hover:text-red-500'}
+                ${aging.isDark ? 'text-white/40 hover:text-white' : 'text-stone-300 hover:text-red-500'}
               `}
               aria-label={t('tasks.ariaDelete')}
             >

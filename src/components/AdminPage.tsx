@@ -49,21 +49,21 @@ function StatCard({
   subValue?: number;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-zinc-100 p-4 flex flex-col gap-1.5">
-      <div className="flex items-center gap-1.5 text-zinc-400">
+    <div className="bg-white rounded-2xl border border-stone-100 p-4 flex flex-col gap-1.5">
+      <div className="flex items-center gap-1.5 text-stone-400">
         <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
         <span className="text-[10px] font-semibold tracking-widest uppercase">{label}</span>
       </div>
       <span
-        className="text-3xl font-semibold text-zinc-900 leading-none"
+        className="text-3xl font-semibold text-stone-900 leading-none"
         style={{ letterSpacing: '-0.04em' }}
       >
         {value.toLocaleString()}
       </span>
       {subLabel !== undefined && subValue !== undefined && (
         <div className="flex items-center gap-1 mt-0.5">
-          <Trash2 className="w-3 h-3 text-zinc-300" strokeWidth={1.5} />
-          <span className="text-[11px] text-zinc-400">
+          <Trash2 className="w-3 h-3 text-stone-300" strokeWidth={1.5} />
+          <span className="text-[11px] text-stone-400">
             {subValue.toLocaleString()} {subLabel}
           </span>
         </div>
@@ -92,15 +92,15 @@ function UserRow({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-zinc-100 px-4 py-3 flex items-center gap-3">
+    <div className="bg-white rounded-xl border border-stone-100 px-4 py-3 flex items-center gap-3">
       {/* Identity */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <p className="text-sm text-zinc-800 truncate">
+          <p className="text-sm text-stone-800 truncate">
             {user.email ?? (
               <button
                 onClick={handleCopyId}
-                className="text-zinc-400 text-xs font-mono hover:text-zinc-600 transition-colors"
+                className="text-stone-400 text-xs font-mono hover:text-stone-600 transition-colors"
                 title="Click to copy ID"
               >
                 {copied ? 'Copied!' : `${user.id.slice(0, 8)}…`}
@@ -109,7 +109,7 @@ function UserRow({
           </p>
           {isPro && <ProPill />}
         </div>
-        <p className="text-xs text-zinc-400 font-mono mt-0.5">{formatDate(user.joined_at)}</p>
+        <p className="text-xs text-stone-400 font-mono mt-0.5">{formatDate(user.joined_at)}</p>
       </div>
 
       {/* Action — plain text toggle */}
@@ -118,8 +118,8 @@ function UserRow({
         disabled={isToggling}
         className={`flex-shrink-0 flex items-center gap-1 text-xs font-medium transition-colors duration-150 disabled:opacity-40
           ${isPro
-            ? 'text-zinc-400 hover:text-red-500'
-            : 'text-zinc-500 hover:text-amber-600'
+            ? 'text-stone-400 hover:text-red-500'
+            : 'text-stone-500 hover:text-amber-600'
           }`}
       >
         {isToggling
@@ -152,12 +152,12 @@ function AdminPageContent({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-50 flex flex-col overflow-hidden animate-fade-in">
+    <div className="fixed inset-0 z-50 bg-stone-50 flex flex-col overflow-hidden animate-fade-in">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-zinc-100 flex-shrink-0">
+      <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-stone-100 flex-shrink-0">
         <button
           onClick={onClose}
-          className="p-1.5 -ml-1.5 text-zinc-400 hover:text-zinc-700 transition-colors rounded-lg"
+          className="p-1.5 -ml-1.5 text-stone-400 hover:text-stone-700 transition-colors rounded-lg"
           aria-label="Close admin"
         >
           <ArrowLeft className="w-5 h-5" strokeWidth={1.5} />
@@ -165,18 +165,18 @@ function AdminPageContent({ onClose }: { onClose: () => void }) {
 
         <div className="flex flex-col items-center">
           <span
-            className="text-sm font-semibold text-zinc-900"
+            className="text-sm font-semibold text-stone-900"
             style={{ letterSpacing: '-0.03em' }}
           >
             Admin
           </span>
-          <span className="text-[10px] text-zinc-400 font-mono">INA Done</span>
+          <span className="text-[10px] text-stone-400 font-mono">INA Done</span>
         </div>
 
         <button
           onClick={handleRefresh}
           disabled={isLoading || isRefreshing}
-          className="p-1.5 -mr-1.5 text-zinc-400 hover:text-zinc-700 transition-colors rounded-lg disabled:opacity-40"
+          className="p-1.5 -mr-1.5 text-stone-400 hover:text-stone-700 transition-colors rounded-lg disabled:opacity-40"
           aria-label="Refresh"
         >
           <RefreshCw
@@ -204,7 +204,7 @@ function AdminPageContent({ onClose }: { onClose: () => void }) {
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-2xl border border-zinc-100 p-4 h-24 animate-pulse"
+                  className="bg-white rounded-2xl border border-stone-100 p-4 h-24 animate-pulse"
                 />
               ))}
             </div>
@@ -225,11 +225,11 @@ function AdminPageContent({ onClose }: { onClose: () => void }) {
           {/* ── User list ── */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[10px] font-semibold text-zinc-400 tracking-widest uppercase">
+              <h2 className="text-[10px] font-semibold text-stone-400 tracking-widest uppercase">
                 Members
               </h2>
               {!isLoading && (
-                <span className="text-xs text-zinc-400">{users.length} total</span>
+                <span className="text-xs text-stone-400">{users.length} total</span>
               )}
             </div>
 
@@ -238,12 +238,12 @@ function AdminPageContent({ onClose }: { onClose: () => void }) {
                 {[0, 1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="bg-white rounded-2xl border border-zinc-100 p-4 h-16 animate-pulse"
+                    className="bg-white rounded-2xl border border-stone-100 p-4 h-16 animate-pulse"
                   />
                 ))}
               </div>
             ) : users.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-zinc-100 p-8 text-center text-sm text-zinc-400">
+              <div className="bg-white rounded-2xl border border-stone-100 p-8 text-center text-sm text-stone-400">
                 No users found.
               </div>
             ) : (

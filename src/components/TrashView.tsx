@@ -56,24 +56,24 @@ export const TrashView = ({
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[200px]">
-        <div className="inline-block w-8 h-8 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+        <div className="inline-block w-8 h-8 border-2 border-stone-200 border-t-stone-900 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <p className="text-zinc-500 text-xs font-light">
+      <p className="text-stone-500 text-xs font-light">
         {t('trash.purgeWarning')}
       </p>
 
       {restoreFeedback && (
-        <p className="text-zinc-800 text-sm font-medium py-2">{restoreFeedback}</p>
+        <p className="text-stone-800 text-sm font-medium py-2">{restoreFeedback}</p>
       )}
 
       {visibleDeleted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-zinc-400 text-sm font-light">{t('trash.empty')}</p>
+          <p className="text-stone-400 text-sm font-light">{t('trash.empty')}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -90,16 +90,16 @@ export const TrashView = ({
             return (
               <li
                 key={task.id}
-                className="task-item flex items-center gap-3 p-4 rounded-xl border border-zinc-100 bg-zinc-50"
+                className="task-item flex items-center gap-3 p-4 rounded-xl border border-stone-100 bg-stone-50"
               >
                 <span
-                  className="flex-1 min-w-0 truncate text-sm text-zinc-700"
+                  className="flex-1 min-w-0 truncate text-sm text-stone-700"
                 >
                   {task.text}
                 </span>
                 {purgeLabel && (
                   <span
-                    className="flex-shrink-0 text-xs text-zinc-400 font-light tabular-nums"
+                    className="flex-shrink-0 text-xs text-stone-400 font-light tabular-nums"
                     aria-label={`${purgeLabel}`}
                   >
                     {purgeLabel}
@@ -108,7 +108,7 @@ export const TrashView = ({
                 <button
                   type="button"
                   onClick={() => handleRestore(task)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200 rounded-lg transition-colors text-xs font-medium"
+                  className="flex items-center gap-1.5 px-2 py-1.5 text-stone-500 hover:text-stone-800 hover:bg-stone-200 rounded-lg transition-colors text-xs font-medium"
                   aria-label={t('trash.restore')}
                 >
                   <RotateCcw className="w-4 h-4" strokeWidth={2} />
@@ -121,7 +121,7 @@ export const TrashView = ({
       )}
 
       {purgedCount > 0 && (
-      <p className="text-zinc-400 text-xs font-light">
+      <p className="text-stone-400 text-xs font-light">
         {t('trash.purgedCount', { count: purgedCount })}
       </p>
       )}

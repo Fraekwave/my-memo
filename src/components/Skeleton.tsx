@@ -1,12 +1,12 @@
 /**
  * Skeleton placeholders for initial loading state.
  * Renders instantly before auth/data resolves, replacing full-screen spinners.
- * Colors: zinc-100/zinc-200 pulse — matches the app's light zinc theme.
+ * Colors: stone-100/stone-200 pulse — matches the app's light stone theme.
  */
 
 function SkeletonPulse({ className }: { className?: string }) {
   return (
-    <div className={`animate-pulse rounded-lg bg-zinc-100 ${className ?? ''}`} />
+    <div className={`animate-pulse rounded-lg bg-stone-100 ${className ?? ''}`} />
   );
 }
 
@@ -25,7 +25,7 @@ export function SkeletonTabBar() {
 /** Mimics the TaskForm input area */
 export function SkeletonTaskForm() {
   return (
-    <div className="bg-white border-x border-zinc-200 shadow-lg shadow-zinc-200/50">
+    <div className="bg-white border-x border-stone-200 shadow-lg shadow-stone-200/50">
       <div className="p-4">
         <SkeletonPulse className="h-10 w-full rounded-xl" />
       </div>
@@ -51,12 +51,12 @@ export function SkeletonTaskList() {
 export function SkeletonAppContent() {
   return (
     <>
-      <div className="sticky top-0 z-40 bg-zinc-50 -mx-4 sm:-mx-8 px-4 sm:px-8">
+      <div className="sticky top-0 z-40 bg-stone-50 -mx-4 sm:-mx-8 px-4 sm:px-8">
         <SkeletonTabBar />
         <SkeletonTaskForm />
-        <div className="h-0 border-x border-zinc-200 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.06)]" />
+        <div className="h-0 border-x border-stone-200 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.06)]" />
       </div>
-      <div className="bg-white rounded-b-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 border-t-0">
+      <div className="bg-white rounded-b-3xl shadow-lg shadow-stone-200/50 border border-stone-200 border-t-0">
         <SkeletonTaskList />
       </div>
     </>

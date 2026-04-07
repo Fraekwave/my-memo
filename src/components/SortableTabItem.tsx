@@ -82,11 +82,11 @@ export const SortableTabItem = ({
         rounded-t-lg cursor-pointer select-none
         transition-colors duration-200 ease-out
         min-w-[80px] max-w-[200px] flex-shrink-0
-        ${isDragging ? 'shadow-lg ring-1 ring-zinc-300/50 rounded-lg' : ''}
+        ${isDragging ? 'shadow-lg ring-1 ring-stone-300/50 rounded-lg' : ''}
         ${
           isActive
-            ? 'bg-white text-zinc-900 shadow-sm font-medium'
-            : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300/70 hover:text-zinc-700'
+            ? 'bg-white text-stone-900 shadow-sm font-medium'
+            : 'bg-stone-200 text-stone-500 hover:bg-stone-300/70 hover:text-stone-700'
         }
       `}
     >
@@ -99,7 +99,7 @@ export const SortableTabItem = ({
           onChange={(e) => onEditTitleChange(e.target.value)}
           onBlur={onSaveEdit}
           onKeyDown={onKeyDown}
-          className="flex-1 min-w-0 bg-transparent border-b border-zinc-400 outline-none text-sm py-0"
+          className="flex-1 min-w-0 bg-transparent border-b border-stone-400 outline-none text-sm py-0"
           onClick={(e) => e.stopPropagation()}
         />
       ) : (
@@ -116,7 +116,7 @@ export const SortableTabItem = ({
               e.stopPropagation();
               onStartEditing(tab);
             }}
-            className="flex-shrink-0 text-zinc-300 hover:text-zinc-600 transition-colors p-0.5"
+            className="flex-shrink-0 text-stone-300 hover:text-stone-600 transition-colors p-0.5"
             aria-label="탭 이름 변경"
           >
             <Pencil className="w-3 h-3" />
@@ -127,7 +127,7 @@ export const SortableTabItem = ({
                 e.stopPropagation();
                 onDeleteRequest(tab.id);
               }}
-              className="flex-shrink-0 rounded-full p-0.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-all duration-150"
+              className="flex-shrink-0 rounded-full p-0.5 text-stone-300 hover:text-red-600 transition-all duration-150"
               aria-label="탭 삭제"
             >
               <X className="w-3.5 h-3.5" />

@@ -84,7 +84,7 @@ export const PasswordResetConfirm = ({ onSuccess }: PasswordResetConfirmProps) =
   return (
     <div className="h-full flex items-center justify-center p-6 sm:p-8 bg-stone-50">
       <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-light text-zinc-900 tracking-tight text-center mb-1">
+        <h1 className="text-3xl font-light text-stone-900 tracking-tight text-center mb-1">
           INA Done
         </h1>
         <p className="text-stone-500 text-sm font-light text-center mb-8 tracking-wide">
@@ -100,12 +100,12 @@ export const PasswordResetConfirm = ({ onSuccess }: PasswordResetConfirmProps) =
               placeholder={t('auth.password')}
               required
               autoComplete="new-password"
-              className="w-full px-4 py-3 pr-10 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
+              className="w-full px-4 py-3 pr-10 bg-white border border-stone-200 rounded-xl text-stone-900 placeholder-stone-400 outline-none focus:border-stone-400 transition-colors duration-200"
             />
             <button
               type="button"
               onClick={toggleShowPassword}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 transition-colors"
               aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               tabIndex={-1}
             >
@@ -127,13 +127,13 @@ export const PasswordResetConfirm = ({ onSuccess }: PasswordResetConfirmProps) =
               <li
                 key={label}
                 className={`flex items-center gap-1.5 text-xs transition-colors duration-150 ${
-                  met ? 'text-zinc-800 font-medium' : 'text-zinc-400'
+                  met ? 'text-stone-800 font-medium' : 'text-stone-400'
                 }`}
               >
                 {met ? (
                   <Check className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} stroke="currentColor" />
                 ) : (
-                  <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-zinc-300" aria-hidden />
+                  <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-stone-300" aria-hidden />
                 )}
                 {label}
               </li>
@@ -148,16 +148,16 @@ export const PasswordResetConfirm = ({ onSuccess }: PasswordResetConfirmProps) =
               placeholder={t('auth.confirmPassword')}
               required
               autoComplete="new-password"
-              className={`w-full px-4 py-3 pr-10 bg-white border rounded-xl text-zinc-900 placeholder-stone-400 outline-none transition-colors duration-200 ${
+              className={`w-full px-4 py-3 pr-10 bg-white border rounded-xl text-stone-900 placeholder-stone-400 outline-none transition-colors duration-200 ${
                 confirmPassword && !passwordsMatch
-                  ? 'border-zinc-400 focus:border-zinc-500'
-                  : 'border-zinc-200 focus:border-zinc-400'
+                  ? 'border-stone-400 focus:border-stone-500'
+                  : 'border-stone-200 focus:border-stone-400'
               }`}
             />
             <button
               type="button"
               onClick={toggleShowPassword}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 transition-colors"
               aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               tabIndex={-1}
             >
@@ -170,15 +170,15 @@ export const PasswordResetConfirm = ({ onSuccess }: PasswordResetConfirmProps) =
           </div>
 
           {confirmPassword && !passwordsMatch && (
-            <p className="text-zinc-600 text-sm font-light">{t('auth.passwordMismatch')}</p>
+            <p className="text-stone-600 text-sm font-light">{t('auth.passwordMismatch')}</p>
           )}
 
-          {error && <p className="text-zinc-600 text-sm font-light">{error}</p>}
+          {error && <p className="text-stone-600 text-sm font-light">{error}</p>}
 
           <button
             type="submit"
             disabled={loading || !canSubmit}
-            className="w-full py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-all duration-200 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? t('auth.processing') : t('auth.setNewPassword')}
           </button>

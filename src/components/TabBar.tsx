@@ -279,7 +279,7 @@ export const TabBar = ({
           {limitMessage}
         </div>
       )}
-    <div className="flex items-end gap-0 bg-zinc-100 pl-1 pr-1 pt-2 overflow-hidden">
+    <div className="flex items-end gap-0 bg-stone-100 pl-1 pr-1 pt-2 overflow-hidden">
       {/* 좌측 Chevron — 항상 DOM에 존재, disabled 시 투명 + 클릭 차단 */}
       <button
         onClick={() => scrollByAmount('left')}
@@ -288,7 +288,7 @@ export const TabBar = ({
           flex-shrink-0 flex items-center justify-center w-6 h-8 mb-0.5
           transition-all duration-150
           ${canScrollLeft
-            ? 'text-zinc-400 hover:text-zinc-700 cursor-pointer'
+            ? 'text-stone-400 hover:text-stone-700 cursor-pointer'
             : 'text-transparent cursor-default pointer-events-none'
           }
         `}
@@ -340,8 +340,8 @@ export const TabBar = ({
                 flex-shrink-0 flex items-center px-3 py-2.5 rounded-t-lg
                 min-w-[60px] transition-colors duration-200
                 ${selectedTabId === ALL_TAB_ID
-                  ? 'bg-zinc-900 text-white font-medium'
-                  : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300/70 hover:text-zinc-700'
+                  ? 'bg-stone-900 text-white font-medium'
+                  : 'bg-stone-200 text-stone-500 hover:bg-stone-300/70 hover:text-stone-700'
                 }
               `}
             >
@@ -359,7 +359,7 @@ export const TabBar = ({
           flex-shrink-0 flex items-center justify-center w-6 h-8 mb-0.5
           transition-all duration-150
           ${canScrollRight
-            ? 'text-zinc-400 hover:text-zinc-700 cursor-pointer'
+            ? 'text-stone-400 hover:text-stone-700 cursor-pointer'
             : 'text-transparent cursor-default pointer-events-none'
           }
         `}
@@ -374,7 +374,7 @@ export const TabBar = ({
       <button
         onMouseDown={(e) => e.preventDefault()}
         onClick={handleAdd}
-        className="flex-shrink-0 flex items-center justify-center w-8 h-8 mb-0.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition-all duration-150"
+        className="flex-shrink-0 flex items-center justify-center w-8 h-8 mb-0.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-all duration-150"
         aria-label={t('tabs.addTab')}
       >
         <Plus className="w-4 h-4" />

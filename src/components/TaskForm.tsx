@@ -224,12 +224,12 @@ export const TaskForm = memo(({
   };
 
   return (
-    <form onSubmit={handleSubmit} autoComplete="off" className="p-6 sm:p-8 border-b border-zinc-100">
+    <form onSubmit={handleSubmit} autoComplete="off" className="p-6 sm:p-8 border-b border-stone-100">
       <div className="flex gap-3">
         {/* ── Autocomplete Wrapper ── */}
         {/* Touch handlers on wrapper for swipe detection */}
         <div
-          className="relative flex-1 bg-zinc-50 rounded-xl border border-zinc-200 transition-colors focus-within:bg-white focus-within:border-zinc-900"
+          className="relative flex-1 bg-stone-50 rounded-xl border border-stone-200 transition-colors focus-within:bg-white focus-within:border-stone-900"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
@@ -240,7 +240,7 @@ export const TaskForm = memo(({
               aria-hidden="true"
             >
               <span className="invisible whitespace-pre">{input}</span>
-              <span className="text-zinc-300 whitespace-pre">{suffix}</span>
+              <span className="text-stone-300 whitespace-pre">{suffix}</span>
             </div>
           )}
 
@@ -250,7 +250,7 @@ export const TaskForm = memo(({
               className="absolute inset-y-0 right-3 flex items-center pointer-events-none animate-swipe-hint"
               aria-hidden="true"
             >
-              <span className="text-[11px] text-zinc-400 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
+              <span className="text-[11px] text-stone-400 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
                 <span className="animate-nudge-right">→</span>
                 {t('tasks.swipeHint')}
               </span>
@@ -269,7 +269,7 @@ export const TaskForm = memo(({
             onCompositionEnd={handleCompositionEnd}
             placeholder={placeholder}
             rows={1}
-            className="relative w-full px-4 py-3 bg-transparent text-zinc-900 placeholder-zinc-400 outline-none rounded-xl resize-none overflow-hidden leading-normal"
+            className="relative w-full px-4 py-3 bg-transparent text-stone-900 placeholder-stone-400 outline-none rounded-xl resize-none overflow-hidden leading-normal"
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="none"
@@ -280,7 +280,7 @@ export const TaskForm = memo(({
         <button
           type="submit"
           disabled={isDisabled || !input.trim()}
-          className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all active:scale-95 whitespace-nowrap flex-shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-all active:scale-95 whitespace-nowrap flex-shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>{t('common.add')}</span>
         </button>

@@ -64,7 +64,7 @@ function MembershipBadge({ isPro }: { isPro: boolean }) {
         backdrop-blur-sm pointer-events-auto animate-fade-in
         ${isPro
           ? 'bg-amber-50/50 border-amber-200 text-amber-600'
-          : 'bg-zinc-50/50 border-zinc-200 text-zinc-500'
+          : 'bg-stone-50/50 border-stone-200 text-stone-500'
         }
       `}
     >
@@ -224,7 +224,7 @@ function App() {
 
   return (
     <>
-    <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-zinc-50 animate-fade-in">
+    <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-stone-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
         {/* 헤더 — 시간 중심 레이아웃:
               날짜가 중앙 상단의 메인 콘텐츠, 배지가 그 바로 아래에 위치.
@@ -246,20 +246,20 @@ function App() {
             <div className="absolute inset-x-0 flex items-center justify-center pointer-events-none">
               <div className="flex flex-col items-center gap-1.5">
                 <p
-                  className="text-xl sm:text-2xl font-semibold text-zinc-900 tracking-tight select-none"
+                  className="text-xl sm:text-2xl font-semibold text-stone-900 tracking-tight select-none"
                 >
                   {currentDate}
                 </p>
 
                 {/* Mode toggle pills */}
-                <div className="flex items-center gap-1 bg-zinc-100 rounded-full p-0.5 pointer-events-auto">
+                <div className="flex items-center gap-1 bg-stone-100 rounded-full p-0.5 pointer-events-auto">
                   <button
                     type="button"
                     onClick={() => { if (mode !== 'todo') toggleMode(); }}
                     className={`text-lg font-medium px-3 py-1 rounded-full transition-all duration-200 ${
                       mode === 'todo'
-                        ? 'bg-zinc-900 text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-600'
+                        ? 'bg-amber-700 text-white shadow-sm'
+                        : 'text-stone-400 hover:text-stone-600'
                     }`}
                   >
                     {t('sermon.modeToggleTodo')}
@@ -269,8 +269,8 @@ function App() {
                     onClick={() => { if (mode !== 'sermon') toggleMode(); }}
                     className={`text-lg font-medium px-3 py-1 rounded-full transition-all duration-200 ${
                       mode === 'sermon'
-                        ? 'bg-zinc-900 text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-600'
+                        ? 'bg-amber-700 text-white shadow-sm'
+                        : 'text-stone-400 hover:text-stone-600'
                     }`}
                   >
                     {t('sermon.modeToggleNotes')}
@@ -287,7 +287,7 @@ function App() {
                 type="button"
                 onClick={() => setShowTrashView((v) => !v)}
                 className={`p-2 -m-2 rounded-lg transition-colors duration-200 ${
-                  showTrashView ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
+                  showTrashView ? 'text-stone-800' : 'text-stone-400 hover:text-stone-600'
                 }`}
                 aria-label={t('app.trashAriaLabel')}
               >
@@ -309,7 +309,7 @@ function App() {
         <>
         {/* Sticky 영역: 탭 바 + 입력 폼 (휴지통 뷰에서는 숨김) */}
         {!showTrashView && (
-        <div className="sticky top-0 z-40 bg-zinc-50 -mx-4 sm:-mx-8 px-4 sm:px-8">
+        <div className="sticky top-0 z-40 bg-stone-50 -mx-4 sm:-mx-8 px-4 sm:px-8">
           <TabBar
             tabs={tabs}
             selectedTabId={selectedTabId}
@@ -319,7 +319,7 @@ function App() {
             onDelete={deleteTab}
             onReorder={reorderTabs}
           />
-          <div className="bg-white border-x border-zinc-200 shadow-lg shadow-zinc-200/50">
+          <div className="bg-white border-x border-stone-200 shadow-lg shadow-stone-200/50">
             {/* 에러 메시지 */}
             {error && (
               <div className="p-4 bg-red-50 border-b border-red-200 text-red-600 text-sm">
@@ -333,21 +333,21 @@ function App() {
               isAtTaskLimit={isAtTaskLimit}
             />
           </div>
-          <div className="h-0 border-x border-zinc-200 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.06)]" />
+          <div className="h-0 border-x border-stone-200 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.06)]" />
         </div>
         )}
 
         {/* 스크롤 콘텐츠: Task 목록 또는 휴지통 */}
-        <div className="bg-white rounded-b-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 border-t-0">
+        <div className="bg-white rounded-b-3xl shadow-lg shadow-stone-200/50 border border-stone-200 border-t-0">
           <div className="p-6 sm:p-8 min-h-[400px] flex flex-col">
             {showTrashView ? (
               <>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-light text-zinc-900">{t('trash.trashTitle')}</h2>
+                  <h2 className="text-lg font-light text-stone-900">{t('trash.trashTitle')}</h2>
                   <button
                     type="button"
                     onClick={() => setShowTrashView(false)}
-                    className="text-xs font-medium text-zinc-500 hover:text-zinc-700"
+                    className="text-xs font-medium text-stone-500 hover:text-stone-700"
                   >
                     {t('common.close')}
                   </button>
@@ -379,11 +379,11 @@ function App() {
           </div>
 
           {!showTrashView && (
-          <div className="px-6 sm:px-8 py-4 bg-zinc-50 border-t border-zinc-100 rounded-b-3xl flex items-center justify-between text-sm">
-            <span className="text-zinc-500 font-light">
+          <div className="px-6 sm:px-8 py-4 bg-stone-50 border-t border-stone-100 rounded-b-3xl flex items-center justify-between text-sm">
+            <span className="text-stone-500 font-light">
               {t('app.statsTotal', { count: stats.total })}
             </span>
-            <span className="text-zinc-500 font-light">
+            <span className="text-stone-500 font-light">
               {t('app.statsCompleted', { count: stats.completed })}
             </span>
           </div>
@@ -394,7 +394,7 @@ function App() {
 
         {/* 푸터 */}
         <div className="text-center mt-8 pb-[env(safe-area-inset-bottom)]">
-          <p className="text-zinc-400 text-sm font-light">
+          <p className="text-stone-400 text-sm font-light">
             {t('app.footer', { year: new Date().getFullYear() })}
           </p>
         </div>

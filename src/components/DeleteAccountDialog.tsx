@@ -67,7 +67,7 @@ export const DeleteAccountDialog = ({
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       onClick={isDeleting ? undefined : onCancel}
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-modal-backdrop" />
+      <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm animate-modal-backdrop" />
 
       <div
         className="relative w-full max-w-md rounded-3xl bg-white shadow-2xl p-6 sm:p-7 animate-modal-card"
@@ -78,10 +78,10 @@ export const DeleteAccountDialog = ({
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
               <CheckCircle2 className="h-7 w-7" strokeWidth={1.8} />
             </div>
-            <h3 className="text-xl font-semibold text-zinc-900">
+            <h3 className="text-xl font-semibold text-stone-900">
               {t('account.delete.successTitle')}
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-zinc-500 whitespace-pre-line">
+            <p className="mt-2 text-sm leading-relaxed text-stone-500 whitespace-pre-line">
               {t('account.delete.successMessage')}
             </p>
           </div>
@@ -92,20 +92,20 @@ export const DeleteAccountDialog = ({
             <AlertTriangle className="h-5 w-5" strokeWidth={1.8} />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-zinc-900">
+            <h3 className="text-xl font-semibold text-stone-900">
               {t('account.delete.title')}
             </h3>
-            <p className="mt-1 text-sm leading-relaxed text-zinc-500 whitespace-pre-line">
+            <p className="mt-1 text-sm leading-relaxed text-stone-500 whitespace-pre-line">
               {t('account.delete.body', { word: confirmationWord })}
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+        <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">
             {t('account.emailLabel')}
           </p>
-          <p className="mt-1 break-all text-sm text-zinc-800">
+          <p className="mt-1 break-all text-sm text-stone-800">
             {email ?? t('account.emailUnavailable')}
           </p>
         </div>
@@ -113,7 +113,7 @@ export const DeleteAccountDialog = ({
         <div className="mt-4">
           <label
             htmlFor="delete-account-confirmation"
-            className="block text-sm font-medium text-zinc-700 mb-2"
+            className="block text-sm font-medium text-stone-700 mb-2"
           >
             {t('account.delete.confirmLabel', { word: confirmationWord })}
           </label>
@@ -134,9 +134,9 @@ export const DeleteAccountDialog = ({
             autoCapitalize="characters"
             autoCorrect="off"
             spellCheck={false}
-            className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors focus:border-zinc-500 disabled:bg-zinc-100"
+            className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-stone-900 outline-none transition-colors focus:border-stone-500 disabled:bg-stone-100"
           />
-          <p className="mt-2 text-xs text-zinc-400">
+          <p className="mt-2 text-xs text-stone-400">
             {t('account.delete.confirmHint', { word: confirmationWord })}
           </p>
         </div>
@@ -152,7 +152,7 @@ export const DeleteAccountDialog = ({
             type="button"
             onClick={onCancel}
             disabled={isDeleting}
-            className="flex-1 rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-60"
+            className="flex-1 rounded-2xl bg-stone-100 px-4 py-3 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-200 disabled:opacity-60"
           >
             {t('common.cancel')}
           </button>
@@ -160,7 +160,7 @@ export const DeleteAccountDialog = ({
             <button
               type="button"
               onClick={onSignInAgain}
-              className="flex-1 rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
+              className="flex-1 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-stone-800"
             >
               {t('account.delete.signInAgain')}
             </button>

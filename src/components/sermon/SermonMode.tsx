@@ -45,7 +45,7 @@ export function SermonMode({ userId, showTrash, onCloseTrash }: SermonModeProps)
   // Trash view
   if (showTrash) {
     return (
-      <div className="bg-white rounded-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 p-6 sm:p-8 min-h-[400px]">
+      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 p-6 sm:p-8 min-h-[400px]">
         <SermonTrashView
           deletedNotes={deletedNotes}
           isLoading={isTrashLoading}
@@ -59,7 +59,7 @@ export function SermonMode({ userId, showTrash, onCloseTrash }: SermonModeProps)
 
   if (selectedNote) {
     return (
-      <div className="bg-white rounded-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 min-h-[500px]">
+      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]">
         <SermonNoteEditor
           note={selectedNote}
           onUpdate={updateNote}
@@ -70,7 +70,7 @@ export function SermonMode({ userId, showTrash, onCloseTrash }: SermonModeProps)
   }
 
   return (
-    <div className="bg-white rounded-3xl shadow-lg shadow-zinc-200/50 border border-zinc-200 p-6 sm:p-8 min-h-[400px]">
+    <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 p-6 sm:p-8 min-h-[400px]">
       <SermonNoteList
         notes={notes}
         isLoading={isLoading}

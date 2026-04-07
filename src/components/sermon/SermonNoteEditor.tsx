@@ -143,11 +143,11 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-2 py-3 border-b border-zinc-100">
+      <div className="flex items-center justify-between px-2 py-3 border-b border-stone-100">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 transition-colors p-1.5 -ml-1.5 rounded-lg"
+          className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 transition-colors p-1.5 -ml-1.5 rounded-lg"
         >
           <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
           <span>{t('common.back')}</span>
@@ -155,7 +155,7 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
 
         <div className="flex items-center gap-1">
           {/* Save status */}
-          <span className="text-xs text-zinc-400 mr-2">
+          <span className="text-xs text-stone-400 mr-2">
             {saveStatus === 'saving' && t('sermon.saving')}
             {saveStatus === 'saved' && t('sermon.saved')}
           </span>
@@ -164,7 +164,7 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
           <button
             type="button"
             onClick={() => setShowPreview(!showPreview)}
-            className={`p-2 rounded-lg transition-colors ${showPreview ? 'text-zinc-700 bg-zinc-100' : 'text-zinc-400 hover:text-zinc-600'}`}
+            className={`p-2 rounded-lg transition-colors ${showPreview ? 'text-stone-700 bg-stone-100' : 'text-stone-400 hover:text-stone-600'}`}
             aria-label={showPreview ? 'Edit' : 'Preview'}
           >
             {showPreview ? <Edit3 className="w-4 h-4" strokeWidth={1.5} /> : <Eye className="w-4 h-4" strokeWidth={1.5} />}
@@ -174,7 +174,7 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
           <button
             type="button"
             onClick={handleCopy}
-            className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors rounded-lg"
+            className="p-2 text-stone-400 hover:text-stone-600 transition-colors rounded-lg"
             aria-label={t('sermon.copy')}
           >
             {copyFeedback ? (
@@ -215,8 +215,8 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
                   ul: ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>,
                   ol: ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>,
                   li: ({ children }) => <li className="mb-0.5">{children}</li>,
-                  blockquote: ({ children }) => <blockquote className="border-l-4 border-zinc-300 pl-3 italic text-zinc-600 mb-2">{children}</blockquote>,
-                  code: ({ children }) => <code className="bg-zinc-100 px-1 py-0.5 rounded text-sm">{children}</code>,
+                  blockquote: ({ children }) => <blockquote className="border-l-2 border-amber-300 pl-3 italic text-stone-600 mb-2">{children}</blockquote>,
+                  code: ({ children }) => <code className="bg-stone-100 px-1 py-0.5 rounded text-sm">{children}</code>,
                 }}
               >
                 {content}
@@ -230,7 +230,7 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
               onKeyDown={handleKeyDown}
               onBlur={handleBlur}
               placeholder={t('sermon.contentPlaceholder')}
-              className="w-full bg-transparent text-black placeholder-zinc-300 outline-none resize-none leading-relaxed text-base min-h-[300px]"
+              className="w-full bg-transparent text-black placeholder-stone-300 outline-none resize-none leading-relaxed text-base min-h-[300px]"
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}

@@ -62,7 +62,7 @@ export const ConfirmModal = ({
       onClick={onCancel}
     >
       {/* 반투명 배경 */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-modal-backdrop" />
+      <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm animate-modal-backdrop" />
 
       {/* 모달 카드 */}
       <div
@@ -70,12 +70,12 @@ export const ConfirmModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* 제목 */}
-        <h3 className="text-lg font-semibold text-zinc-900 mb-2">
+        <h3 className="text-lg font-semibold text-stone-900 mb-2">
           {title}
         </h3>
 
         {/* 메시지 */}
-        <p className="text-sm text-zinc-500 leading-relaxed mb-6 whitespace-pre-line">
+        <p className="text-sm text-stone-500 leading-relaxed mb-6 whitespace-pre-line">
           {message}
         </p>
 
@@ -83,7 +83,7 @@ export const ConfirmModal = ({
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 transition-colors outline-none"
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 transition-colors outline-none"
           >
             {cancelLabel}
           </button>

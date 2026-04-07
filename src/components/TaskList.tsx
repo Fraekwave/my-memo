@@ -76,8 +76,8 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder, disab
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-zinc-400 font-light">{t('tasks.noTask')}</p>
-          <p className="text-zinc-300 text-sm mt-1">{t('tasks.noTaskSub')}</p>
+          <p className="text-stone-400 font-light">{t('tasks.noTask')}</p>
+          <p className="text-stone-300 text-sm mt-1">{t('tasks.noTaskSub')}</p>
         </div>
       </div>
     );
@@ -120,7 +120,7 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder, disab
           const aging = getTaskAgingStyles(activeTask.created_at);
           return (
             <div
-              className="task-item flex items-center gap-3 p-4 rounded-xl border border-zinc-200 shadow-xl select-none cursor-grabbing"
+              className="task-item flex items-center gap-3 p-4 rounded-xl border border-stone-200 shadow-xl select-none cursor-grabbing"
               style={{ backgroundColor: aging.backgroundColor }}
             >
               <input

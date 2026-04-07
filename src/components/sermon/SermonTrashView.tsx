@@ -47,7 +47,7 @@ export function SermonTrashView({ deletedNotes, isLoading, onFetch, onRestore, o
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[200px]">
-        <div className="inline-block w-8 h-8 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+        <div className="inline-block w-8 h-8 border-2 border-stone-200 border-t-stone-900 rounded-full animate-spin" />
       </div>
     );
   }
@@ -55,26 +55,26 @@ export function SermonTrashView({ deletedNotes, isLoading, onFetch, onRestore, o
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-light text-zinc-900">{t('trash.trashTitle')}</h2>
+        <h2 className="text-lg font-light text-stone-900">{t('trash.trashTitle')}</h2>
         <button
           type="button"
           onClick={onClose}
-          className="text-xs font-medium text-zinc-500 hover:text-zinc-700"
+          className="text-xs font-medium text-stone-500 hover:text-stone-700"
         >
           {t('common.close')}
         </button>
       </div>
-      <p className="text-zinc-500 text-xs font-light">
+      <p className="text-stone-500 text-xs font-light">
         {t('trash.purgeWarning')}
       </p>
 
       {restoreFeedback && (
-        <p className="text-zinc-800 text-sm font-medium py-2">{restoreFeedback}</p>
+        <p className="text-stone-800 text-sm font-medium py-2">{restoreFeedback}</p>
       )}
 
       {visibleDeleted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-zinc-400 text-sm font-light">{t('trash.empty')}</p>
+          <p className="text-stone-400 text-sm font-light">{t('trash.empty')}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -91,20 +91,20 @@ export function SermonTrashView({ deletedNotes, isLoading, onFetch, onRestore, o
             return (
               <li
                 key={note.id}
-                className="flex items-center gap-3 p-4 rounded-xl border border-zinc-100 bg-zinc-50"
+                className="flex items-center gap-3 p-4 rounded-xl border border-stone-100 bg-stone-50"
               >
-                <span className="flex-1 min-w-0 truncate text-sm text-zinc-700">
+                <span className="flex-1 min-w-0 truncate text-sm text-stone-700">
                   {note.topic || note.date}
                 </span>
                 {purgeLabel && (
-                  <span className="flex-shrink-0 text-xs text-zinc-400 font-light tabular-nums">
+                  <span className="flex-shrink-0 text-xs text-stone-400 font-light tabular-nums">
                     {purgeLabel}
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => handleRestore(note)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200 rounded-lg transition-colors text-xs font-medium"
+                  className="flex items-center gap-1.5 px-2 py-1.5 text-stone-500 hover:text-stone-800 hover:bg-stone-200 rounded-lg transition-colors text-xs font-medium"
                   aria-label={t('trash.restore')}
                 >
                   <RotateCcw className="w-4 h-4" strokeWidth={2} />
@@ -117,7 +117,7 @@ export function SermonTrashView({ deletedNotes, isLoading, onFetch, onRestore, o
       )}
 
       {purgedCount > 0 && (
-        <p className="text-zinc-400 text-xs font-light">
+        <p className="text-stone-400 text-xs font-light">
           {t('trash.purgedCount', { count: purgedCount })}
         </p>
       )}

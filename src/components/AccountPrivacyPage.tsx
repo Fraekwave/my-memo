@@ -78,11 +78,11 @@ export const AccountPrivacyPage = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-zinc-50 flex flex-col overflow-hidden animate-fade-in">
-        <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-zinc-100 flex-shrink-0">
+      <div className="fixed inset-0 z-50 bg-stone-50 flex flex-col overflow-hidden animate-fade-in">
+        <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-stone-100 flex-shrink-0">
           <button
             onClick={onClose}
-            className="p-1.5 -ml-1.5 text-zinc-400 hover:text-zinc-700 transition-colors rounded-lg"
+            className="p-1.5 -ml-1.5 text-stone-400 hover:text-stone-700 transition-colors rounded-lg"
             aria-label={t('common.close')}
           >
             <ArrowLeft className="w-5 h-5" strokeWidth={1.5} />
@@ -90,12 +90,12 @@ export const AccountPrivacyPage = ({
 
           <div className="flex flex-col items-center">
             <span
-              className="text-sm font-semibold text-zinc-900"
+              className="text-sm font-semibold text-stone-900"
               style={{ letterSpacing: '-0.03em' }}
             >
               {t('account.title')}
             </span>
-            <span className="text-[10px] text-zinc-400 font-mono">INA Done</span>
+            <span className="text-[10px] text-stone-400 font-mono">INA Done</span>
           </div>
 
           <div className="w-8" aria-hidden />
@@ -103,64 +103,64 @@ export const AccountPrivacyPage = ({
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
           <div className="max-w-2xl mx-auto w-full px-4 py-6 space-y-5">
-            <section className="bg-white rounded-3xl border border-zinc-100 p-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+            <section className="bg-white rounded-3xl border border-stone-100 p-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">
                 {t('account.emailLabel')}
               </p>
-              <p className="mt-2 break-all text-base text-zinc-900">
+              <p className="mt-2 break-all text-base text-stone-900">
                 {userEmail ?? t('account.emailUnavailable')}
               </p>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+              <p className="mt-3 text-sm leading-relaxed text-stone-500">
                 {t('account.description')}
               </p>
             </section>
 
-            <section className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+            <section className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
               <button
                 type="button"
                 onClick={() => window.open(legalUrl, '_blank', 'noopener,noreferrer')}
-                className="w-full flex items-center justify-between gap-3 px-6 py-4 text-left transition-colors hover:bg-zinc-50"
+                className="w-full flex items-center justify-between gap-3 px-6 py-4 text-left transition-colors hover:bg-stone-50"
               >
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-100 text-stone-500">
                     <FileText className="h-4 w-4" strokeWidth={1.7} />
                   </span>
                   <div>
-                    <p className="text-sm font-medium text-zinc-900">
+                    <p className="text-sm font-medium text-stone-900">
                       {t('account.privacyPolicy')}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-stone-500">
                       {t('account.privacyPolicyDescription')}
                     </p>
                   </div>
                 </div>
-                <ExternalLink className="h-4 w-4 text-zinc-300" strokeWidth={1.7} />
+                <ExternalLink className="h-4 w-4 text-stone-300" strokeWidth={1.7} />
               </button>
             </section>
 
-            <section className="bg-white rounded-3xl border border-zinc-100 p-6">
+            <section className="bg-white rounded-3xl border border-stone-100 p-6">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                   <ShieldAlert className="h-4 w-4" strokeWidth={1.7} />
                 </span>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-zinc-900">
+                  <p className="text-sm font-semibold text-stone-900">
                     {t('account.delete.cardTitle')}
                   </p>
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-500 whitespace-pre-line">
+                  <p className="mt-2 text-sm leading-relaxed text-stone-500 whitespace-pre-line">
                     {t('account.delete.cardBody')}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-5 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3">
-                <div className="flex items-center gap-2 text-zinc-500 mb-2">
+              <div className="mt-5 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+                <div className="flex items-center gap-2 text-stone-500 mb-2">
                   <Trash2 className="h-4 w-4" strokeWidth={1.7} />
                   <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">
                     {t('account.delete.dataLabel')}
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed text-zinc-600">
+                <p className="text-sm leading-relaxed text-stone-600">
                   {t('account.delete.dataDescription')}
                 </p>
               </div>

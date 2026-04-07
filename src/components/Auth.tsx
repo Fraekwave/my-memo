@@ -206,10 +206,10 @@ export const Auth = ({ onSuccess }: AuthProps) => {
     return (
       <div className="h-full flex items-center justify-center p-6 sm:p-8 bg-stone-50">
         <div className="w-full max-w-sm text-center">
-          <h1 className="text-2xl font-light text-zinc-900 tracking-tight mb-4">
+          <h1 className="text-2xl font-light text-stone-900 tracking-tight mb-4">
             {t('auth.verifyEmailTitle')}
           </h1>
-          <p className="text-zinc-600 text-sm font-light leading-relaxed mb-8">
+          <p className="text-stone-600 text-sm font-light leading-relaxed mb-8">
             {t('auth.verifyEmailMessage')}
           </p>
           <button
@@ -218,7 +218,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
               setIsSignedUp(false);
               setMode('login');
             }}
-            className="w-full py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 active:scale-[0.99]"
+            className="w-full py-3 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-all duration-200 active:scale-[0.99]"
           >
             {t('auth.backToLogin')}
           </button>
@@ -230,7 +230,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
   return (
     <div className="h-full flex items-center justify-center p-6 sm:p-8 bg-stone-50">
       <div className="w-full max-w-sm relative">
-        <h1 className="text-3xl font-light text-zinc-900 tracking-tight text-center mb-1">
+        <h1 className="text-3xl font-light text-stone-900 tracking-tight text-center mb-1">
           INA Done
         </h1>
         <p className="text-stone-500 text-sm font-light text-center mb-8 tracking-wide">
@@ -250,11 +250,11 @@ export const Auth = ({ onSuccess }: AuthProps) => {
               placeholder={t('auth.emailForReset')}
               required
               autoComplete="email"
-              className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
+              className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-stone-900 placeholder-stone-400 outline-none focus:border-stone-400 transition-colors duration-200"
             />
-            {error && <p className="text-zinc-600 text-sm font-light">{error}</p>}
+            {error && <p className="text-stone-600 text-sm font-light">{error}</p>}
             {resetSuccess && (
-              <p className="text-zinc-800 text-sm font-medium">
+              <p className="text-stone-800 text-sm font-medium">
                 {t('auth.resetSentMessage')}
               </p>
             )}
@@ -266,7 +266,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
                   setResetSuccess(false);
                   setError(null);
                 }}
-                className="flex items-center justify-center gap-1.5 px-4 py-3 border border-zinc-200 rounded-xl text-zinc-600 text-sm font-medium hover:bg-zinc-50 transition-colors"
+                className="flex items-center justify-center gap-1.5 px-4 py-3 border border-stone-200 rounded-xl text-stone-600 text-sm font-medium hover:bg-stone-50 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
                 {t('common.back')}
@@ -274,7 +274,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
               <button
                 type="submit"
                 disabled={resetLoading || resetSuccess}
-                className="flex-1 py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {resetLoading ? t('auth.resetSending') : resetSuccess ? t('auth.resetSent') : t('auth.resetSend')}
               </button>
@@ -289,7 +289,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
               placeholder={t('auth.email')}
             required
             autoComplete="email"
-            className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
+            className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-stone-900 placeholder-stone-400 outline-none focus:border-stone-400 transition-colors duration-200"
           />
           <div className="relative">
             <input
@@ -299,12 +299,12 @@ export const Auth = ({ onSuccess }: AuthProps) => {
               placeholder={t('auth.password')}
               required
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              className="w-full px-4 py-3 pr-10 bg-white border border-zinc-200 rounded-xl text-zinc-900 placeholder-stone-400 outline-none focus:border-zinc-400 transition-colors duration-200"
+              className="w-full px-4 py-3 pr-10 bg-white border border-stone-200 rounded-xl text-stone-900 placeholder-stone-400 outline-none focus:border-stone-400 transition-colors duration-200"
             />
             <button
               type="button"
               onClick={toggleShowPassword}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 transition-colors"
               aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               tabIndex={-1}
             >
@@ -327,13 +327,13 @@ export const Auth = ({ onSuccess }: AuthProps) => {
                 <li
                   key={label}
                   className={`flex items-center gap-1.5 text-xs transition-colors duration-150 ${
-                    met ? 'text-zinc-800 font-medium' : 'text-zinc-400'
+                    met ? 'text-stone-800 font-medium' : 'text-stone-400'
                   }`}
                 >
                   {met ? (
                     <Check className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} stroke="currentColor" />
                   ) : (
-                    <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-zinc-300" aria-hidden />
+                    <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-stone-300" aria-hidden />
                   )}
                   {label}
                 </li>
@@ -350,16 +350,16 @@ export const Auth = ({ onSuccess }: AuthProps) => {
                 placeholder={t('auth.confirmPassword')}
                 required
                 autoComplete="new-password"
-                className={`w-full px-4 py-3 pr-10 bg-white border rounded-xl text-zinc-900 placeholder-stone-400 outline-none transition-colors duration-200 ${
+                className={`w-full px-4 py-3 pr-10 bg-white border rounded-xl text-stone-900 placeholder-stone-400 outline-none transition-colors duration-200 ${
                   confirmPassword && !passwordsMatch
-                    ? 'border-zinc-400 focus:border-zinc-500'
-                    : 'border-zinc-200 focus:border-zinc-400'
+                    ? 'border-stone-400 focus:border-stone-500'
+                    : 'border-stone-200 focus:border-stone-400'
                 }`}
               />
               <button
                 type="button"
                 onClick={toggleShowPassword}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 transition-colors"
                 aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                 tabIndex={-1}
               >
@@ -373,17 +373,17 @@ export const Auth = ({ onSuccess }: AuthProps) => {
           )}
 
           {confirmPassword && !passwordsMatch && (
-            <p className="text-zinc-600 text-sm font-light">{t('auth.passwordMismatch')}</p>
+            <p className="text-stone-600 text-sm font-light">{t('auth.passwordMismatch')}</p>
           )}
 
           {error && (
-            <p className="text-zinc-600 text-sm font-light">{error}</p>
+            <p className="text-stone-600 text-sm font-light">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading || (mode === 'signup' && !canSignUp)}
-            className="w-full py-3 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-all duration-200 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-all duration-200 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? t('auth.processing') : mode === 'login' ? t('auth.login') : t('auth.signup')}
           </button>
@@ -392,7 +392,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
             <button
               type="button"
               onClick={() => setShowResetFlow(true)}
-              className="w-full py-1.5 text-zinc-500 text-xs font-light hover:text-zinc-700 transition-colors"
+              className="w-full py-1.5 text-stone-500 text-xs font-light hover:text-stone-700 transition-colors"
             >
               {t('auth.forgotPassword')}
             </button>
@@ -404,21 +404,21 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         {!showResetFlow && (
         <>
         <div className="flex items-center gap-4 my-6" role="separator" aria-label="구분선">
-          <div className="flex-1 h-px bg-zinc-200" />
-          <span className="text-zinc-400 text-xs font-light tracking-widest uppercase">OR</span>
-          <div className="flex-1 h-px bg-zinc-200" />
+          <div className="flex-1 h-px bg-stone-200" />
+          <span className="text-stone-400 text-xs font-light tracking-widest uppercase">OR</span>
+          <div className="flex-1 h-px bg-stone-200" />
         </div>
 
         <button
           type="button"
           onClick={handleGoogleSignIn}
           disabled={googleLoading}
-          className={`w-full flex items-center justify-center gap-3 py-3 px-4 bg-white border border-zinc-200 rounded-xl text-zinc-800 hover:bg-zinc-50 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white ${
+          className={`w-full flex items-center justify-center gap-3 py-3 px-4 bg-white border border-stone-200 rounded-xl text-stone-800 hover:bg-stone-50 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white ${
             googleLoading ? 'opacity-75' : ''
           }`}
         >
           {googleLoading ? (
-            <Loader2 className="w-5 h-5 text-zinc-500 animate-spin" strokeWidth={1.5} />
+            <Loader2 className="w-5 h-5 text-stone-500 animate-spin" strokeWidth={1.5} />
           ) : (
             <GoogleGIcon className="w-5 h-5" />
           )}
@@ -433,7 +433,7 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         <button
           type="button"
           onClick={toggleMode}
-          className="w-full mt-6 py-2 text-stone-500 text-sm font-light hover:text-zinc-700 transition-colors duration-200"
+          className="w-full mt-6 py-2 text-stone-500 text-sm font-light hover:text-stone-700 transition-colors duration-200"
         >
           {mode === 'login' ? t('auth.switchToSignup') : t('auth.switchToLogin')}
         </button>
