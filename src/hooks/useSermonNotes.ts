@@ -6,6 +6,8 @@ import { SermonNote } from '@/lib/types';
 // Module-level cache: persists across component mounts (mode switches)
 let moduleCache: SermonNote[] | null = null;
 let moduleCacheUserId: string | null = null;
+let moduleTrashCache: SermonNote[] | null = null;
+let moduleTrashFetched = false;
 
 export function useSermonNotes(userId: string | null) {
   // Initialize from cache if available for this user
@@ -14,8 +16,8 @@ export function useSermonNotes(userId: string | null) {
   const [isLoading, setIsLoading] = useState(!hasCachedData);
   const cacheRef = useRef<SermonNote[]>(hasCachedData ? moduleCache! : []);
 
-  // Trash state
-  const [deletedNotes, setDeletedNotes] = useState<SermonNote[]>([]);
+  // Trash state (initialize from module-level cache)
+  const [deletedNotes, setDeletedNotes] = useState<SermonNote[]>(moduleTrashCache ?? []);
   const [isTrashLoading, setIsTrashLoading] = useState(false);
 
   // Sync helper
@@ -182,19 +184,20 @@ export function useSermonNotes(userId: string | null) {
   }, [updateCache]);
 
   // Trash: fetch deleted notes (show spinner only on first load)
-  const trashFetchedRef = useRef(false);
   const fetchDeletedNotes = useCallback(async () => {
     if (!userId) return;
-    if (!trashFetchedRef.current) setIsTrashLoading(true);
+    if (!moduleTrashFetched) setIsTrashLoading(true);
     const { data } = await supabase
       .from('sermon_notes')
       .select('*')
       .eq('user_id', userId)
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false });
-    setDeletedNotes(data || []);
+    const result = data || [];
+    moduleTrashCache = result;
+    moduleTrashFetched = true;
+    setDeletedNotes(result);
     setIsTrashLoading(false);
-    trashFetchedRef.current = true;
   }, [userId]);
 
   // Trash: restore a note
@@ -209,7 +212,11 @@ export function useSermonNotes(userId: string | null) {
     if (error) return false;
 
     // Remove from trash list
-    setDeletedNotes(prev => prev.filter(n => n.id !== note.id));
+    setDeletedNotes(prev => {
+      const next = prev.filter(n => n.id !== note.id);
+      moduleTrashCache = next;
+      return next;
+    });
 
     // Add back to active notes
     const restored = { ...note, deleted_at: undefined, order_index: maxOrder + 1 };
