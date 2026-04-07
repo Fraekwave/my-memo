@@ -206,6 +206,16 @@ If something could not be verified, say that clearly.
 - All sermon note text uses pure black (`text-black`) for readability
 - Textarea auto-resize: grow-only on keystroke, full recalc on blur only (prevents iOS cursor jump)
 
-#### Remaining Tasks (Phase 2+)
+#### Remaining Tasks (Deferred)
 - Church bulletin OCR auto-fill
 - AI expansion via Claude API (organize rough notes)
+
+---
+
+## INA Done Wrap-Up & Transition to MamaVault
+
+### INA Done (inadone.me) — Final State (2026-04-08)
+This marks the wrap-up of the original INA Done app. All planned features for the todo management and sermon notes modes are complete and deployed. The app is stable and production-ready at inadone.me.
+
+### Transition: MamaVault (엄마의 외장하드)
+The app will be re-targeted with a new concept, new UI, and new audience under the name **MamaVault** (엄마의 외장하드). The existing codebase, architecture, Supabase backend, and lessons learned will serve as the foundation. The UI will be redesigned to be more friendly for the new target users.
