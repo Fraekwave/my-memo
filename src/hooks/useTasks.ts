@@ -481,10 +481,11 @@ export const useTasks = (
   const [deletedTasks, setDeletedTasks] = useState<Task[]>([]);
   const [deletedLoading, setDeletedLoading] = useState(false);
 
-  /** Trash: deleted_at IS NOT NULL, user-scoped. Includes tasks with tab_id NULL (deported/orphaned). */
+  /** Trash: deleted_at IS NOT NULL, user-scoped. Show spinner only on first load. */
+  const trashFetchedRef = useRef(false);
   const fetchDeletedTasks = useCallback(async () => {
     if (userId === null) return;
-    setDeletedLoading(true);
+    if (!trashFetchedRef.current) setDeletedLoading(true);
     try {
       const { data, error: fetchError } = await supabase
         .from('mytask')
@@ -499,6 +500,7 @@ export const useTasks = (
       console.error('휴지통 불러오기 에러:', err);
     } finally {
       setDeletedLoading(false);
+      trashFetchedRef.current = true;
     }
   }, [userId]);
 

@@ -181,10 +181,11 @@ export function useSermonNotes(userId: string | null) {
     }
   }, [updateCache]);
 
-  // Trash: fetch deleted notes
+  // Trash: fetch deleted notes (show spinner only on first load)
+  const trashFetchedRef = useRef(false);
   const fetchDeletedNotes = useCallback(async () => {
     if (!userId) return;
-    setIsTrashLoading(true);
+    if (!trashFetchedRef.current) setIsTrashLoading(true);
     const { data } = await supabase
       .from('sermon_notes')
       .select('*')
@@ -193,6 +194,7 @@ export function useSermonNotes(userId: string | null) {
       .order('deleted_at', { ascending: false });
     setDeletedNotes(data || []);
     setIsTrashLoading(false);
+    trashFetchedRef.current = true;
   }, [userId]);
 
   // Trash: restore a note
