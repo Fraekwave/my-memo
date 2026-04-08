@@ -170,7 +170,7 @@ function AdminPageContent({ onClose }: { onClose: () => void }) {
           >
             Admin
           </span>
-          <span className="text-[10px] text-stone-400 font-mono">MamaVault</span>
+          <span className="text-[10px] text-stone-400 font-mono">MamaVault · 엄마의 외장하드</span>
         </div>
 
         <button

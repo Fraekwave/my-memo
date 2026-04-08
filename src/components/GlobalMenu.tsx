@@ -66,7 +66,7 @@ export function GlobalMenu({
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  const tips = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => ({
+  const tips = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => ({
     title: t(`menu.tip${i}Title`),
     desc: t(`menu.tip${i}Desc`),
   }));
@@ -142,12 +142,15 @@ export function GlobalMenu({
       >
         {/* Panel header */}
         <div className="flex items-center justify-between px-6 pt-14 pb-5 border-b border-stone-100">
-          <span
-            className="text-xl font-semibold text-stone-900"
-            style={{ letterSpacing: '-0.05em' }}
-          >
-            MamaVault
-          </span>
+          <div>
+            <span
+              className="text-xl font-semibold text-stone-900 block"
+              style={{ letterSpacing: '-0.05em' }}
+            >
+              MamaVault
+            </span>
+            <span className="text-xs text-stone-400 font-light">엄마의 외장하드</span>
+          </div>
           <button
             onClick={close}
             className="p-1.5 -mr-1.5 text-stone-400 hover:text-stone-700 transition-colors rounded-lg"
@@ -270,11 +273,12 @@ export function GlobalMenu({
                     <Sparkles className="w-5 h-5 text-white" strokeWidth={1.5} />
                   </div>
                   <p
-                    className="text-xl font-semibold text-stone-900 mb-2"
+                    className="text-xl font-semibold text-stone-900 mb-0.5"
                     style={{ letterSpacing: '-0.04em' }}
                   >
                     {t('menu.proTitle')}
                   </p>
+                  <p className="text-xs text-stone-400 font-light mb-2">{t('menu.proSubtitle')}</p>
                   <p className="text-sm text-stone-500 mb-7 leading-relaxed">{t('menu.proDesc')}</p>
                   <ul className="w-full space-y-3 mb-8 text-left">
                     {proFeatures.map((feature, i) => (
