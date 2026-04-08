@@ -170,6 +170,8 @@ If something could not be verified, say that clearly.
 
 14. **Bible text special characters**: Korean bible JSON files contain `!`, `'`, and `` ` `` that cause unintended markdown formatting. Fix: strip at runtime in `getVerseText()` rather than regenerating 66 JSON files.
 
+15. **Semi-transparent overlay + dark content = unreadable**: `bg-white/96 backdrop-blur-xl` on slide-out menu lets dark visual-aging todo backgrounds bleed through, making text hard to read. Fix: use fully opaque `bg-stone-50` instead. Blur is unnecessary when the panel covers the full height.
+
 ### Documentation
 
 - `docs/feature-markdown-display.md` — Markdown rendering & multi-line input feature
@@ -217,5 +219,48 @@ If something could not be verified, say that clearly.
 ### INA Done (inadone.me) — Final State (2026-04-08)
 This marks the wrap-up of the original INA Done app. All planned features for the todo management and sermon notes modes are complete and deployed. The app is stable and production-ready at inadone.me.
 
-### Transition: MamaVault (엄마의 외장하드)
-The app will be re-targeted with a new concept, new UI, and new audience under the name **MamaVault** (엄마의 외장하드). The existing codebase, architecture, Supabase backend, and lessons learned will serve as the foundation. The UI will be redesigned to be more friendly for the new target users.
+### MamaVault (엄마의 외장하드) — v2.0.0 (2026-04-09)
+
+**Target audience:** 30-50대 Korean church-going mothers (교회 엄마들)
+
+#### UI Redesign (Complete)
+- **Color palette:** zinc (cold gray) → stone (warm gray) + amber accents across all 26+ files
+- **Font:** Inter → Pretendard (Korean-optimized, warm, distinctive)
+- **Base font size:** 16px → 17px (via `html { font-size: 17px }`) for 30-50대 readability
+- **Mode toggle:** active pill `bg-amber-700` (warm brown), label "말씀노트"
+- **Overlays:** `bg-black` → `bg-stone-900` (warm dark)
+- **Menu panel:** opaque `bg-stone-50` (no blur bleed-through from dark aged todos)
+- **Note cards:** stone-100 background, condensed 2-row layout
+- **Impeccable scan:** 8 anti-patterns → 0
+
+#### Galaxy S21 Ultra Dark Screen Fix
+- Explicit `background-color: #fafaf5` on html/body/#root
+- `<meta name="theme-color" content="#fafaf5">`
+- `<meta name="supported-color-schemes" content="light">`
+- Dark mode media query override with `!important`
+- Samsung WebView force-dark cannot invert explicit warm white
+
+#### Branding (Complete)
+- All "INA Done" references replaced with "MamaVault" + "엄마의 외장하드"
+- Menu header, login, password reset, account, admin, legal page, manifest.json
+- Footer: "MamaVault © year"
+- manifest.json: Korean name/description, lang: "ko", warm colors
+
+#### 사용 안내 (Help Guide v2.0)
+- Split into **할 일** (6 tips) and **말씀노트** (5 tips) sections
+- Icons referenced: ✏️ pencil for tab edit, 🗑️ trash for PC delete, 👁️ for markdown preview
+- Detailed @성경 guide: no spaces, space/enter trigger, header field without @
+- Clipboard copy + share icon instructions
+- Markdown preview guide with examples
+
+#### PRO Features
+- "MamaVault PRO" + "엄마의 외장하드" dual heading
+- 개역개정 성경 본문 (대한성서공회 라이선스) listed as PRO feature
+- New user defaults: 가정 / 기도 / 메모 tabs
+- Sermon note template: 핵심 말씀 / 받은 은혜 / 적용 / 기도제목
+
+#### Remaining Tasks
+- Church bulletin OCR auto-fill
+- AI expansion via Claude API (organize rough notes)
+- International locale updates (en, ja, zh, de, es) for MamaVault branding
+- New app icon for MamaVault identity
