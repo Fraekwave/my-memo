@@ -6,7 +6,7 @@ import { ALL_TAB_ID } from './useTasks';
 import { loadSavedActiveTabId, saveActiveTabId } from '@/lib/localData';
 
 /** Default categories for new users (when DB has no tabs). */
-const DEFAULT_TAB_TITLES = ['Job', 'Family', 'Personal'] as const;
+const DEFAULT_TAB_TITLES = ['가정', '기도', '메모'] as const;
 const DEFAULT_TAB_TITLE_SET = new Set<string>(DEFAULT_TAB_TITLES);
 
 export interface UseTabsOptions {
@@ -209,7 +209,7 @@ export const useTabs = (userId: string | null, options: UseTabsOptions = {}) => 
    *
    * @returns 생성된 탭의 optimistic ID, 또는 한도 초과 시 null
    */
-  const addTab = (title: string = 'New Tab'): number | null => {
+  const addTab = (title: string = '새 탭'): number | null => {
     // ── 멤버십 한도 초과 시 낙관적 업데이트 차단 ──
     if (tabs.length >= maxTabs) return null;
 
