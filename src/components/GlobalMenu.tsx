@@ -282,7 +282,12 @@ export function GlobalMenu({
                   >
                     {t('menu.proTitle')}
                   </p>
-                  <p className="text-xs text-stone-400 font-light mb-2">{t('menu.proSubtitle')}</p>
+                  <p
+                    className="text-xl font-semibold text-stone-900 mb-2"
+                    style={{ letterSpacing: '-0.04em' }}
+                  >
+                    {t('menu.proSubtitle')}
+                  </p>
                   <p className="text-sm text-stone-500 mb-7 leading-relaxed">{t('menu.proDesc')}</p>
                   <ul className="w-full space-y-3 mb-8 text-left">
                     {proFeatures.map((feature, i) => (
