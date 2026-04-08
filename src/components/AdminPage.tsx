@@ -170,7 +170,7 @@ function AdminPageContent({ onClose }: { onClose: () => void }) {
           >
             Admin
           </span>
-          <span className="text-[10px] text-stone-400 font-mono">INA Done</span>
+          <span className="text-[10px] text-stone-400 font-mono">MamaVault</span>
         </div>
 
         <button

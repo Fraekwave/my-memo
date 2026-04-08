@@ -66,7 +66,7 @@ export function GlobalMenu({
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  const tips = [1, 2, 3, 4, 5, 6].map((i) => ({
+  const tips = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => ({
     title: t(`menu.tip${i}Title`),
     desc: t(`menu.tip${i}Desc`),
   }));
@@ -146,7 +146,7 @@ export function GlobalMenu({
             className="text-xl font-semibold text-stone-900"
             style={{ letterSpacing: '-0.05em' }}
           >
-            INA Done
+            MamaVault
           </span>
           <button
             onClick={close}
@@ -235,9 +235,20 @@ export function GlobalMenu({
               {/* ── How to Use ── */}
               {panel === 'howToUse' && (
                 <div>
-                  <div className="space-y-6">
-                    {tips.map((tip, i) => (
+                  <p className="text-xs text-amber-600 font-semibold uppercase tracking-widest mb-4">할 일</p>
+                  <div className="space-y-5">
+                    {tips.slice(0, 6).map((tip, i) => (
                       <div key={i}>
+                        <p className="text-sm font-semibold text-stone-800 mb-1">{tip.title}</p>
+                        <p className="text-xs text-stone-500 leading-relaxed">{tip.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-stone-100 my-6" />
+                  <p className="text-xs text-amber-600 font-semibold uppercase tracking-widest mb-4">말씀노트</p>
+                  <div className="space-y-5">
+                    {tips.slice(6).map((tip, i) => (
+                      <div key={i + 6}>
                         <p className="text-sm font-semibold text-stone-800 mb-1">{tip.title}</p>
                         <p className="text-xs text-stone-500 leading-relaxed">{tip.desc}</p>
                       </div>
@@ -247,7 +258,7 @@ export function GlobalMenu({
                     className="mt-12 text-center text-[10px] font-medium uppercase text-stone-300"
                     style={{ letterSpacing: '0.2em' }}
                   >
-                    — v1.3.0 —
+                    — v2.0.0 —
                   </p>
                 </div>
               )}

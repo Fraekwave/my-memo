@@ -95,7 +95,7 @@ export const AccountPrivacyPage = ({
             >
               {t('account.title')}
             </span>
-            <span className="text-[10px] text-stone-400 font-mono">INA Done</span>
+            <span className="text-[10px] text-stone-400 font-mono">MamaVault</span>
           </div>
 
           <div className="w-8" aria-hidden />

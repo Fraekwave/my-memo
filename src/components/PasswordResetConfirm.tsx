@@ -85,7 +85,7 @@ export const PasswordResetConfirm = ({ onSuccess }: PasswordResetConfirmProps) =
     <div className="h-full flex items-center justify-center p-6 sm:p-8 bg-stone-50">
       <div className="w-full max-w-sm">
         <h1 className="text-3xl font-light text-stone-900 tracking-tight text-center mb-1">
-          INA Done
+          MamaVault
         </h1>
         <p className="text-stone-500 text-sm font-light text-center mb-8 tracking-wide">
           {t('auth.subtitle_recovery')}
