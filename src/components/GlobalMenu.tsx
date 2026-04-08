@@ -148,7 +148,12 @@ export function GlobalMenu({
             >
               MamaVault
             </span>
-            <span className="text-xs text-stone-400 font-light">엄마의 외장하드</span>
+            <span
+              className="text-xl font-semibold text-stone-900 block"
+              style={{ letterSpacing: '-0.05em' }}
+            >
+              엄마의 외장하드
+            </span>
           </div>
           <button
             onClick={close}
