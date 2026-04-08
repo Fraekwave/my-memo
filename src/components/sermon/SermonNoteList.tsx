@@ -76,13 +76,10 @@ export function SermonNoteList({ notes, isLoading, onSelectNote, onNewNote, onDe
       <button
         type="button"
         onClick={onNewNote}
-        className="w-full flex flex-col items-center gap-1 px-4 py-4 mb-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
+        className="w-full flex items-center justify-center gap-2 px-4 py-4 mb-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <Plus className="w-4 h-4" strokeWidth={2} />
-          <span className="text-base font-semibold">{t('sermon.newNote')}</span>
-        </div>
-        <span className="text-sm text-amber-500">{t('sermon.noNotesSub')}</span>
+        <Plus className="w-4 h-4" strokeWidth={2} />
+        <span className="text-base font-semibold">{t('sermon.newNote')}</span>
       </button>
 
       {/* Notes list */}
