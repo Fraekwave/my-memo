@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inadone-v7';
+const CACHE_NAME = 'mamavault-v1';
 
 const APP_SHELL = [
   '/',
