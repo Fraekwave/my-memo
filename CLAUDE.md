@@ -172,6 +172,10 @@ If something could not be verified, say that clearly.
 
 15. **Semi-transparent overlay + dark content = unreadable**: `bg-white/96 backdrop-blur-xl` on slide-out menu lets dark visual-aging todo backgrounds bleed through, making text hard to read. Fix: use fully opaque `bg-stone-50` instead. Blur is unnecessary when the panel covers the full height.
 
+16. **Service worker cache prevents CSS fixes from reaching devices**: The SW uses cache-first for static assets (JS, CSS) with a static cache name (`inadone-v7`). CSS fixes (e.g., `background-color`) added in source never reach devices that already cached the old CSS. Fix: bump cache name on every significant deploy (e.g., `mamavault-v1`). The activate handler purges old caches automatically. Also add inline `style="background-color:..."` on `<body>` in `index.html` as a safety net that can't be cached away.
+
+17. **Samsung WebView Force Dark — defense in depth**: Samsung Galaxy devices (especially older ones like S21 Ultra) force-dark web content independently of OS night mode. CSS `color-scheme: light only` alone is insufficient. Full defense requires ALL of: (a) `<meta name="color-scheme" content="light only">`, (b) `<meta name="supported-color-schemes" content="light">`, (c) `<meta name="theme-color" content="#fafaf5">`, (d) explicit `background-color` on html/body/#root in CSS, (e) `@media (prefers-color-scheme: dark)` override with `!important`, (f) inline style on `<body>` tag, (g) service worker cache bust to ensure fixes are delivered.
+
 ### Documentation
 
 - `docs/feature-markdown-display.md` — Markdown rendering & multi-line input feature
