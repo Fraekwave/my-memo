@@ -87,6 +87,9 @@ export const PasswordResetConfirm = ({ onSuccess }: PasswordResetConfirmProps) =
         <h1 className="text-3xl font-light text-stone-900 tracking-tight text-center mb-1">
           MamaVault
         </h1>
+        <h2 className="text-3xl font-light text-stone-900 tracking-tight text-center mb-6">
+          엄마의 외장하드
+        </h2>
         <p className="text-stone-500 text-sm font-light text-center mb-8 tracking-wide">
           {t('auth.subtitle_recovery')}
         </p>

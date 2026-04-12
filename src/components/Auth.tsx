@@ -233,13 +233,15 @@ export const Auth = ({ onSuccess }: AuthProps) => {
         <h1 className="text-3xl font-light text-stone-900 tracking-tight text-center mb-1">
           MamaVault
         </h1>
-        <p className="text-stone-500 text-sm font-light text-center mb-8 tracking-wide">
-          {showResetFlow
-            ? t('auth.subtitle_reset')
-            : mode === 'login'
-              ? t('auth.subtitle_login')
-              : t('auth.subtitle_signup')}
-        </p>
+        <h2 className="text-3xl font-light text-stone-900 tracking-tight text-center mb-6">
+          엄마의 외장하드
+        </h2>
+        {(showResetFlow || mode === 'signup') && (
+          <p className="text-stone-500 text-sm font-light text-center mb-8 tracking-wide">
+            {showResetFlow ? t('auth.subtitle_reset') : t('auth.subtitle_signup')}
+          </p>
+        )}
+        {!showResetFlow && mode === 'login' && <div className="mb-2" />}
 
         {showResetFlow ? (
           <form onSubmit={handleResetPassword} className="space-y-4">
