@@ -32,18 +32,23 @@ function clearRequestedScreen() {
   window.history.replaceState(null, '', url.pathname + url.search + url.hash);
 }
 
-type AppMode = 'todo' | 'sermon';
+type AppMode = 'todo' | 'sermon' | 'portfolio';
+
+const APP_MODES: readonly AppMode[] = ['todo', 'sermon', 'portfolio'];
+
+function isAppMode(v: unknown): v is AppMode {
+  return typeof v === 'string' && (APP_MODES as readonly string[]).includes(v);
+}
 
 function getStoredMode(userId: string | null): AppMode {
   try {
     if (userId) {
       const stored = localStorage.getItem(`app_mode:${userId}`);
-      if (stored === 'sermon') return 'sermon';
-      if (stored === 'todo') return 'todo';
+      if (isAppMode(stored)) return stored;
     }
     // Pre-auth fallback: non-user-scoped hint
     const hint = localStorage.getItem('app_mode_hint');
-    if (hint === 'sermon') return 'sermon';
+    if (isAppMode(hint)) return hint;
   } catch {}
   return 'todo';
 }
@@ -129,9 +134,9 @@ function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showAccountPrivacy, setShowAccountPrivacy] = useState(false);
 
-  const toggleMode = useCallback(() => {
+  const setToMode = useCallback((next: AppMode) => {
     setMode(prev => {
-      const next = prev === 'todo' ? 'sermon' : 'todo';
+      if (prev === next) return prev;
       storeMode(userId, next);
       return next;
     });
@@ -251,30 +256,26 @@ function App() {
                   {currentDate}
                 </p>
 
-                {/* Mode toggle pills */}
+                {/* Mode toggle pills — array-driven for easy mode additions */}
                 <div className="flex items-center gap-1 bg-stone-100 rounded-full p-0.5 pointer-events-auto">
-                  <button
-                    type="button"
-                    onClick={() => { if (mode !== 'todo') toggleMode(); }}
-                    className={`text-lg font-medium px-3 py-1 rounded-full transition-all duration-200 ${
-                      mode === 'todo'
-                        ? 'bg-amber-700 text-white shadow-sm'
-                        : 'text-stone-400 hover:text-stone-600'
-                    }`}
-                  >
-                    {t('sermon.modeToggleTodo')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { if (mode !== 'sermon') toggleMode(); }}
-                    className={`text-lg font-medium px-3 py-1 rounded-full transition-all duration-200 ${
-                      mode === 'sermon'
-                        ? 'bg-amber-700 text-white shadow-sm'
-                        : 'text-stone-400 hover:text-stone-600'
-                    }`}
-                  >
-                    {t('sermon.modeToggleNotes')}
-                  </button>
+                  {([
+                    { id: 'todo', label: t('sermon.modeToggleTodo') },
+                    { id: 'sermon', label: t('sermon.modeToggleNotes') },
+                    // { id: 'portfolio', label: t('portfolio.modeTogglePortfolio') }, // Phase 2+
+                  ] as { id: AppMode; label: string }[]).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setToMode(m.id)}
+                      className={`text-lg font-medium px-3 py-1 rounded-full transition-all duration-200 ${
+                        mode === m.id
+                          ? 'bg-amber-700 text-white shadow-sm'
+                          : 'text-stone-400 hover:text-stone-600'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
                 </div>
 
                 <MembershipBadge isPro={isPro} />
