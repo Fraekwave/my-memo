@@ -19,6 +19,7 @@ const AdminPage = lazy(() => import('@/components/AdminPage').then(m => ({ defau
 const AccountPrivacyPage = lazy(() => import('@/components/AccountPrivacyPage').then(m => ({ default: m.AccountPrivacyPage })));
 const PasswordResetConfirm = lazy(() => import('@/components/PasswordResetConfirm').then(m => ({ default: m.PasswordResetConfirm })));
 const SermonMode = lazy(() => import('@/components/sermon/SermonMode').then(m => ({ default: m.SermonMode })));
+const PortfolioMode = lazy(() => import('@/components/portfolio/PortfolioMode').then(m => ({ default: m.PortfolioMode })));
 
 function getRequestedScreen(): string | null {
   if (typeof window === 'undefined') return null;
@@ -261,7 +262,7 @@ function App() {
                   {([
                     { id: 'todo', label: t('sermon.modeToggleTodo') },
                     { id: 'sermon', label: t('sermon.modeToggleNotes') },
-                    // { id: 'portfolio', label: t('portfolio.modeTogglePortfolio') }, // Phase 2+
+                    { id: 'portfolio', label: t('portfolio.modeTogglePortfolio') },
                   ] as { id: AppMode; label: string }[]).map((m) => (
                     <button
                       key={m.id}
@@ -282,8 +283,8 @@ function App() {
               </div>
             </div>
 
-            {/* Right — trash */}
-            <div className="flex-shrink-0 ml-auto">
+            {/* Right — trash (hidden in portfolio mode; no trash concept there) */}
+            <div className={`flex-shrink-0 ml-auto ${mode === 'portfolio' ? 'invisible' : ''}`}>
               <button
                 type="button"
                 onClick={() => setShowTrashView((v) => !v)}
@@ -305,6 +306,11 @@ function App() {
           /* ─── Sermon Notes Mode ─── */
           <Suspense fallback={<SkeletonAppContent />}>
             <SermonMode userId={userId} showTrash={showTrashView} onCloseTrash={() => setShowTrashView(false)} />
+          </Suspense>
+        ) : mode === 'portfolio' ? (
+          /* ─── Portfolio Mode (투자) ─── */
+          <Suspense fallback={<SkeletonAppContent />}>
+            <PortfolioMode userId={userId} />
           </Suspense>
         ) : (
         <>
