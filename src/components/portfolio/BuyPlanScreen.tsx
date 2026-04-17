@@ -6,7 +6,8 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAssetPrices } from '@/hooks/useAssetPrices';
 import { computeHoldings } from '@/lib/pnl';
 import { planBuys, type BuyRecommendation, type RebalanceAsset } from '@/lib/rebalance';
-import { formatKrw, formatShares } from '@/lib/formatNumber';
+import { formatKrw } from '@/lib/formatNumber';
+import { PortfolioAsset } from '@/lib/types';
 
 interface BuyPlanScreenProps {
   userId: string | null;
@@ -23,8 +24,27 @@ function parseKrwInput(s: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Crypto ± button adjusts shares by this KRW amount, converted via current price. */
-const CRYPTO_KRW_STEP = 10_000;
+// ± step sizes
+const ETF_STEP = 1;              // 1 share
+const CRYPTO_STEP = 0.00001;     // 0.000010 BTC
+
+/** Does this asset use fractional shares? (crypto only) */
+const isFractional = (a: PortfolioAsset) => a.category === '암호화폐';
+
+/** Display a fractional share count with a fixed number of decimals (no trimming). */
+function formatFractional(shares: number, decimals = 6): string {
+  if (!Number.isFinite(shares) || shares === 0) return (0).toFixed(decimals);
+  return shares.toFixed(decimals);
+}
+
+/**
+ * Round a fractional share count to a given step so floating-point math
+ * doesn't produce values like 0.4921870000001.
+ */
+function roundToStep(value: number, step: number): number {
+  if (step <= 0) return value;
+  return Math.round(value / step) * step;
+}
 
 export function BuyPlanScreen({
   userId,
@@ -59,33 +79,60 @@ export function BuyPlanScreen({
   }, [failures]);
 
   const holdings = useMemo(() => computeHoldings(transactions), [transactions]);
-
-  const fractional = portfolio.portfolio.kind === 'crypto';
   const allPricesReady = failures.length === 0 && tickers.every((x) => prices[x] != null);
-
   const cashToInvest = useMemo(() => parseKrwInput(cashInput), [cashInput]);
 
-  // Initial plan from algorithm
+  /**
+   * Split the portfolio's assets into crypto and non-crypto groups,
+   * split the cash proportionally by target_pct sums, then run planBuys
+   * separately for each group (fractional vs integer). Merge results.
+   */
   const initialPlan = useMemo(() => {
     if (!allPricesReady) return null;
-    const rebalanceAssets: RebalanceAsset[] = portfolio.assets.map((a) => ({
-      ticker: a.ticker,
-      targetPct: Number(a.target_pct),
-      currentShares: holdings[a.ticker] ?? 0,
-      price: prices[a.ticker] ?? 0,
-    }));
-    return planBuys(rebalanceAssets, cashToInvest, {
-      allowFractional: fractional,
-    });
-  }, [allPricesReady, portfolio.assets, fractional, holdings, prices, cashToInvest]);
 
-  // User-adjustable shares-to-buy per ticker. Reset when the initial plan changes.
+    const cryptoAssets = portfolio.assets.filter(isFractional);
+    const nonCryptoAssets = portfolio.assets.filter((a) => !isFractional(a));
+
+    const cryptoPctSum = cryptoAssets.reduce((s, a) => s + Number(a.target_pct), 0);
+    const nonCryptoPctSum = nonCryptoAssets.reduce((s, a) => s + Number(a.target_pct), 0);
+    const totalPctSum = cryptoPctSum + nonCryptoPctSum || 1;
+
+    const cryptoCash = Math.round((cashToInvest * cryptoPctSum) / totalPctSum);
+    const nonCryptoCash = cashToInvest - cryptoCash;
+
+    // Renormalize target_pct within each subset so each sums to 100.
+    const toRebalance = (assets: PortfolioAsset[], subsetPctSum: number): RebalanceAsset[] =>
+      assets.map((a) => ({
+        ticker: a.ticker,
+        targetPct: subsetPctSum > 0 ? (Number(a.target_pct) / subsetPctSum) * 100 : 0,
+        currentShares: holdings[a.ticker] ?? 0,
+        price: prices[a.ticker] ?? 0,
+      }));
+
+    const cryptoResult =
+      cryptoAssets.length > 0
+        ? planBuys(toRebalance(cryptoAssets, cryptoPctSum), cryptoCash, {
+            allowFractional: true,
+          })
+        : { buys: [] as BuyRecommendation[], remainingCash: cryptoCash, projectedWeights: {} };
+
+    const nonCryptoResult =
+      nonCryptoAssets.length > 0
+        ? planBuys(toRebalance(nonCryptoAssets, nonCryptoPctSum), nonCryptoCash)
+        : { buys: [] as BuyRecommendation[], remainingCash: nonCryptoCash, projectedWeights: {} };
+
+    return {
+      buys: [...cryptoResult.buys, ...nonCryptoResult.buys],
+      remainingCash: cryptoResult.remainingCash + nonCryptoResult.remainingCash,
+    };
+  }, [allPricesReady, portfolio.assets, holdings, prices, cashToInvest]);
+
+  // User-adjustable share count per ticker.
   const [adjustedShares, setAdjustedShares] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!initialPlan) return;
     const map: Record<string, number> = {};
-    // Start every portfolio asset at the plan's recommendation (0 if not bought).
     for (const a of portfolio.assets) {
       const match = initialPlan.buys.find((b) => b.ticker === a.ticker);
       map[a.ticker] = match ? match.sharesToBuy : 0;
@@ -95,25 +142,18 @@ export function BuyPlanScreen({
 
   // Adjust one ticker's share count.
   const adjustShares = useCallback(
-    (ticker: string, delta: number) => {
+    (asset: PortfolioAsset, direction: 1 | -1) => {
+      const step = isFractional(asset) ? CRYPTO_STEP : ETF_STEP;
       setAdjustedShares((prev) => {
-        const current = prev[ticker] ?? 0;
-        const price = prices[ticker] ?? 0;
-        let next: number;
-        if (fractional) {
-          // Crypto: delta is in KRW
-          const currentKrw = current * price;
-          const nextKrw = Math.max(0, currentKrw + delta);
-          next = price > 0 ? nextKrw / price : 0;
-          // Round to 8 decimals
-          next = Math.floor(next * 1e8) / 1e8;
-        } else {
-          next = Math.max(0, current + delta);
-        }
-        return { ...prev, [ticker]: next };
+        const current = prev[asset.ticker] ?? 0;
+        let next = current + direction * step;
+        if (next < 0) next = 0;
+        if (isFractional(asset)) next = roundToStep(next, CRYPTO_STEP);
+        else next = Math.round(next);
+        return { ...prev, [asset.ticker]: next };
       });
     },
-    [prices, fractional],
+    [],
   );
 
   const nameOf = useCallback(
@@ -125,15 +165,13 @@ export function BuyPlanScreen({
   const summary = useMemo(() => {
     if (!initialPlan) return null;
     let totalCost = 0;
-    const rows = portfolio.assets
-      .map((a) => {
-        const shares = adjustedShares[a.ticker] ?? 0;
-        const price = prices[a.ticker] ?? 0;
-        const cost = shares * price;
-        totalCost += cost;
-        return { ticker: a.ticker, shares, price, cost };
-      })
-      .filter((r) => r.shares > 0 || initialPlan.buys.some((b) => b.ticker === r.ticker));
+    const rows = portfolio.assets.map((a) => {
+      const shares = adjustedShares[a.ticker] ?? 0;
+      const price = prices[a.ticker] ?? 0;
+      const cost = shares * price;
+      totalCost += cost;
+      return { asset: a, shares, price, cost };
+    });
     const remaining = cashToInvest - totalCost;
     return { rows, totalCost, remaining };
   }, [initialPlan, portfolio.assets, adjustedShares, prices, cashToInvest]);
@@ -152,7 +190,7 @@ export function BuyPlanScreen({
     const buys: BuyRecommendation[] = summary.rows
       .filter((r) => r.shares > 0)
       .map((r) => ({
-        ticker: r.ticker,
+        ticker: r.asset.ticker,
         sharesToBuy: r.shares,
         estimatedCost: r.cost,
       }));
@@ -286,22 +324,25 @@ export function BuyPlanScreen({
 
             <div className="rounded-xl border border-stone-200 bg-stone-50 divide-y divide-stone-200">
               {summary.rows.map((row) => {
-                const sharesLabel = fractional
-                  ? formatShares(row.shares, 8)
+                const frac = isFractional(row.asset);
+                const sharesLabel = frac
+                  ? formatFractional(row.shares, 6)
                   : `${row.shares}주`;
-                const step = fractional ? CRYPTO_KRW_STEP : 1;
-                const canDecrease = fractional
-                  ? row.shares * row.price >= step
+                const perUnitLabel = frac
+                  ? `1 ${row.asset.ticker.replace('KRW-', '')}` // "1 BTC"
+                  : '1주';
+                const canDecrease = frac
+                  ? row.shares > 0.000009 // at least one step worth
                   : row.shares >= 1;
                 return (
-                  <div key={row.ticker} className="p-4">
+                  <div key={row.asset.ticker} className="p-4">
                     <div className="flex items-start gap-3 mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="text-base font-semibold text-black truncate">
-                          {nameOf(row.ticker)}
+                          {row.asset.name || row.asset.ticker}
                         </div>
                         <div className="text-xs text-stone-400 mt-0.5 tabular-nums">
-                          {formatKrw(row.price)} / {fractional ? '1 BTC' : '1주'}
+                          {formatKrw(row.price)} / {perUnitLabel}
                         </div>
                       </div>
                       <div className="flex-shrink-0 text-right">
@@ -317,7 +358,7 @@ export function BuyPlanScreen({
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => adjustShares(row.ticker, -step)}
+                          onClick={() => adjustShares(row.asset, -1)}
                           disabled={!canDecrease}
                           className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                             canDecrease
@@ -330,7 +371,7 @@ export function BuyPlanScreen({
                         </button>
                         <button
                           type="button"
-                          onClick={() => adjustShares(row.ticker, step)}
+                          onClick={() => adjustShares(row.asset, 1)}
                           className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-700 text-white hover:bg-amber-800 transition-colors"
                           aria-label="증가"
                         >

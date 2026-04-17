@@ -118,17 +118,16 @@ export function PortfolioEditor({
       prev.map((a, i) => {
         if (i !== idx) return a;
         const next = { ...a, ...patch };
-        // When category changes to 암호화폐: auto-fill BTC ticker/name if empty.
-        // When category changes away from 암호화폐 and ticker was KRW-BTC: clear both.
+        // When category changes to 암호화폐: force BTC ticker (we only support BTC
+        // for now). Replace any existing ticker, even non-empty ones like "000000".
+        // When category changes away: clear KRW-BTC placeholder if present.
         if (patch.category !== undefined && patch.category !== a.category) {
           if (patch.category === '암호화폐') {
-            if (!a.ticker.trim() || a.ticker === BTC_TICKER) {
-              next.ticker = BTC_TICKER;
-              next.name = a.name.trim() ? a.name : BTC_NAME;
-            }
+            next.ticker = BTC_TICKER;
+            if (!a.name.trim()) next.name = BTC_NAME;
           } else if (a.category === '암호화폐' && a.ticker === BTC_TICKER) {
             next.ticker = '';
-            next.name = a.name === BTC_NAME ? '' : a.name;
+            if (a.name === BTC_NAME) next.name = '';
           }
         }
         return next;
