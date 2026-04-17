@@ -162,19 +162,50 @@ export function BuyPlanScreen({
   );
 
   // Build live summary from adjusted shares.
+  // Each row includes three weights:
+  //   targetPct   — from portfolio_assets.target_pct (static)
+  //   currentPct  — holdings × price / total current value (static pre-buy)
+  //   accumPct    — (holdings + adjusted) × price / total projected value (live)
   const summary = useMemo(() => {
     if (!initialPlan) return null;
+
+    // Pre-buy totals (based only on current holdings)
+    const totalCurrentValue = portfolio.assets.reduce((s, a) => {
+      const sh = holdings[a.ticker] ?? 0;
+      const pr = prices[a.ticker] ?? 0;
+      return s + sh * pr;
+    }, 0);
+
+    // Post-buy projected values
     let totalCost = 0;
-    const rows = portfolio.assets.map((a) => {
+    const rawRows = portfolio.assets.map((a) => {
       const shares = adjustedShares[a.ticker] ?? 0;
       const price = prices[a.ticker] ?? 0;
       const cost = shares * price;
       totalCost += cost;
-      return { asset: a, shares, price, cost };
+      const currentShares = holdings[a.ticker] ?? 0;
+      const currentValue = currentShares * price;
+      const projectedValue = (currentShares + shares) * price;
+      return { asset: a, shares, price, cost, currentValue, projectedValue };
     });
+
+    const totalProjectedValue = totalCurrentValue + totalCost;
+
+    const rows = rawRows.map((r) => ({
+      asset: r.asset,
+      shares: r.shares,
+      price: r.price,
+      cost: r.cost,
+      targetPct: Number(r.asset.target_pct),
+      currentPct:
+        totalCurrentValue > 0 ? (r.currentValue / totalCurrentValue) * 100 : 0,
+      accumPct:
+        totalProjectedValue > 0 ? (r.projectedValue / totalProjectedValue) * 100 : 0,
+    }));
+
     const remaining = cashToInvest - totalCost;
-    return { rows, totalCost, remaining };
-  }, [initialPlan, portfolio.assets, adjustedShares, prices, cashToInvest]);
+    return { rows, totalCost, remaining, totalCurrentValue, totalProjectedValue };
+  }, [initialPlan, portfolio.assets, adjustedShares, prices, holdings, cashToInvest]);
 
   const saveManualPrices = useCallback(async () => {
     const entries = Object.entries(manualDrafts).filter(
@@ -351,6 +382,19 @@ export function BuyPlanScreen({
                         </div>
                       </div>
                     </div>
+
+                    {/* Three-weight pills: target / current / accumulated */}
+                    <div className="flex items-center gap-1.5 mb-2 text-xs tabular-nums">
+                      <WeightPill label="목표" pct={row.targetPct} tone="target" />
+                      <WeightPill label="현재" pct={row.currentPct} tone="current" />
+                      <WeightPill
+                        label="예상"
+                        pct={row.accumPct}
+                        tone="accum"
+                        diffFromTarget={row.accumPct - row.targetPct}
+                      />
+                    </div>
+
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm text-stone-600 tabular-nums">
                         {sharesLabel}
@@ -420,5 +464,42 @@ export function BuyPlanScreen({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Tiny pill displaying a percentage with a label ("목표 / 현재 / 예상").
+ * The "예상" pill optionally colors based on distance to target.
+ */
+function WeightPill({
+  label,
+  pct,
+  tone,
+  diffFromTarget,
+}: {
+  label: string;
+  pct: number;
+  tone: 'target' | 'current' | 'accum';
+  diffFromTarget?: number;
+}) {
+  let bg = 'bg-stone-100 text-stone-600';
+  if (tone === 'target') {
+    bg = 'bg-amber-50 text-amber-700';
+  } else if (tone === 'accum') {
+    // Color the "예상" pill green-ish when within 1% of target, else neutral/red.
+    const drift = Math.abs(diffFromTarget ?? 0);
+    if (drift < 1) {
+      bg = 'bg-amber-100 text-amber-800 font-medium';
+    } else if (drift < 3) {
+      bg = 'bg-stone-100 text-stone-700';
+    } else {
+      bg = 'bg-red-50 text-red-600';
+    }
+  }
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md ${bg}`}>
+      <span className="text-[10px] uppercase tracking-wider opacity-70">{label}</span>
+      <span>{pct.toFixed(1)}%</span>
+    </span>
   );
 }
