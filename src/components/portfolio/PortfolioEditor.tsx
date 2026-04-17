@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { PortfolioWithAssets, PortfolioInput, AssetInput } from '@/hooks/usePortfolios';
-import { PortfolioKind, AssetCategory } from '@/lib/types';
+import { AssetCategory, PortfolioKind } from '@/lib/types';
 
 interface PortfolioEditorProps {
   existing: PortfolioWithAssets | null;
@@ -13,29 +13,40 @@ interface PortfolioEditorProps {
 }
 
 const ALL_CATEGORIES: readonly AssetCategory[] = [
-  '국내주식',
-  '해외주식',
+  '주식',
   '채권',
   '금',
   '원자재',
   '리츠',
   '암호화폐',
-  '기타',
+  '현금',
 ];
 
-// Default BTC asset row when a new crypto portfolio is created.
-const DEFAULT_BTC_ROW: DraftAsset = {
-  ticker: 'KRW-BTC',
-  name: '비트코인',
-  category: '암호화폐',
-  target_pct: 100,
-};
+const BTC_TICKER = 'KRW-BTC';
+const BTC_NAME = '비트코인';
 
 interface DraftAsset {
   ticker: string;
   name: string;
   category: AssetCategory;
   target_pct: number;
+}
+
+/**
+ * Derive the portfolio kind from its asset categories.
+ * All crypto → 'crypto' (fractional shares). Otherwise → 'etf' (integer shares).
+ */
+function deriveKind(assets: DraftAsset[]): PortfolioKind {
+  if (assets.length === 0) return 'etf';
+  return assets.every((a) => a.category === '암호화폐') ? 'crypto' : 'etf';
+}
+
+/** Parse a comma-formatted KRW string to a number ("1,234,567" → 1234567). */
+function parseKrwInput(s: string): number {
+  const cleaned = s.replace(/[^\d]/g, '');
+  if (!cleaned) return 0;
+  const n = parseInt(cleaned, 10);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function PortfolioEditor({
@@ -50,9 +61,8 @@ export function PortfolioEditor({
 
   // Form state
   const [name, setName] = useState(existing?.portfolio.name ?? '');
-  const [kind, setKind] = useState<PortfolioKind>(existing?.portfolio.kind ?? 'etf');
   const [monthlyBudget, setMonthlyBudget] = useState(
-    existing?.portfolio.monthly_budget != null
+    existing?.portfolio.monthly_budget != null && existing.portfolio.monthly_budget > 0
       ? String(existing.portfolio.monthly_budget)
       : '',
   );
@@ -69,14 +79,14 @@ export function PortfolioEditor({
         target_pct: Number(a.target_pct),
       }));
     }
-    // New portfolio: seed with BTC row if crypto, else one blank row
     return [];
   }, [existing]);
 
   const [assets, setAssets] = useState<DraftAsset[]>(() => {
     if (initialAssets.length > 0) return initialAssets;
-    if (kind === 'crypto') return [{ ...DEFAULT_BTC_ROW }];
-    return [{ ticker: '', name: '', category: '국내주식', target_pct: 0 }];
+    // New portfolio always starts with one blank 주식 row.
+    // User changes category to 암호화폐 if they want a crypto portfolio.
+    return [{ ticker: '', name: '', category: '주식', target_pct: 0 }];
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -91,8 +101,8 @@ export function PortfolioEditor({
 
   const canSave = useMemo(() => {
     if (!name.trim()) return false;
-    const budget = Number(monthlyBudget);
-    if (!Number.isFinite(budget) || budget < 0) return false;
+    const budget = parseKrwInput(monthlyBudget);
+    if (budget < 0) return false;
     if (assets.length === 0) return false;
     if (!totalPctOk) return false;
     for (const a of assets) {
@@ -103,23 +113,27 @@ export function PortfolioEditor({
     return true;
   }, [name, monthlyBudget, assets, totalPctOk]);
 
-  const handleKindChange = (next: PortfolioKind) => {
-    setKind(next);
-    // If switching from etf → crypto and the current assets look like
-    // default ETF placeholders, seed a BTC row. Don't overwrite real data.
-    if (next === 'crypto' && !isEdit) {
-      const allBlank = assets.every((a) => !a.ticker.trim() && !a.name.trim());
-      if (allBlank) {
-        setAssets([{ ...DEFAULT_BTC_ROW }]);
-      }
-    }
-    if (next === 'etf' && !isEdit && assets.length === 1 && assets[0].ticker === 'KRW-BTC') {
-      setAssets([{ ticker: '', name: '', category: '국내주식', target_pct: 0 }]);
-    }
-  };
-
   const updateAsset = (idx: number, patch: Partial<DraftAsset>) => {
-    setAssets((prev) => prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)));
+    setAssets((prev) =>
+      prev.map((a, i) => {
+        if (i !== idx) return a;
+        const next = { ...a, ...patch };
+        // When category changes to 암호화폐: auto-fill BTC ticker/name if empty.
+        // When category changes away from 암호화폐 and ticker was KRW-BTC: clear both.
+        if (patch.category !== undefined && patch.category !== a.category) {
+          if (patch.category === '암호화폐') {
+            if (!a.ticker.trim() || a.ticker === BTC_TICKER) {
+              next.ticker = BTC_TICKER;
+              next.name = a.name.trim() ? a.name : BTC_NAME;
+            }
+          } else if (a.category === '암호화폐' && a.ticker === BTC_TICKER) {
+            next.ticker = '';
+            next.name = a.name === BTC_NAME ? '' : a.name;
+          }
+        }
+        return next;
+      }),
+    );
   };
 
   const addAssetRow = () => {
@@ -128,7 +142,7 @@ export function PortfolioEditor({
       {
         ticker: '',
         name: '',
-        category: kind === 'crypto' ? '암호화폐' : '국내주식',
+        category: '주식',
         target_pct: 0,
       },
     ]);
@@ -145,8 +159,8 @@ export function PortfolioEditor({
 
     const portfolioInput: PortfolioInput = {
       name: name.trim(),
-      kind,
-      monthly_budget: Number(monthlyBudget),
+      kind: deriveKind(assets),
+      monthly_budget: parseKrwInput(monthlyBudget),
       benchmark_ticker: benchmarkTicker.trim() || null,
     };
     const assetInputs: AssetInput[] = assets.map((a, i) => ({
@@ -173,7 +187,6 @@ export function PortfolioEditor({
     isSaving,
     isEdit,
     name,
-    kind,
     monthlyBudget,
     benchmarkTicker,
     assets,
@@ -234,29 +247,6 @@ export function PortfolioEditor({
             />
           </div>
 
-          {/* Kind */}
-          <div>
-            <label className="block text-base uppercase tracking-widest text-amber-600 font-semibold mb-1">
-              {t('portfolio.fieldKind')}
-            </label>
-            <div className="flex gap-2">
-              {(['etf', 'crypto'] as PortfolioKind[]).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => handleKindChange(k)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    kind === k
-                      ? 'bg-amber-700 text-white'
-                      : 'bg-stone-100 text-stone-500 hover:text-stone-700'
-                  }`}
-                >
-                  {k === 'etf' ? t('portfolio.kindEtf') : t('portfolio.kindCrypto')}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Monthly budget + Benchmark on one row */}
           <div className="flex gap-4">
             <div className="flex-1 min-w-0">
@@ -264,13 +254,22 @@ export function PortfolioEditor({
                 {t('portfolio.fieldMonthlyBudget')}
               </label>
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
-                min="0"
-                value={monthlyBudget}
-                onChange={(e) => setMonthlyBudget(e.target.value)}
-                placeholder={t('portfolio.fieldMonthlyBudgetPlaceholder')}
-                className="w-full text-base text-black placeholder-stone-300 bg-transparent outline-none"
+                value={
+                  monthlyBudget === ''
+                    ? ''
+                    : parseKrwInput(monthlyBudget).toLocaleString('ko-KR')
+                }
+                onChange={(e) =>
+                  setMonthlyBudget(
+                    e.target.value === ''
+                      ? ''
+                      : String(parseKrwInput(e.target.value)),
+                  )
+                }
+                placeholder="500,000"
+                className="w-full text-base text-black placeholder-stone-300 bg-transparent outline-none tabular-nums"
               />
             </div>
             <div className="flex-1 min-w-0">
@@ -309,14 +308,17 @@ export function PortfolioEditor({
                 key={idx}
                 className="rounded-xl border border-stone-200 bg-stone-50 p-3 space-y-2"
               >
-                {/* Row 1: ticker + name */}
+                {/* Row 1: ticker + name. For 암호화폐, ticker is auto-filled KRW-BTC and readonly. */}
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={asset.ticker}
                     onChange={(e) => updateAsset(idx, { ticker: e.target.value.trim() })}
+                    readOnly={asset.category === '암호화폐'}
                     placeholder={t('portfolio.assetTickerPlaceholder')}
-                    className="w-28 flex-shrink-0 px-3 py-2 rounded-lg border border-stone-200 bg-white text-base text-black placeholder-stone-300 outline-none focus:border-amber-400"
+                    className={`w-28 flex-shrink-0 px-3 py-2 rounded-lg border border-stone-200 text-base text-black placeholder-stone-300 outline-none focus:border-amber-400 ${
+                      asset.category === '암호화폐' ? 'bg-stone-100 text-stone-500' : 'bg-white'
+                    }`}
                   />
                   <input
                     type="text"

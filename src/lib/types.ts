@@ -57,14 +57,13 @@ export interface SermonNote {
 export type PortfolioKind = 'etf' | 'crypto';
 
 export type AssetCategory =
-  | '국내주식'
-  | '해외주식'
+  | '주식'
   | '채권'
   | '금'
   | '원자재'
   | '리츠'
   | '암호화폐'
-  | '기타';
+  | '현금';
 
 /** portfolios 테이블 — named target allocation */
 export interface Portfolio {
