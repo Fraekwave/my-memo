@@ -5,7 +5,12 @@ import { PortfolioWithAssets } from '@/hooks/usePortfolios';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAssetPrices } from '@/hooks/useAssetPrices';
 import { computeHoldings } from '@/lib/pnl';
-import { planBuys, type BuyRecommendation, type RebalanceAsset } from '@/lib/rebalance';
+import {
+  planBuys,
+  type BuyRecommendation,
+  type RebalanceAsset,
+  type Strategy,
+} from '@/lib/rebalance';
 import { formatKrw } from '@/lib/formatNumber';
 import { PortfolioAsset } from '@/lib/types';
 
@@ -67,6 +72,9 @@ export function BuyPlanScreen({
     String(portfolio.portfolio.monthly_budget ?? 0),
   );
 
+  // Strategy — user picks how the algorithm breaks ties.
+  const [strategy, setStrategy] = useState<Strategy>('balanced');
+
   // Inline manual-entry state: ticker → draft string
   const [manualDrafts, setManualDrafts] = useState<Record<string, string>>({});
 
@@ -107,6 +115,7 @@ export function BuyPlanScreen({
         targetPct: subsetPctSum > 0 ? (Number(a.target_pct) / subsetPctSum) * 100 : 0,
         currentShares: holdings[a.ticker] ?? 0,
         price: prices[a.ticker] ?? 0,
+        category: a.category,
       }));
 
     const cryptoResult =
@@ -114,18 +123,30 @@ export function BuyPlanScreen({
         ? planBuys(toRebalance(cryptoAssets, cryptoPctSum), cryptoCash, {
             allowFractional: true,
           })
-        : { buys: [] as BuyRecommendation[], remainingCash: cryptoCash, projectedWeights: {} };
+        : {
+            buys: [] as BuyRecommendation[],
+            remainingCash: cryptoCash,
+            projectedWeights: {},
+            projectedDrift: 0,
+          };
 
     const nonCryptoResult =
       nonCryptoAssets.length > 0
-        ? planBuys(toRebalance(nonCryptoAssets, nonCryptoPctSum), nonCryptoCash)
-        : { buys: [] as BuyRecommendation[], remainingCash: nonCryptoCash, projectedWeights: {} };
+        ? planBuys(toRebalance(nonCryptoAssets, nonCryptoPctSum), nonCryptoCash, {
+            strategy,
+          })
+        : {
+            buys: [] as BuyRecommendation[],
+            remainingCash: nonCryptoCash,
+            projectedWeights: {},
+            projectedDrift: 0,
+          };
 
     return {
       buys: [...cryptoResult.buys, ...nonCryptoResult.buys],
       remainingCash: cryptoResult.remainingCash + nonCryptoResult.remainingCash,
     };
-  }, [allPricesReady, portfolio.assets, holdings, prices, cashToInvest]);
+  }, [allPricesReady, portfolio.assets, holdings, prices, cashToInvest, strategy]);
 
   // User-adjustable share count per ticker.
   const [adjustedShares, setAdjustedShares] = useState<Record<string, number>>({});
@@ -349,6 +370,44 @@ export function BuyPlanScreen({
 
         {summary && (
           <div className="space-y-3">
+            {/* Strategy picker */}
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-stone-500 font-semibold mb-1.5">
+                {t('portfolio.buyPlanStrategy')}
+              </label>
+              <div className="flex items-center gap-1 bg-stone-100 rounded-full p-0.5">
+                {(['balanced', 'aggressive', 'conservative'] as Strategy[]).map((s) => {
+                  const label =
+                    s === 'balanced'
+                      ? t('portfolio.strategyBalanced')
+                      : s === 'aggressive'
+                        ? t('portfolio.strategyAggressive')
+                        : t('portfolio.strategyConservative');
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setStrategy(s)}
+                      className={`flex-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                        strategy === s
+                          ? 'bg-amber-700 text-white shadow-sm'
+                          : 'text-stone-500 hover:text-stone-700'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-stone-400 mt-1 text-center">
+                {strategy === 'balanced'
+                  ? t('portfolio.strategyBalancedHint')
+                  : strategy === 'aggressive'
+                    ? t('portfolio.strategyAggressiveHint')
+                    : t('portfolio.strategyConservativeHint')}
+              </p>
+            </div>
+
             <p className="text-xs text-stone-500">
               추천 수량입니다. ± 버튼으로 조정할 수 있어요.
             </p>

@@ -109,6 +109,93 @@ describe('planBuys — fractional (crypto mode)', () => {
   });
 });
 
+describe('drift-minimization (KIWOOM overshoot scenario)', () => {
+  // Scenario mirroring the real-world portfolio:
+  //   Budget 500k, zero current holdings, 1 high-price ETF that would
+  //   overshoot its target 2x if we bought 1 share. The drift-minimizing
+  //   algo should SKIP it in favor of cheaper ETFs that fit target.
+  it('avoids overshooting a high-price asset with small target', () => {
+    const assets: RebalanceAsset[] = [
+      { ticker: 'A', targetPct: 30, currentShares: 0, price: 30_000 },      // target 150k
+      { ticker: 'B', targetPct: 30, currentShares: 0, price: 30_000 },      // target 150k
+      { ticker: 'C', targetPct: 30, currentShares: 0, price: 30_000 },      // target 150k
+      { ticker: 'KIWOOM', targetPct: 10, currentShares: 0, price: 120_000 }, // target 50k
+    ];
+    const result = planBuys(assets, 500_000);
+    // With cheaper alternatives available, buying 1 KIWOOM (24% of cash)
+    // would overshoot target 10% more than buying 4 shares of A/B/C.
+    // The algo may or may not buy KIWOOM depending on drift math,
+    // but if it does, it's because it genuinely reduced drift.
+    const projectedKiwoomPct = result.projectedWeights['KIWOOM'];
+    // Never overshoot target by more than 15% absolute
+    expect(projectedKiwoomPct).toBeLessThan(25);
+    // And drift should be reasonable
+    expect(result.projectedDrift).toBeLessThan(40);
+  });
+
+  it('fills low-price high-target assets before high-price low-target', () => {
+    const assets: RebalanceAsset[] = [
+      { ticker: 'CHEAP', targetPct: 80, currentShares: 0, price: 10_000 },
+      { ticker: 'EXPENSIVE', targetPct: 20, currentShares: 0, price: 100_000 },
+    ];
+    const result = planBuys(assets, 200_000);
+    const cheap = result.buys.find((b) => b.ticker === 'CHEAP')!;
+    // CHEAP should be bought multiple times to hit its 80% target
+    expect(cheap.sharesToBuy).toBeGreaterThanOrEqual(14); // ~160k worth
+  });
+
+  it('returns projectedDrift field', () => {
+    const result = planBuys(
+      [
+        { ticker: 'A', targetPct: 50, currentShares: 0, price: 10_000 },
+        { ticker: 'B', targetPct: 50, currentShares: 0, price: 10_000 },
+      ],
+      100_000,
+    );
+    expect(result.projectedDrift).toBeCloseTo(0, 1);
+  });
+});
+
+describe('strategy options', () => {
+  const growthAndSafety: RebalanceAsset[] = [
+    { ticker: 'STK', targetPct: 50, currentShares: 0, price: 50_000, category: '주식' },
+    { ticker: 'BND', targetPct: 50, currentShares: 0, price: 50_000, category: '채권' },
+  ];
+
+  it('balanced: roughly equal allocation', () => {
+    const r = planBuys(growthAndSafety, 200_000, { strategy: 'balanced' });
+    const stk = r.buys.find((b) => b.ticker === 'STK')!;
+    const bnd = r.buys.find((b) => b.ticker === 'BND')!;
+    expect(Math.abs(stk.sharesToBuy - bnd.sharesToBuy)).toBeLessThanOrEqual(1);
+  });
+
+  it('aggressive: tilts toward stocks', () => {
+    // Start with a slight stock overweight and tied drift — aggressive
+    // strategy should break ties in favor of stocks.
+    const assets: RebalanceAsset[] = [
+      { ticker: 'STK', targetPct: 50, currentShares: 0, price: 100_000, category: '주식' },
+      { ticker: 'BND', targetPct: 50, currentShares: 0, price: 100_000, category: '채권' },
+    ];
+    // With 100k cash, one share fits — which one?
+    const aggressive = planBuys(assets, 100_000, { strategy: 'aggressive' });
+    expect(aggressive.buys[0].ticker).toBe('STK');
+    const conservative = planBuys(assets, 100_000, { strategy: 'conservative' });
+    expect(conservative.buys[0].ticker).toBe('BND');
+  });
+
+  it('strategy bias does NOT override primary drift objective', () => {
+    // Strongly underweight bond; aggressive bias shouldn't steal from it.
+    const assets: RebalanceAsset[] = [
+      { ticker: 'STK', targetPct: 20, currentShares: 20, price: 10_000, category: '주식' },
+      { ticker: 'BND', targetPct: 80, currentShares: 0, price: 10_000, category: '채권' },
+    ];
+    const r = planBuys(assets, 100_000, { strategy: 'aggressive' });
+    const bnd = r.buys.find((b) => b.ticker === 'BND')!;
+    // Bond should still dominate because drift math overwhelms the penalty
+    expect(bnd.sharesToBuy).toBeGreaterThanOrEqual(8);
+  });
+});
+
 describe('validateTargetAllocation', () => {
   it('Case 8a — weights sum to 100%: valid', () => {
     expect(validateTargetAllocation(balanced5())).toBe(true);
