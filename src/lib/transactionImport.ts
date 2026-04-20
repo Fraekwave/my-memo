@@ -144,6 +144,31 @@ function parseNumber(s: string): number | null {
 }
 
 /**
+ * Normalize a ticker string, using the asset name as a hint for crypto.
+ * Korean brokers don't issue a ticker for Bitcoin, so we accept rows where
+ * the ticker is empty (or informal) as long as the name identifies the coin.
+ *
+ * Bitcoin recognition patterns:
+ *   - Empty ticker + name contains "비트코인" / "bitcoin" / "btc"
+ *   - Informal tickers: "btc", "비트코인", "bitcoin"
+ * All normalize to the Upbit market code `KRW-BTC`.
+ */
+export function normalizeTicker(ticker: string, name: string): string {
+  const t = ticker.trim().toLowerCase();
+  const n = name.trim().toLowerCase();
+
+  const looksLikeBitcoin =
+    t === 'btc' ||
+    t === 'bitcoin' ||
+    t === '비트코인' ||
+    t === 'krw-btc' ||
+    (t === '' && (n.includes('비트코인') || n.includes('bitcoin') || n === 'btc'));
+
+  if (looksLikeBitcoin) return 'KRW-BTC';
+  return ticker.trim();
+}
+
+/**
  * Parse raw CSV text into structured rows. Does NOT validate against a
  * portfolio yet — that happens in `validate()`.
  */
@@ -193,8 +218,10 @@ export function parseCsv(text: string): ParseResult {
     };
 
     const dateStr = get('trade_date');
-    const ticker = get('ticker');
+    const rawTicker = get('ticker');
     const name = get('name');
+    // Normalize the ticker — empty + "비트코인" / "Bitcoin" / "BTC" → "KRW-BTC"
+    const ticker = normalizeTicker(rawTicker, name);
     const sharesStr = get('shares');
     const priceStr = get('price');
     const note = get('note');

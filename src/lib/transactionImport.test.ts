@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseCsv,
   normalizeDate,
+  normalizeTicker,
   splitCsvLine,
   validate,
   generateCsvTemplate,
@@ -132,6 +133,77 @@ describe('parseCsv', () => {
     ].join('\n');
     const result = parseCsv(csv);
     expect(result.rows).toHaveLength(1);
+  });
+});
+
+describe('normalizeTicker — Bitcoin auto-detection', () => {
+  it('empty ticker + name "비트코인" → KRW-BTC', () => {
+    expect(normalizeTicker('', '비트코인')).toBe('KRW-BTC');
+  });
+
+  it('empty ticker + name "Bitcoin" (case insensitive) → KRW-BTC', () => {
+    expect(normalizeTicker('', 'Bitcoin')).toBe('KRW-BTC');
+    expect(normalizeTicker('', 'BITCOIN')).toBe('KRW-BTC');
+  });
+
+  it('empty ticker + name "BTC" → KRW-BTC', () => {
+    expect(normalizeTicker('', 'BTC')).toBe('KRW-BTC');
+  });
+
+  it('informal ticker "BTC" → KRW-BTC', () => {
+    expect(normalizeTicker('BTC', 'Bitcoin')).toBe('KRW-BTC');
+    expect(normalizeTicker('btc', '')).toBe('KRW-BTC');
+  });
+
+  it('informal ticker "비트코인" → KRW-BTC', () => {
+    expect(normalizeTicker('비트코인', '')).toBe('KRW-BTC');
+  });
+
+  it('proper KRW-BTC left as-is', () => {
+    expect(normalizeTicker('KRW-BTC', '비트코인')).toBe('KRW-BTC');
+  });
+
+  it('non-crypto ticker passes through unchanged', () => {
+    expect(normalizeTicker('069500', 'KODEX 200')).toBe('069500');
+    expect(normalizeTicker('069500', '')).toBe('069500');
+  });
+
+  it('empty ticker + non-Bitcoin name stays empty', () => {
+    expect(normalizeTicker('', '')).toBe('');
+    expect(normalizeTicker('', 'KODEX 200')).toBe('');
+  });
+});
+
+describe('parseCsv — Bitcoin auto-detection integration', () => {
+  it('accepts a row with empty ticker and name "비트코인"', () => {
+    const csv = [
+      '날짜,종목코드,종목명,수량,단가',
+      '2025-02-04,,비트코인,0.00063841,156640000',
+    ].join('\n');
+    const result = parseCsv(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].ticker).toBe('KRW-BTC');
+    expect(result.rows[0].status).toBe('valid');
+  });
+
+  it('accepts informal "BTC" ticker', () => {
+    const csv = [
+      '날짜,종목코드,종목명,수량,단가',
+      '2025-02-04,BTC,비트코인,0.001,100000000',
+    ].join('\n');
+    const result = parseCsv(csv);
+    expect(result.rows[0].ticker).toBe('KRW-BTC');
+    expect(result.rows[0].status).toBe('valid');
+  });
+
+  it('still rejects empty ticker + non-crypto name', () => {
+    const csv = [
+      '날짜,종목코드,종목명,수량,단가',
+      '2025-02-04,,KODEX 200,3,33250',
+    ].join('\n');
+    const result = parseCsv(csv);
+    expect(result.rows[0].status).toBe('invalid');
   });
 });
 
