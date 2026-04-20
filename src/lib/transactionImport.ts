@@ -293,6 +293,28 @@ export function parseCsv(text: string): ParseResult {
       continue;
     }
 
+    // Sanity check for crypto: BTC has never traded below ~1M KRW.
+    // A price below this is almost certainly a typo where '000' was dropped
+    // (e.g., 103,880 instead of 103,880,000). Catch it before it corrupts P&L.
+    if (ticker === 'KRW-BTC' && price < 1_000_000) {
+      errors.push({
+        rowIndex,
+        message: `비트코인 단가가 너무 낮아요 (입력값 ${price.toLocaleString('ko-KR')}원). 0이 빠진 건 아닌가요?`,
+      });
+      rows.push({
+        rowIndex,
+        trade_date: isoDate,
+        ticker,
+        name,
+        shares,
+        price,
+        note,
+        status: 'invalid',
+        statusMessage: '비트코인 단가 확인 (오타?)',
+      });
+      continue;
+    }
+
     rows.push({
       rowIndex,
       trade_date: isoDate,

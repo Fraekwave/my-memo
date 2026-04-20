@@ -197,6 +197,27 @@ describe('parseCsv — Bitcoin auto-detection integration', () => {
     expect(result.rows[0].status).toBe('valid');
   });
 
+  it('rejects BTC row with price below 1M KRW (typo guard)', () => {
+    // The "missing 3 zeros" bug: 103,880 instead of 103,880,000
+    const csv = [
+      '날짜,종목코드,종목명,수량,단가',
+      '2026-03-06,,비트코인,0.96264921,103880',
+    ].join('\n');
+    const result = parseCsv(csv);
+    expect(result.rows[0].status).toBe('invalid');
+    expect(result.rows[0].statusMessage).toContain('비트코인');
+    expect(result.errors[0].message).toContain('너무 낮아요');
+  });
+
+  it('accepts BTC row with realistic price', () => {
+    const csv = [
+      '날짜,종목코드,종목명,수량,단가',
+      '2026-03-06,,비트코인,0.00096265,103880000',
+    ].join('\n');
+    const result = parseCsv(csv);
+    expect(result.rows[0].status).toBe('valid');
+  });
+
   it('still rejects empty ticker + non-crypto name', () => {
     const csv = [
       '날짜,종목코드,종목명,수량,단가',
