@@ -1,4 +1,4 @@
-// STUB — Phase 2 WIP. Full implementation pending.
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { PortfolioWithAssets } from '@/hooks/usePortfolios';
@@ -9,6 +9,8 @@ interface PortfolioSummaryProps {
   onNew: () => void;
   onEdit: (portfolioId: number) => void;
   onBuyPlan: (portfolioId: number) => void;
+  onPnl: (portfolioId: number) => void;
+  onHistory: (portfolioId: number) => void;
   onImport: (portfolioId: number) => void;
   onRecord: (portfolioId: number) => void;
   onDelete: (portfolioId: number) => Promise<void> | void;
@@ -20,8 +22,14 @@ export function PortfolioSummary({
   onNew,
   onEdit,
   onBuyPlan,
+  onPnl,
+  onHistory,
+  onImport,
+  onRecord,
+  onDelete,
 }: PortfolioSummaryProps) {
   const { t } = useTranslation();
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -49,35 +57,101 @@ export function PortfolioSummary({
         </div>
       ) : (
         <div className="space-y-3">
-          {portfolios.map((p) => (
-            <div
-              key={p.portfolio.id}
-              className="rounded-xl border border-stone-200 bg-stone-50 p-4"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-base font-semibold text-black">{p.portfolio.name}</span>
-                <button
-                  type="button"
-                  onClick={() => onEdit(p.portfolio.id)}
-                  className="text-sm text-stone-500 hover:text-stone-700"
-                >
-                  {t('portfolio.menuEdit')}
-                </button>
-              </div>
-              <div className="text-sm text-stone-500 mb-3">
-                {t('portfolio.monthlyBudget')}: {p.portfolio.monthly_budget.toLocaleString('ko-KR')}원
-                {' · '}
-                {p.assets.length} {p.portfolio.kind === 'crypto' ? '자산' : 'ETF'}
-              </div>
-              <button
-                type="button"
-                onClick={() => onBuyPlan(p.portfolio.id)}
-                className="w-full px-4 py-2 rounded-lg bg-amber-700 text-white text-base font-medium hover:bg-amber-800 transition-colors"
+          {portfolios.map((p) => {
+            const id = p.portfolio.id;
+            const isDeleting = deletingId === id;
+            return (
+              <div
+                key={id}
+                className="rounded-xl border border-stone-200 bg-stone-50 p-4"
               >
-                {t('portfolio.buyPlanBtn')}
-              </button>
-            </div>
-          ))}
+                {/* Header: name + edit */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-base font-semibold text-black">{p.portfolio.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(id)}
+                    className="text-sm text-stone-500 hover:text-stone-700"
+                  >
+                    {t('portfolio.menuEdit')}
+                  </button>
+                </div>
+
+                {/* Metadata */}
+                <div className="text-sm text-stone-500 mb-3">
+                  {t('portfolio.monthlyBudget')}: {p.portfolio.monthly_budget.toLocaleString('ko-KR')}원
+                  {' · '}
+                  {p.assets.length} {p.portfolio.kind === 'crypto' ? '자산' : 'ETF'}
+                </div>
+
+                {/* Primary action buttons */}
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => onPnl(id)}
+                    className="flex-1 px-4 py-2 rounded-lg border border-stone-200 bg-white text-stone-700 text-base font-medium hover:bg-stone-100 transition-colors"
+                  >
+                    {t('portfolio.pnlBtn')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onBuyPlan(id)}
+                    className="flex-1 px-4 py-2 rounded-lg bg-amber-700 text-white text-base font-medium hover:bg-amber-800 transition-colors"
+                  >
+                    {t('portfolio.buyPlanBtn')}
+                  </button>
+                </div>
+
+                {/* Secondary action links */}
+                <div className="flex items-center gap-3 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => onHistory(id)}
+                    className="text-stone-500 hover:text-stone-700 transition-colors"
+                  >
+                    {t('portfolio.historyBtn')}
+                  </button>
+                  <span className="text-stone-300">·</span>
+                  <button
+                    type="button"
+                    onClick={() => onRecord(id)}
+                    className="text-stone-500 hover:text-stone-700 transition-colors"
+                  >
+                    {t('portfolio.menuRecord')}
+                  </button>
+                  <span className="text-stone-300">·</span>
+                  <button
+                    type="button"
+                    onClick={() => onImport(id)}
+                    className="text-stone-500 hover:text-stone-700 transition-colors"
+                  >
+                    {t('portfolio.menuImport')}
+                  </button>
+                  <span className="text-stone-300">·</span>
+                  {isDeleting ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await onDelete(id);
+                        setDeletingId(null);
+                      }}
+                      className="text-red-600 font-medium hover:text-red-700 transition-colors"
+                    >
+                      {t('portfolio.deleteConfirm')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDeletingId(id)}
+                      className="text-stone-400 hover:text-red-600 transition-colors"
+                    >
+                      {t('portfolio.menuDelete')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

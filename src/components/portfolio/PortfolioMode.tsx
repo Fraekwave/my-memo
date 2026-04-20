@@ -5,6 +5,8 @@ import { PortfolioEditor } from './PortfolioEditor';
 import { BuyPlanScreen } from './BuyPlanScreen';
 import { TransactionImportWizard } from './TransactionImportWizard';
 import { MonthlyRecordBatchForm } from './MonthlyRecordBatchForm';
+import { PnlDashboard } from './PnlDashboard';
+import { TransactionHistory } from './TransactionHistory';
 import type { BuyRecommendation } from '@/lib/rebalance';
 
 type View =
@@ -12,7 +14,9 @@ type View =
   | { kind: 'editor'; portfolioId?: number }
   | { kind: 'buyplan'; portfolioId: number }
   | { kind: 'import'; portfolioId: number }
-  | { kind: 'record'; portfolioId: number; prefill?: BuyRecommendation[] };
+  | { kind: 'record'; portfolioId: number; prefill?: BuyRecommendation[] }
+  | { kind: 'pnl'; portfolioId: number }
+  | { kind: 'history'; portfolioId: number };
 
 interface PortfolioModeProps {
   userId: string | null;
@@ -131,6 +135,36 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     );
   }
 
+  // P&L dashboard view
+  if (view.kind === 'pnl') {
+    const selected = findPortfolio(view.portfolioId);
+    if (!selected) return null;
+    return (
+      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]">
+        <PnlDashboard
+          userId={userId}
+          portfolio={selected}
+          onBack={() => setView({ kind: 'summary' })}
+        />
+      </div>
+    );
+  }
+
+  // Transaction history view
+  if (view.kind === 'history') {
+    const selected = findPortfolio(view.portfolioId);
+    if (!selected) return null;
+    return (
+      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]">
+        <TransactionHistory
+          userId={userId}
+          portfolio={selected}
+          onBack={() => setView({ kind: 'summary' })}
+        />
+      </div>
+    );
+  }
+
   // Summary (default)
   return (
     <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 p-6 sm:p-8 min-h-[400px]">
@@ -140,6 +174,8 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
         onNew={() => setView({ kind: 'editor' })}
         onEdit={(id) => setView({ kind: 'editor', portfolioId: id })}
         onBuyPlan={(id) => setView({ kind: 'buyplan', portfolioId: id })}
+        onPnl={(id) => setView({ kind: 'pnl', portfolioId: id })}
+        onHistory={(id) => setView({ kind: 'history', portfolioId: id })}
         onImport={(id) => setView({ kind: 'import', portfolioId: id })}
         onRecord={(id) => setView({ kind: 'record', portfolioId: id })}
         onDelete={handleDelete}

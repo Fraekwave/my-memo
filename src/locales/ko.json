@@ -291,6 +291,18 @@
     "categoryCommodity": "원자재",
     "categoryReit": "리츠",
     "categoryCrypto": "암호화폐",
-    "categoryOther": "기타"
+    "categoryOther": "기타",
+    "pnlBtn": "수익 현황",
+    "pnlTitle": "수익 현황",
+    "pnlCurrentValue": "평가 금액",
+    "pnlCostBasis": "투자 원금",
+    "pnlGain": "수익/손실",
+    "pnlReturnPct": "수익률",
+    "pnlCostLabel": "원금",
+    "historyBtn": "거래 내역",
+    "historyTitle": "거래 내역",
+    "historyTotal": "총 거래",
+    "historyCount": "{{count}}건",
+    "historyEmpty": "거래 기록이 없어요. 매수 계획에서 기록하거나 CSV를 가져와 보세요."
   }
 }
