@@ -193,6 +193,12 @@
   "portfolio": {
     "modeTogglePortfolio": "포트",
     "newPortfolio": "새 포트폴리오 만들기",
+    "returnChartTitle": "수익률 추이",
+    "returnChartSubtitle": "설계일 이후",
+    "cumReturn": "누적수익률",
+    "inceptionDate": "최초설계일",
+    "returnChartLoading": "차트를 불러오는 중...",
+    "returnChartEmpty": "아직 거래 기록이 없어요",
     "emptyTitle": "투자 포트폴리오를 만들어 보세요",
     "emptySub": "ETF와 비트코인을 따로 관리할 수 있어요",
     "kindEtf": "ETF",

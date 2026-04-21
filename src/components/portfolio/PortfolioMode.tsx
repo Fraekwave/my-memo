@@ -169,6 +169,7 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
   return (
     <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 p-6 sm:p-8 min-h-[400px]">
       <PortfolioSummary
+        userId={userId}
         portfolios={portfolios}
         isLoading={isLoading}
         onNew={() => setView({ kind: 'editor' })}

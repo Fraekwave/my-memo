@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { PortfolioWithAssets } from '@/hooks/usePortfolios';
+import { ReturnSummary } from './ReturnSummary';
 
 interface PortfolioSummaryProps {
+  userId: string | null;
   portfolios: PortfolioWithAssets[];
   isLoading: boolean;
   onNew: () => void;
@@ -17,6 +19,7 @@ interface PortfolioSummaryProps {
 }
 
 export function PortfolioSummary({
+  userId,
   portfolios,
   isLoading,
   onNew,
@@ -39,8 +42,15 @@ export function PortfolioSummary({
     );
   }
 
+  const activePortfolioIds = portfolios.map((p) => p.portfolio.id);
+
   return (
     <div>
+      {/* Landing: 수익률 추이 chart across all portfolios */}
+      {portfolios.length > 0 && (
+        <ReturnSummary userId={userId} portfolioIds={activePortfolioIds} />
+      )}
+
       <button
         type="button"
         onClick={onNew}
