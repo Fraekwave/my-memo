@@ -200,6 +200,29 @@ export function useTransactions(
     [portfolioId, updateCache],
   );
 
+  /**
+   * Delete ALL transactions for this portfolio. Used by the "replace
+   * existing" flow in the CSV import wizard as a clean-slate escape hatch.
+   */
+  const deleteAllForPortfolio = useCallback(async (): Promise<boolean> => {
+    if (!userId || portfolioId == null) return false;
+    const prev = cacheRef.current;
+    updateCache(() => []);
+    const { error: err } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('portfolio_id', portfolioId);
+    if (err) {
+      cacheRef.current = prev;
+      if (portfolioId != null) moduleCache.set(portfolioId, prev);
+      setTransactions(prev);
+      setError(err.message);
+      return false;
+    }
+    return true;
+  }, [userId, portfolioId, updateCache]);
+
   return {
     transactions,
     isLoading,
@@ -207,5 +230,6 @@ export function useTransactions(
     addTransaction,
     bulkInsert,
     deleteTransaction,
+    deleteAllForPortfolio,
   };
 }

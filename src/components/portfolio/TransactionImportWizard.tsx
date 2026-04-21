@@ -7,6 +7,7 @@ import {
   parseCsv,
   validate,
   generateCsvTemplate,
+  dupKeyForTx,
   type ParsedRow,
   type RowStatus,
 } from '@/lib/transactionImport';
@@ -26,7 +27,10 @@ export function TransactionImportWizard({
   onBack,
 }: TransactionImportWizardProps) {
   const { t } = useTranslation();
-  const { transactions, bulkInsert } = useTransactions(userId, portfolio.portfolio.id);
+  const { transactions, bulkInsert, deleteAllForPortfolio } = useTransactions(
+    userId,
+    portfolio.portfolio.id,
+  );
 
   const [step, setStep] = useState<Step>('upload');
   const [csvText, setCsvText] = useState('');
@@ -34,6 +38,9 @@ export function TransactionImportWizard({
   const [parseErrorMessage, setParseErrorMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [insertResult, setInsertResult] = useState<{ inserted: number; failed: number } | null>(null);
+  // "Replace existing" — wipe the portfolio's transactions before import.
+  // Intended escape hatch for botched imports; off by default.
+  const [replaceExisting, setReplaceExisting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const knownTickers = useMemo(
@@ -42,12 +49,15 @@ export function TransactionImportWizard({
   );
 
   const existingKeys = useMemo(() => {
+    // When replaceExisting is on, the existing rows will be wiped before
+    // insertion, so skip duplicate detection entirely.
+    if (replaceExisting) return new Set<string>();
     const s = new Set<string>();
     for (const tx of transactions) {
-      s.add(`${tx.trade_date}|${tx.ticker}|${tx.shares}|${tx.price}`);
+      s.add(dupKeyForTx(tx));
     }
     return s;
-  }, [transactions]);
+  }, [transactions, replaceExisting]);
 
   const counts = useMemo(() => {
     const c: Record<RowStatus, number> = { valid: 0, orphan: 0, duplicate: 0, invalid: 0 };
@@ -103,13 +113,17 @@ export function TransactionImportWizard({
       price: r.price,
       note: r.note,
     }));
+    // If "replace existing" is on, wipe the portfolio's transactions first.
+    if (replaceExisting) {
+      await deleteAllForPortfolio();
+    }
     setProgress({ done: 0, total: inputs.length });
     const result = await bulkInsert(inputs, (done, total) =>
       setProgress({ done, total }),
     );
     setInsertResult(result);
     setStep('done');
-  }, [validRows, bulkInsert]);
+  }, [validRows, bulkInsert, replaceExisting, deleteAllForPortfolio]);
 
   const reset = useCallback(() => {
     setStep('upload');
@@ -197,6 +211,27 @@ export function TransactionImportWizard({
               <p className="text-sm text-red-600">{parseErrorMessage}</p>
             )}
 
+            {/* Replace-existing escape hatch */}
+            {transactions.length > 0 && (
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-stone-200 bg-stone-50 cursor-pointer hover:bg-stone-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={replaceExisting}
+                  onChange={(e) => setReplaceExisting(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-amber-700"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-stone-800">
+                    기존 거래를 모두 삭제하고 새로 가져오기
+                  </div>
+                  <div className="text-xs text-stone-500 mt-0.5 leading-relaxed">
+                    지금 이 포트폴리오에 저장된 거래 {transactions.length}건을
+                    먼저 삭제한 뒤 CSV 내용으로 새로 등록합니다. 되돌릴 수 없어요.
+                  </div>
+                </div>
+              </label>
+            )}
+
             <button
               type="button"
               onClick={handleParse}
@@ -214,6 +249,13 @@ export function TransactionImportWizard({
 
         {step === 'review' && (
           <>
+            {replaceExisting && (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3">
+                <p className="text-sm font-medium text-red-700">
+                  ⚠️ 등록 시 기존 거래 {transactions.length}건이 모두 삭제됩니다.
+                </p>
+              </div>
+            )}
             <div className="rounded-xl bg-amber-50 border border-amber-100 p-4">
               <p className="text-sm font-medium text-stone-700">
                 {t('portfolio.importReviewSummary', {

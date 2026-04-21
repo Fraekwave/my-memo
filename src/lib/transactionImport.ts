@@ -334,10 +334,40 @@ export interface ValidateContext {
   /** Tickers present in the target portfolio_assets. */
   knownTickers: Set<string>;
   /**
-   * Existing transactions for duplicate detection. Each key is
-   * `${trade_date}|${ticker}|${shares}|${price}`.
+   * Existing transactions for duplicate detection. Build with
+   * `dupKeyForTx()` so the hash matches parsed CSV rows even when
+   * the DB returns numerics as strings like "103880000.0000".
    */
   existingKeys: Set<string>;
+}
+
+/**
+ * Build a normalised duplicate-detection key. Numbers are coerced via
+ * `Number()` so "0.00096265" (string from DB) and 0.00096265 (JS number
+ * from CSV) produce identical keys. Trailing zeros, string quoting, and
+ * locale commas all dissolve.
+ */
+export function dupKey(
+  trade_date: string,
+  ticker: string,
+  shares: number | string,
+  price: number | string,
+): string {
+  const s = Number(shares);
+  const p = Number(price);
+  return `${trade_date}|${ticker}|${Number.isFinite(s) ? s : 0}|${Number.isFinite(p) ? p : 0}`;
+}
+
+/**
+ * Convenience helper for building `existingKeys` from DB transaction rows.
+ */
+export function dupKeyForTx(tx: {
+  trade_date: string;
+  ticker: string;
+  shares: number | string;
+  price: number | string;
+}): string {
+  return dupKey(tx.trade_date, tx.ticker, tx.shares, tx.price);
 }
 
 /**
@@ -354,7 +384,7 @@ export function validate(rows: ParsedRow[], ctx: ValidateContext): ParsedRow[] {
       return { ...row, status: 'orphan', statusMessage: '포트폴리오에 없는 종목' };
     }
 
-    const key = `${row.trade_date}|${row.ticker}|${row.shares}|${row.price}`;
+    const key = dupKey(row.trade_date, row.ticker, row.shares, row.price);
     if (seenKeys.has(key)) {
       return { ...row, status: 'duplicate', statusMessage: '이미 등록된 거래' };
     }

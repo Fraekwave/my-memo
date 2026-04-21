@@ -6,6 +6,8 @@ import {
   splitCsvLine,
   validate,
   generateCsvTemplate,
+  dupKey,
+  dupKeyForTx,
 } from './transactionImport';
 
 describe('splitCsvLine', () => {
@@ -225,6 +227,54 @@ describe('parseCsv — Bitcoin auto-detection integration', () => {
     ].join('\n');
     const result = parseCsv(csv);
     expect(result.rows[0].status).toBe('invalid');
+  });
+});
+
+describe('dupKey — string/number normalization', () => {
+  it('string vs number numerics produce the same key', () => {
+    const fromDb = dupKey('2026-03-06', 'KRW-BTC', '0.00096265', '103880000.0000');
+    const fromCsv = dupKey('2026-03-06', 'KRW-BTC', 0.00096265, 103880000);
+    expect(fromDb).toBe(fromCsv);
+  });
+
+  it('trailing zeros on numerics are ignored', () => {
+    expect(dupKey('2026-01-01', 'X', 3, 1000)).toBe(
+      dupKey('2026-01-01', 'X', '3', '1000.0000'),
+    );
+  });
+
+  it('dupKeyForTx matches dupKey', () => {
+    const tx = {
+      trade_date: '2026-03-06',
+      ticker: 'KRW-BTC',
+      shares: '0.00096265',
+      price: '103880000.0000',
+    };
+    expect(dupKeyForTx(tx)).toBe(
+      dupKey(tx.trade_date, tx.ticker, tx.shares, tx.price),
+    );
+  });
+
+  it('detects CSV re-import of an existing DB row as duplicate', () => {
+    // Simulate: DB has one row (stringy numerics), CSV has the same row.
+    const dbRow = {
+      trade_date: '2026-03-06',
+      ticker: 'KRW-BTC',
+      shares: '0.00096265',
+      price: '103880000.0000',
+    };
+    const existingKeys = new Set([dupKeyForTx(dbRow)]);
+    const parsed = parseCsv(
+      [
+        '날짜,종목코드,종목명,수량,단가',
+        '2026-03-06,,비트코인,0.00096265,103880000',
+      ].join('\n'),
+    ).rows;
+    const validated = validate(parsed, {
+      knownTickers: new Set(['KRW-BTC']),
+      existingKeys,
+    });
+    expect(validated[0].status).toBe('duplicate');
   });
 });
 
