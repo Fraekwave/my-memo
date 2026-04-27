@@ -47,7 +47,7 @@ export function SermonMode({ userId, showTrash, onCloseTrash }: SermonModeProps)
     return (
       <div
         className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 p-6 sm:p-8 min-h-[400px]"
-        style={{ backgroundColor: 'var(--surface-card)' }}
+        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
       >
         <SermonTrashView
           deletedNotes={deletedNotes}
@@ -64,7 +64,7 @@ export function SermonMode({ userId, showTrash, onCloseTrash }: SermonModeProps)
     return (
       <div
         className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
-        style={{ backgroundColor: 'var(--surface-card)' }}
+        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
       >
         <SermonNoteEditor
           note={selectedNote}

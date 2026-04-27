@@ -36,8 +36,14 @@ html, body, #root {
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  background-color: #fafaf5; /* warm white — explicit to prevent Samsung force-dark inversion */
-  color: #1c1917; /* stone-900 warm black */
+  /* Samsung Force Dark inverts `background-color` declarations on
+     post-login devices even with color-scheme:light only. The known
+     workaround is to use a linear-gradient background-image with a
+     constant color — Force Dark treats it as image content and skips
+     inversion. The `background-color` is kept as a fallback. */
+  background-image: linear-gradient(#fafaf5, #fafaf5);
+  background-color: #fafaf5;
+  color: #1c1917;
 }
 
 /* Samsung WebView force-dark override — defense in depth.
@@ -47,6 +53,7 @@ html, body, #root {
   html:not([data-theme="dark"]),
   html:not([data-theme="dark"]) body,
   html:not([data-theme="dark"]) #root {
+    background-image: linear-gradient(#fafaf5, #fafaf5) !important;
     background-color: #fafaf5 !important;
     color: #1c1917 !important;
   }
@@ -60,20 +67,26 @@ html, body, #root {
  */
 
 /* Surface tokens — for components that need theme-aware backgrounds via
-   inline `style={{ backgroundColor: 'var(--surface-...)' }}`. Inline styles
-   are required where the component carries Force-Dark defense (App shell,
-   mode wrappers) AND for spots where Tailwind classes can't reach (drag
-   previews built via createPortal, react-motion animated divs). */
+   inline styles. We expose BOTH a hex token AND a pre-built gradient
+   token. Inline-style consumers should use the gradient form via
+   `style={{ backgroundImage: 'var(--surface-page-grad)' }}` so Samsung
+   Force Dark cannot invert the surface (it generally skips image bgs). */
 :root,
 html[data-theme="light"] {
-  --surface-page: #fafaf5;        /* warm white — html/body/#root */
-  --surface-card: #ffffff;        /* primary card surface */
-  --surface-card-soft: #f4f4f4;   /* sermon note cards (slightly tinted) */
+  --surface-page: #fafaf5;
+  --surface-card: #ffffff;
+  --surface-card-soft: #f4f4f4;
+  --surface-page-grad: linear-gradient(#fafaf5, #fafaf5);
+  --surface-card-grad: linear-gradient(#ffffff, #ffffff);
+  --surface-card-soft-grad: linear-gradient(#f4f4f4, #f4f4f4);
 }
 html[data-theme="dark"] {
-  --surface-page: #1c1917;        /* stone-900 */
-  --surface-card: #292524;        /* stone-800 */
-  --surface-card-soft: #1c1917;   /* stone-900 (so text-on-card has contrast) */
+  --surface-page: #1c1917;
+  --surface-card: #292524;
+  --surface-card-soft: #1c1917;
+  --surface-page-grad: linear-gradient(#1c1917, #1c1917);
+  --surface-card-grad: linear-gradient(#292524, #292524);
+  --surface-card-soft-grad: linear-gradient(#1c1917, #1c1917);
 }
 
 /* Chart color tokens — used by the SVG paths in ReturnChart. Theme-aware
@@ -96,41 +109,67 @@ html[data-theme="dark"] {
   --chart-zero-line: #57534e;   /* stone-600 */
 }
 
-/* Light mode — strongest possible enforcement. This is our last line of
-   defense against Samsung Force Dark on the post-login render. */
+/* Light mode — strongest possible enforcement. Uses the gradient trick
+   for the page surfaces so Samsung Force Dark cannot invert them. */
 html[data-theme="light"],
 html[data-theme="light"] body,
 html[data-theme="light"] #root {
+  background-image: linear-gradient(#fafaf5, #fafaf5) !important;
   background-color: #fafaf5 !important;
   color: #1c1917 !important;
   color-scheme: light only !important;
 }
+/* Light-mode card surfaces — same gradient trick as dark mode so
+   Samsung Force Dark cannot invert white/stone cards to dark either. */
+html[data-theme="light"] .bg-white {
+  background-image: linear-gradient(#ffffff, #ffffff) !important;
+  background-color: #ffffff !important;
+}
+html[data-theme="light"] .bg-stone-50 {
+  background-image: linear-gradient(#fafaf5, #fafaf5) !important;
+  background-color: #fafaf5 !important;
+}
+html[data-theme="light"] .bg-stone-100 {
+  background-image: linear-gradient(#f5f5f4, #f5f5f4) !important;
+  background-color: #f5f5f4 !important;
+}
+html[data-theme="light"] .bg-stone-200 {
+  background-image: linear-gradient(#e7e5e4, #e7e5e4) !important;
+  background-color: #e7e5e4 !important;
+}
 
-/* Dark mode — minimal viable. Flips html/body/#root + the most common
-   card surfaces. Component-level polish is a separate effort. */
+/* Dark mode — same gradient technique so Force Dark cannot re-invert
+   the dark color back to light, ensuring the chosen color sticks. */
 html[data-theme="dark"] {
   color-scheme: dark;
 }
 html[data-theme="dark"],
 html[data-theme="dark"] body,
 html[data-theme="dark"] #root {
+  background-image: linear-gradient(#1c1917, #1c1917) !important;
   background-color: #1c1917 !important;
   color: #fafaf5 !important;
 }
 /* Common surfaces — Tailwind utility classes flipped to their dark
    counterparts. The selectors are intentionally broad so we don't
    need to audit every component for v1. */
+/* Dark surfaces — gradient-image trick so Samsung Force Dark cannot
+   re-invert these back to light. Each rule sets both background-image
+   AND background-color (the latter is a fallback). */
 html[data-theme="dark"] .bg-white {
+  background-image: linear-gradient(#292524, #292524) !important;
   background-color: #292524 !important; /* stone-800 */
 }
 html[data-theme="dark"] .bg-stone-50 {
+  background-image: linear-gradient(#1c1917, #1c1917) !important;
   background-color: #1c1917 !important; /* stone-900 */
 }
 html[data-theme="dark"] .bg-stone-100 {
+  background-image: linear-gradient(#292524, #292524) !important;
   background-color: #292524 !important; /* stone-800 */
 }
-/* Inactive tab bg + button hovers — flip the mid-grays too. */
 html[data-theme="dark"] .bg-stone-200 {
+  background-image: linear-gradient(#44403c, #44403c) !important;
   background-color: #44403c !important; /* stone-700 */
 }
 html[data-theme="dark"] .bg-stone-300\/70,

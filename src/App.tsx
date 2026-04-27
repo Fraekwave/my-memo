@@ -233,7 +233,7 @@ function App() {
     return (
       <div
         className="h-full animate-fade-in"
-        style={{ backgroundColor: 'var(--surface-page)' }}
+        style={{ backgroundImage: 'var(--surface-page-grad)', backgroundColor: 'var(--surface-page)' }}
       >
         <Suspense fallback={null}>
           <PasswordResetConfirm onSuccess={clearRecoveryMode} />
@@ -247,7 +247,7 @@ function App() {
     return (
       <div
         className="h-full animate-fade-in"
-        style={{ backgroundColor: 'var(--surface-page)' }}
+        style={{ backgroundImage: 'var(--surface-page-grad)', backgroundColor: 'var(--surface-page)' }}
       >
         <Auth onSuccess={() => {}} />
       </div>
@@ -261,7 +261,7 @@ function App() {
     <>
     <div
       className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-stone-50 animate-fade-in"
-      style={{ backgroundColor: 'var(--surface-page)' }}
+      style={{ backgroundImage: 'var(--surface-page-grad)', backgroundColor: 'var(--surface-page)' }}
     >
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
         {/* 헤더 — 시간 중심 레이아웃:

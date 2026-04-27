@@ -71,7 +71,7 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     return (
       <div
         className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
-        style={{ backgroundColor: 'var(--surface-card)' }}
+        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
       >
         <PortfolioEditor
           existing={existing}
@@ -95,7 +95,7 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     return (
       <div
         className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
-        style={{ backgroundColor: 'var(--surface-card)' }}
+        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
       >
         <BuyPlanScreen
           userId={userId}
@@ -116,7 +116,7 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     return (
       <div
         className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
-        style={{ backgroundColor: 'var(--surface-card)' }}
+        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
       >
         <TransactionImportWizard
           userId={userId}
@@ -134,7 +134,7 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     return (
       <div
         className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
-        style={{ backgroundColor: 'var(--surface-card)' }}
+        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
       >
         <MonthlyRecordBatchForm
           userId={userId}
@@ -154,7 +154,7 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     return (
       <div
         className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
-        style={{ backgroundColor: 'var(--surface-card)' }}
+        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
       >
         <PnlDashboard
           userId={userId}
@@ -172,7 +172,7 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     return (
       <div
         className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
-        style={{ backgroundColor: 'var(--surface-card)' }}
+        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
       >
         <TransactionHistory
           userId={userId}
@@ -187,7 +187,7 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
   return (
     <div
       className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 p-6 sm:p-8 min-h-[400px]"
-      style={{ backgroundColor: 'var(--surface-card)' }}
+      style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
     >
       <PortfolioSummary
         userId={userId}

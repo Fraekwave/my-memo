@@ -154,7 +154,7 @@ function AdminPageContent({ onClose }: { onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 bg-stone-50 flex flex-col overflow-hidden animate-fade-in"
-      style={{ backgroundColor: 'var(--surface-page)' }}
+      style={{ backgroundImage: 'var(--surface-page-grad)', backgroundColor: 'var(--surface-page)' }}
     >
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-stone-100 flex-shrink-0">

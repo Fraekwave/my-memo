@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mamavault-v6-light';
+const CACHE_NAME = 'mamavault-v7-grad';
 
 const APP_SHELL = [
   '/',
