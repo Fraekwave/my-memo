@@ -48,6 +48,21 @@ function persist() {
 }
 
 /**
+ * Pre-warm the resolve-ticker-name edge function so the FIRST real
+ * lookup the user triggers doesn't pay Deno isolate cold-start latency
+ * (~200-400 ms). Sends an empty ticker which the function rejects
+ * immediately without hitting Naver — round-trip is ~50 ms but it
+ * boots the isolate. Safe to call repeatedly; it's a no-op once warm.
+ */
+export function prewarmTickerNameResolver(): void {
+  void supabase.functions
+    .invoke<ResolveResponse>('resolve-ticker-name', { body: { ticker: '' } })
+    .catch(() => {
+      // ignore — pre-warm is best-effort
+    });
+}
+
+/**
  * Look up the name for a ticker. Returns the name string on success,
  * null on failure (unknown ticker / network error).
  *

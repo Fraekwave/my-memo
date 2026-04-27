@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { PortfolioWithAssets, PortfolioInput, AssetInput } from '@/hooks/usePortfolios';
 import { AssetCategory, PortfolioKind } from '@/lib/types';
-import { resolveTickerName } from '@/lib/tickerName';
+import { resolveTickerName, prewarmTickerNameResolver } from '@/lib/tickerName';
 
 interface PortfolioEditorProps {
   existing: PortfolioWithAssets | null;
@@ -114,6 +114,45 @@ export function PortfolioEditor({
     return true;
   }, [name, monthlyBudget, assets, totalPctOk]);
 
+  // Tracks rows currently waiting on a name lookup so we can show
+  // "검색 중..." in the name field. Set of asset row indexes.
+  const [resolvingRows, setResolvingRows] = useState<Set<number>>(new Set());
+
+  // Pre-warm the resolve-ticker-name edge function on mount so the
+  // user's first lookup doesn't pay Deno cold-start latency.
+  useEffect(() => {
+    prewarmTickerNameResolver();
+  }, []);
+
+  /**
+   * Auto-resolve the asset name. Fires the moment the ticker becomes a
+   * valid 6-digit Korean code — no waiting for blur. The user sees a
+   * "검색 중..." placeholder in the name field while the lookup runs;
+   * on success the name field auto-fills.
+   */
+  const triggerNameLookup = useCallback(async (idx: number, code: string) => {
+    setResolvingRows((prev) => {
+      const next = new Set(prev);
+      next.add(idx);
+      return next;
+    });
+    const resolved = await resolveTickerName(code);
+    setResolvingRows((prev) => {
+      const next = new Set(prev);
+      next.delete(idx);
+      return next;
+    });
+    if (!resolved) return;
+    setAssets((prev) =>
+      prev.map((a, i) => {
+        if (i !== idx) return a;
+        if (a.name.trim().length > 0) return a; // user typed something meanwhile
+        if (a.ticker !== code) return a;        // user changed ticker meanwhile
+        return { ...a, name: resolved };
+      }),
+    );
+  }, []);
+
   const updateAsset = (idx: number, patch: Partial<DraftAsset>) => {
     setAssets((prev) =>
       prev.map((a, i) => {
@@ -131,41 +170,22 @@ export function PortfolioEditor({
             if (a.name === BTC_NAME) next.name = '';
           }
         }
+        // Instant name lookup the moment the ticker becomes a valid
+        // 6-digit Korean code AND the name field is still empty.
+        if (
+          patch.ticker !== undefined &&
+          patch.ticker !== a.ticker &&
+          /^\d{6}$/.test(patch.ticker) &&
+          next.name.trim().length === 0 &&
+          next.category !== '암호화폐'
+        ) {
+          // Fire-and-forget; setAssets above isn't blocked by it.
+          void triggerNameLookup(idx, patch.ticker);
+        }
         return next;
       }),
     );
   };
-
-  /**
-   * On ticker input blur: if the code is a valid 6-digit Korean ticker
-   * AND the name field is still empty, auto-fill the name from Naver.
-   * Failures are silent — the user can always type the name manually.
-   */
-  const handleTickerBlur = useCallback(
-    async (idx: number) => {
-      const asset = assets[idx];
-      if (!asset) return;
-      // Don't overwrite a name the user has already entered.
-      if (asset.name.trim().length > 0) return;
-      // Skip crypto — it's already handled by the category-change effect.
-      if (asset.category === '암호화폐') return;
-      // Only valid 6-digit codes get auto-resolved.
-      if (!/^\d{6}$/.test(asset.ticker)) return;
-
-      const resolved = await resolveTickerName(asset.ticker);
-      if (!resolved) return;
-      // Re-check name is still empty (user may have typed in the meantime).
-      setAssets((prev) =>
-        prev.map((a, i) => {
-          if (i !== idx) return a;
-          if (a.name.trim().length > 0) return a;
-          if (a.ticker !== asset.ticker) return a; // user changed ticker
-          return { ...a, name: resolved };
-        }),
-      );
-    },
-    [assets],
-  );
 
   const addAssetRow = () => {
     setAssets((prev) => [
@@ -345,7 +365,6 @@ export function PortfolioEditor({
                     type="text"
                     value={asset.ticker}
                     onChange={(e) => updateAsset(idx, { ticker: e.target.value.trim() })}
-                    onBlur={() => handleTickerBlur(idx)}
                     readOnly={asset.category === '암호화폐'}
                     placeholder={t('portfolio.assetTickerPlaceholder')}
                     className={`w-28 flex-shrink-0 px-3 py-2 rounded-lg border border-stone-200 text-base text-black placeholder-stone-300 outline-none focus:border-amber-400 ${
@@ -356,8 +375,14 @@ export function PortfolioEditor({
                     type="text"
                     value={asset.name}
                     onChange={(e) => updateAsset(idx, { name: e.target.value })}
-                    placeholder={t('portfolio.assetNamePlaceholder')}
-                    className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-stone-200 bg-white text-base text-black placeholder-stone-300 outline-none focus:border-amber-400"
+                    placeholder={
+                      resolvingRows.has(idx)
+                        ? '검색 중…'
+                        : t('portfolio.assetNamePlaceholder')
+                    }
+                    className={`flex-1 min-w-0 px-3 py-2 rounded-lg border border-stone-200 bg-white text-base text-black placeholder-stone-300 outline-none focus:border-amber-400 ${
+                      resolvingRows.has(idx) ? 'placeholder-amber-500' : ''
+                    }`}
                   />
                 </div>
                 {/* Row 2: category + target_pct + remove */}
