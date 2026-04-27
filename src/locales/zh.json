@@ -127,7 +127,11 @@
     "trashAriaLabel": "回收站",
     "statsTotal": "共 {{count}} 个",
     "statsCompleted": "已完成 {{count}} 个",
-    "footer": "Premium Minimalism © {{year}}"
+    "footer": "Premium Minimalism © {{year}}",
+    "themeLabel": "主题",
+    "themeLight": "浅色",
+    "themeSystem": "系统",
+    "themeDark": "深色"
   },
   "menu": {
     "howToUse": "使用说明",

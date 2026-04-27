@@ -17,9 +17,13 @@ const MAX_CHART_POINTS = 365; // cap for responsive rendering
 
 export interface UsePortfolioTimeSeriesResult {
   series: TimeSeriesResult;
+  /** Raw historical prices (date → price) per ticker, exposed so callers
+   *  can derive per-asset series without a duplicate fetch. */
+  pricesByTicker: Record<string, Record<string, number>>;
   isLoading: boolean;
   error: string | null;
   failedTickers: string[];
+  refreshedAt: number | null;
 }
 
 export function usePortfolioTimeSeries(
@@ -43,6 +47,7 @@ export function usePortfolioTimeSeries(
     failures,
     isLoading,
     error,
+    refreshedAt,
   } = useHistoricalPrices(tickers, fromDate);
 
   // 3. Compose into a time series (pure memo)
@@ -56,8 +61,10 @@ export function usePortfolioTimeSeries(
 
   return {
     series,
+    pricesByTicker: prices,
     isLoading,
     error,
     failedTickers: failures,
+    refreshedAt,
   };
 }

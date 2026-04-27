@@ -127,7 +127,11 @@
     "trashAriaLabel": "Trash",
     "statsTotal": "Total {{count}}",
     "statsCompleted": "Done {{count}}",
-    "footer": "Premium Minimalism © {{year}}"
+    "footer": "Premium Minimalism © {{year}}",
+    "themeLabel": "Theme",
+    "themeLight": "Light",
+    "themeSystem": "System",
+    "themeDark": "Dark"
   },
   "menu": {
     "howToUse": "How to Use",

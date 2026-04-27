@@ -127,7 +127,11 @@
     "trashAriaLabel": "휴지통",
     "statsTotal": "전체 {{count}}개",
     "statsCompleted": "완료 {{count}}개",
-    "footer": "MamaVault © {{year}}"
+    "footer": "MamaVault © {{year}}",
+    "themeLabel": "테마",
+    "themeLight": "라이트",
+    "themeSystem": "시스템",
+    "themeDark": "다크"
   },
   "menu": {
     "howToUse": "사용 안내",
@@ -199,6 +203,14 @@
     "inceptionDate": "최초설계일",
     "returnChartLoading": "차트를 불러오는 중...",
     "returnChartEmpty": "아직 거래 기록이 없어요",
+    "lastUpdatedMinutes": "최종 업데이트 {{minutes}}분 전",
+    "lastUpdatedHours": "최종 업데이트 {{hours}}시간 전",
+    "justNow": "방금 업데이트",
+    "actualSeriesLabel": "실제",
+    "assetTogglesHint": "탭하여 종목 제외 시뮬레이션",
+    "simulatedExcludedCount": "{{count}}개 제외 시뮬레이션 중",
+    "simulatedReset": "전체 포함",
+    "simulatedSeriesLabel": "{{names}} 제외",
     "emptyTitle": "투자 포트폴리오를 만들어 보세요",
     "emptySub": "ETF와 비트코인을 따로 관리할 수 있어요",
     "kindEtf": "ETF",

@@ -69,7 +69,10 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
   if (view.kind === 'editor') {
     const existing = view.portfolioId != null ? findPortfolio(view.portfolioId) : null;
     return (
-      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]">
+      <div
+        className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
+        style={{ backgroundColor: 'var(--surface-card)' }}
+      >
         <PortfolioEditor
           existing={existing}
           onCreate={handleCreatePortfolio}
@@ -90,7 +93,10 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     const selected = findPortfolio(view.portfolioId);
     if (!selected) return null;
     return (
-      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]">
+      <div
+        className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
+        style={{ backgroundColor: 'var(--surface-card)' }}
+      >
         <BuyPlanScreen
           userId={userId}
           portfolio={selected}
@@ -108,7 +114,10 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     const selected = findPortfolio(view.portfolioId);
     if (!selected) return null;
     return (
-      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]">
+      <div
+        className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
+        style={{ backgroundColor: 'var(--surface-card)' }}
+      >
         <TransactionImportWizard
           userId={userId}
           portfolio={selected}
@@ -123,7 +132,10 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     const selected = findPortfolio(view.portfolioId);
     if (!selected) return null;
     return (
-      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]">
+      <div
+        className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
+        style={{ backgroundColor: 'var(--surface-card)' }}
+      >
         <MonthlyRecordBatchForm
           userId={userId}
           portfolio={selected}
@@ -140,7 +152,10 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     const selected = findPortfolio(view.portfolioId);
     if (!selected) return null;
     return (
-      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]">
+      <div
+        className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
+        style={{ backgroundColor: 'var(--surface-card)' }}
+      >
         <PnlDashboard
           userId={userId}
           portfolio={selected}
@@ -155,7 +170,10 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
     const selected = findPortfolio(view.portfolioId);
     if (!selected) return null;
     return (
-      <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]">
+      <div
+        className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
+        style={{ backgroundColor: 'var(--surface-card)' }}
+      >
         <TransactionHistory
           userId={userId}
           portfolio={selected}
@@ -167,7 +185,10 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
 
   // Summary (default)
   return (
-    <div className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 p-6 sm:p-8 min-h-[400px]">
+    <div
+      className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 p-6 sm:p-8 min-h-[400px]"
+      style={{ backgroundColor: 'var(--surface-card)' }}
+    >
       <PortfolioSummary
         userId={userId}
         portfolios={portfolios}

@@ -13,6 +13,7 @@ import {
 } from '@/lib/rebalance';
 import { formatKrw } from '@/lib/formatNumber';
 import { PortfolioAsset } from '@/lib/types';
+import { PriceFreshnessLabel } from './PriceFreshnessLabel';
 
 interface BuyPlanScreenProps {
   userId: string | null;
@@ -65,7 +66,7 @@ export function BuyPlanScreen({
     [portfolio.assets],
   );
 
-  const { prices, failures, isLoading, refresh, setManualPrice } = useAssetPrices(tickers);
+  const { prices, failures, isLoading, lastFetchedAt, refresh, setManualPrice } = useAssetPrices(tickers);
 
   // Cash input — default = monthly budget, user can override.
   const [cashInput, setCashInput] = useState(
@@ -408,9 +409,12 @@ export function BuyPlanScreen({
               </p>
             </div>
 
-            <p className="text-xs text-stone-500">
-              추천 수량입니다. ± 버튼으로 조정할 수 있어요.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-stone-500">
+                추천 수량입니다. ± 버튼으로 조정할 수 있어요.
+              </p>
+              {lastFetchedAt != null && <PriceFreshnessLabel lastFetchedAt={lastFetchedAt} />}
+            </div>
 
             <div className="rounded-xl border border-stone-200 bg-stone-50 divide-y divide-stone-200">
               {summary.rows.map((row) => {

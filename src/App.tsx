@@ -86,9 +86,32 @@ function MembershipBadge({ isPro }: { isPro: boolean }) {
  * ✨ 탭(Tab) 기능: 브라우저 스타일 탭으로 할 일 목록 분리 관리
  * ✨ Optimistic UI: 초기 로딩 시에만 스피너, Task CRUD 즉시 반영
  */
+// Prefetch heavier mode chunks during browser idle so the first tap on
+// 말씀노트 / 포트 doesn't pay the chunk-download cost on the critical path.
+// Runs once per page load, after first paint.
+let modeChunksPrefetched = false;
+function prefetchModeChunks() {
+  if (modeChunksPrefetched) return;
+  modeChunksPrefetched = true;
+  const run = () => {
+    import('@/components/portfolio/PortfolioMode');
+    import('@/components/sermon/SermonMode');
+  };
+  if (typeof window === 'undefined') return;
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(run, { timeout: 2000 });
+  } else {
+    setTimeout(run, 1000);
+  }
+}
+
 function App() {
   const { t, i18n } = useTranslation();
   const { session, userId, isLoading: isAuthLoading, isRecoveryMode, clearRecoveryMode, signOut } = useAuth();
+
+  useEffect(() => {
+    prefetchModeChunks();
+  }, []);
 
   const { isPro, isProfileLoading, maxTabs, maxTasks } = useProfile(userId);
   const userEmail = session?.user?.email;
@@ -208,7 +231,10 @@ function App() {
   // PASSWORD_RECOVERY: 이메일 링크 클릭 후 새 비밀번호 입력
   if (!isAuthLoading && isRecoveryMode && session) {
     return (
-      <div className="h-full animate-fade-in">
+      <div
+        className="h-full animate-fade-in"
+        style={{ backgroundColor: 'var(--surface-page)' }}
+      >
         <Suspense fallback={null}>
           <PasswordResetConfirm onSuccess={clearRecoveryMode} />
         </Suspense>
@@ -219,7 +245,10 @@ function App() {
   // Auth: 세션 없으면 로그인 화면
   if (!isAuthLoading && !session) {
     return (
-      <div className="h-full animate-fade-in">
+      <div
+        className="h-full animate-fade-in"
+        style={{ backgroundColor: 'var(--surface-page)' }}
+      >
         <Auth onSuccess={() => {}} />
       </div>
     );
@@ -230,7 +259,10 @@ function App() {
 
   return (
     <>
-    <div className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-stone-50 animate-fade-in">
+    <div
+      className="app-scroll-container h-full overflow-y-auto overscroll-y-contain bg-stone-50 animate-fade-in"
+      style={{ backgroundColor: 'var(--surface-page)' }}
+    >
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-40">
         {/* 헤더 — 시간 중심 레이아웃:
               날짜가 중앙 상단의 메인 콘텐츠, 배지가 그 바로 아래에 위치.

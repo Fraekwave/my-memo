@@ -12,7 +12,17 @@ import {
   LogOut,
   Check,
   User,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
+import {
+  applyTheme,
+  getStoredTheme,
+  setStoredTheme,
+  watchSystemTheme,
+  type Theme,
+} from '@/lib/theme';
 
 const ADMIN_EMAIL = 'choi.seunghoon@gmail.com';
 
@@ -34,6 +44,18 @@ export function GlobalMenu({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
+  const [theme, setTheme] = useState<Theme>(() => getStoredTheme());
+
+  // Re-apply when 'system' and the OS preference flips.
+  useEffect(() => {
+    return watchSystemTheme(theme, () => applyTheme(theme));
+  }, [theme]);
+
+  const handleThemeChange = (next: Theme) => {
+    setTheme(next);
+    setStoredTheme(next);
+    applyTheme(next);
+  };
 
   const isAdmin = userEmail === ADMIN_EMAIL;
 
@@ -118,9 +140,10 @@ export function GlobalMenu({
 
   const sidebar = (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — solid (no transparent + blur, which Samsung Force Dark
+          treats as a "void" surface and inverts to black). */}
       <div
-        className={`fixed inset-0 z-40 bg-stone-900/5 backdrop-blur-[8px] transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 bg-stone-900/40 transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={close}
@@ -204,6 +227,35 @@ export function GlobalMenu({
                 </button>
               ))}
             </nav>
+
+            {/* Theme picker — above sign-out, just above the divider */}
+            <div className="px-6 pt-3 pb-4 border-t border-stone-100">
+              <div className="text-xs text-stone-400 mb-2 font-medium">
+                {t('app.themeLabel')}
+              </div>
+              <div className="flex items-center gap-1 bg-stone-100 rounded-full p-0.5">
+                {([
+                  { id: 'light' as const, label: t('app.themeLight'), Icon: Sun },
+                  { id: 'system' as const, label: t('app.themeSystem'), Icon: Monitor },
+                  { id: 'dark' as const, label: t('app.themeDark'), Icon: Moon },
+                ]).map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => handleThemeChange(id)}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                      theme === id
+                        ? 'bg-amber-700 text-white shadow-sm'
+                        : 'text-stone-500 hover:text-stone-700'
+                    }`}
+                    aria-pressed={theme === id}
+                  >
+                    <Icon className="w-3.5 h-3.5" strokeWidth={2} />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Sign out — pinned to bottom */}
             <div className="px-6 pb-10 pt-4 border-t border-stone-100">

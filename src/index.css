@@ -40,12 +40,147 @@ html, body, #root {
   color: #1c1917; /* stone-900 warm black */
 }
 
-/* Samsung WebView force-dark override — defense in depth */
+/* Samsung WebView force-dark override — defense in depth.
+   Only applies when the user hasn't explicitly opted into dark mode
+   via [data-theme="dark"]; if they did, we honor that below. */
 @media (prefers-color-scheme: dark) {
-  html, body, #root {
+  html:not([data-theme="dark"]),
+  html:not([data-theme="dark"]) body,
+  html:not([data-theme="dark"]) #root {
     background-color: #fafaf5 !important;
     color: #1c1917 !important;
   }
+}
+
+/*
+ * ========================================================================
+ * User-selectable theme: [data-theme="light" | "dark"]
+ * Driven by src/lib/theme.ts which writes the attribute on <html> at boot.
+ * ========================================================================
+ */
+
+/* Surface tokens — for components that need theme-aware backgrounds via
+   inline `style={{ backgroundColor: 'var(--surface-...)' }}`. Inline styles
+   are required where the component carries Force-Dark defense (App shell,
+   mode wrappers) AND for spots where Tailwind classes can't reach (drag
+   previews built via createPortal, react-motion animated divs). */
+:root,
+html[data-theme="light"] {
+  --surface-page: #fafaf5;        /* warm white — html/body/#root */
+  --surface-card: #ffffff;        /* primary card surface */
+  --surface-card-soft: #f4f4f4;   /* sermon note cards (slightly tinted) */
+}
+html[data-theme="dark"] {
+  --surface-page: #1c1917;        /* stone-900 */
+  --surface-card: #292524;        /* stone-800 */
+  --surface-card-soft: #1c1917;   /* stone-900 (so text-on-card has contrast) */
+}
+
+/* Chart color tokens — used by the SVG paths in ReturnChart. Theme-aware
+   so the reference line, simulated line, grid, and axis labels adapt.
+   Reference line is GREEN to signal "actual portfolio performance"; the
+   simulated what-if line uses orange to clearly differentiate. */
+:root,
+html[data-theme="light"] {
+  --chart-total: #059669;       /* emerald-600 — reference line on light bg */
+  --chart-simulated: #b45309;   /* amber-700 — simulated line accent */
+  --chart-grid: #e7e5e4;        /* stone-200 — dashed grid lines */
+  --chart-axis-text: #78716c;   /* stone-500 — % and date tick labels */
+  --chart-zero-line: #a8a29e;   /* stone-400 — solid 0% reference line */
+}
+html[data-theme="dark"] {
+  --chart-total: #34d399;       /* emerald-400 — bright green on dark bg */
+  --chart-simulated: #fb923c;   /* orange-400 — brighter for dark contrast */
+  --chart-grid: #44403c;        /* stone-700 */
+  --chart-axis-text: #a8a29e;   /* stone-400 */
+  --chart-zero-line: #57534e;   /* stone-600 */
+}
+
+/* Light mode — strongest possible enforcement. This is our last line of
+   defense against Samsung Force Dark on the post-login render. */
+html[data-theme="light"],
+html[data-theme="light"] body,
+html[data-theme="light"] #root {
+  background-color: #fafaf5 !important;
+  color: #1c1917 !important;
+  color-scheme: light only !important;
+}
+
+/* Dark mode — minimal viable. Flips html/body/#root + the most common
+   card surfaces. Component-level polish is a separate effort. */
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+html[data-theme="dark"],
+html[data-theme="dark"] body,
+html[data-theme="dark"] #root {
+  background-color: #1c1917 !important;
+  color: #fafaf5 !important;
+}
+/* Common surfaces — Tailwind utility classes flipped to their dark
+   counterparts. The selectors are intentionally broad so we don't
+   need to audit every component for v1. */
+html[data-theme="dark"] .bg-white {
+  background-color: #292524 !important; /* stone-800 */
+}
+html[data-theme="dark"] .bg-stone-50 {
+  background-color: #1c1917 !important; /* stone-900 */
+}
+html[data-theme="dark"] .bg-stone-100 {
+  background-color: #292524 !important; /* stone-800 */
+}
+/* Inactive tab bg + button hovers — flip the mid-grays too. */
+html[data-theme="dark"] .bg-stone-200 {
+  background-color: #44403c !important; /* stone-700 */
+}
+html[data-theme="dark"] .bg-stone-300\/70,
+html[data-theme="dark"] .hover\:bg-stone-300\/70:hover {
+  background-color: rgba(87, 83, 78, 0.7) !important; /* stone-600/70 */
+}
+html[data-theme="dark"] .hover\:bg-stone-200:hover {
+  background-color: #44403c !important; /* stone-700 */
+}
+html[data-theme="dark"] .hover\:bg-stone-100:hover {
+  background-color: #292524 !important; /* stone-800 */
+}
+html[data-theme="dark"] .text-black,
+html[data-theme="dark"] .text-stone-900,
+html[data-theme="dark"] .text-stone-800 {
+  color: #fafaf5 !important;
+}
+html[data-theme="dark"] .text-stone-700,
+html[data-theme="dark"] .text-stone-600,
+html[data-theme="dark"] .text-stone-500 {
+  color: #d6d3d1 !important; /* stone-300 — readable secondary label on dark */
+}
+html[data-theme="dark"] .hover\:text-stone-700:hover,
+html[data-theme="dark"] .hover\:text-stone-600:hover {
+  color: #fafaf5 !important; /* stronger on hover */
+}
+html[data-theme="dark"] .border-stone-200,
+html[data-theme="dark"] .border-stone-100,
+html[data-theme="dark"] .border-stone-300 {
+  border-color: #44403c !important; /* stone-700 */
+}
+/* Amber accent surfaces (e.g. "새 포트폴리오 만들기" / "새 말씀노트 작성" CTA).
+   In dark mode we drop the heavy warm-brown fill — it clashed with the
+   cool stone palette. Instead the CTA uses the same stone-800 as cards,
+   with a brighter amber border + text doing the brand work. */
+html[data-theme="dark"] .bg-amber-50,
+html[data-theme="dark"] .bg-amber-50\/50 {
+  background-color: #292524 !important; /* stone-800 — matches cards */
+}
+html[data-theme="dark"] .hover\:bg-amber-100:hover {
+  background-color: #44403c !important; /* stone-700 — subtle hover lift */
+}
+html[data-theme="dark"] .border-amber-200,
+html[data-theme="dark"] .border-amber-100,
+html[data-theme="dark"] .border-amber-100\/60 {
+  border-color: #f59e0b !important; /* amber-500 — bright brand accent */
+}
+html[data-theme="dark"] .text-amber-700,
+html[data-theme="dark"] .text-amber-600 {
+  color: #fcd34d !important; /* amber-300 — clear on stone-800 */
 }
 
 /* Task 아이템 애니메이션 */

@@ -28,12 +28,23 @@ interface FetchResponse {
   prices: PriceMap;
   failures: string[];
   sources: { [ticker: string]: PriceSourceTag };
+  fetchedAt?: { [ticker: string]: string };
 }
 
 // Module-level cache survives unmount/remount (mode switching).
-const moduleCache = new Map<string, { price: number; source: PriceSourceTag; fetchedAt: number }>();
+// `serverFetchedAt` is the server-reported timestamp (ISO) of when the
+// underlying price_snapshots row was last refreshed — this is what the
+// UI freshness label should display, since a 'cache' hit can be up to
+// 2 minutes older than the local `fetchedAt` (= our receive time).
+const moduleCache = new Map<
+  string,
+  { price: number; source: PriceSourceTag; fetchedAt: number; serverFetchedAt: number | null }
+>();
 
-const STALE_MS_MARKET_OPEN = 10 * 60 * 1000; // 10 min during market hours
+// Client-side TTL must match the edge function's staleness rule (2 min).
+// Otherwise refresh() skips the fetch, the server keeps serving stale cache,
+// and prices appear frozen during market hours.
+const STALE_MS_MARKET_OPEN = 2 * 60 * 1000;
 const STALE_MS_MARKET_CLOSED = 12 * 60 * 60 * 1000; // 12 h outside
 
 function isMarketOpen(now: Date = new Date()): boolean {
@@ -64,6 +75,10 @@ export function useAssetPrices(tickers: string[]) {
   const [failures, setFailures] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Oldest server-side fetched_at across the ticker set, in ms since epoch.
+  // Oldest (not newest) because a portfolio is only as fresh as its staler
+  // price. Null until at least one ticker has been fetched.
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
 
   // Stable comparison key for ticker list
   const tickersKey = tickers.slice().sort().join(',');
@@ -75,6 +90,7 @@ export function useAssetPrices(tickers: string[]) {
       setPrices({});
       setSources({});
       setFailures([]);
+      setLastFetchedAt(null);
       return;
     }
 
@@ -92,16 +108,22 @@ export function useAssetPrices(tickers: string[]) {
     if (needFetch.length === 0) {
       const fromCache: PriceMap = {};
       const cachedSources: SourceMap = {};
+      let oldestServerFetch: number | null = null;
       for (const t of tickers) {
         const hit = moduleCache.get(t);
         if (hit) {
           fromCache[t] = hit.price;
           cachedSources[t] = hit.source;
+          const ts = hit.serverFetchedAt ?? hit.fetchedAt;
+          if (oldestServerFetch === null || ts < oldestServerFetch) {
+            oldestServerFetch = ts;
+          }
         }
       }
       setPrices(fromCache);
       setSources(cachedSources);
       setFailures([]);
+      setLastFetchedAt(oldestServerFetch);
       return;
     }
 
@@ -115,28 +137,41 @@ export function useAssetPrices(tickers: string[]) {
       );
 
       if (invokeErr) throw invokeErr;
-      const response = data ?? { prices: {}, failures: needFetch, sources: {} };
+      const response = data ?? { prices: {}, failures: needFetch, sources: {}, fetchedAt: {} };
 
       // Merge into module cache
       for (const [ticker, price] of Object.entries(response.prices)) {
         const source = response.sources[ticker] ?? 'cache';
-        moduleCache.set(ticker, { price, source, fetchedAt: now });
+        const serverIso = response.fetchedAt?.[ticker];
+        const serverTs = serverIso ? Date.parse(serverIso) : null;
+        moduleCache.set(ticker, {
+          price,
+          source,
+          fetchedAt: now,
+          serverFetchedAt: Number.isFinite(serverTs as number) ? (serverTs as number) : now,
+        });
       }
 
       // Combine fetched + previously-cached (for tickers not in needFetch)
       const merged: PriceMap = {};
       const mergedSources: SourceMap = {};
+      let oldestServerFetch: number | null = null;
       for (const t of tickers) {
         const hit = moduleCache.get(t);
         if (hit) {
           merged[t] = hit.price;
           mergedSources[t] = hit.source;
+          const ts = hit.serverFetchedAt ?? hit.fetchedAt;
+          if (oldestServerFetch === null || ts < oldestServerFetch) {
+            oldestServerFetch = ts;
+          }
         }
       }
 
       setPrices(merged);
       setSources(mergedSources);
       setFailures(response.failures ?? []);
+      setLastFetchedAt(oldestServerFetch);
     } catch (err: any) {
       setError(err?.message ?? 'price fetch failed');
       setFailures(needFetch); // treat all as failed → manual fallback
@@ -172,10 +207,12 @@ export function useAssetPrices(tickers: string[]) {
       return false;
     }
 
+    const nowMs = Date.now();
     moduleCache.set(ticker, {
       price,
       source: 'manual',
-      fetchedAt: Date.now(),
+      fetchedAt: nowMs,
+      serverFetchedAt: nowMs,
     });
 
     setPrices((prev) => ({ ...prev, [ticker]: price }));
@@ -190,6 +227,7 @@ export function useAssetPrices(tickers: string[]) {
     failures,
     isLoading,
     error,
+    lastFetchedAt,
     refresh,
     setManualPrice,
   };

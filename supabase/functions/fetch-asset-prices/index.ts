@@ -1,7 +1,12 @@
 // fetch-asset-prices — MamaVault Portfolio mode v3.0
 //
 // Input:  { tickers: string[] }           (6-digit Korean codes or "KRW-BTC" etc.)
-// Output: { prices: { [ticker]: number }, failures: string[], sources: { [ticker]: 'naver'|'krx'|'upbit'|'cache' } }
+// Output: {
+//   prices:    { [ticker]: number },
+//   failures:  string[],
+//   sources:   { [ticker]: 'naver'|'krx'|'upbit'|'cache'|'manual' },
+//   fetchedAt: { [ticker]: string /* ISO timestamp */ },
+// }
 //
 // 3-tier strategy:
 //   1. Korean ETFs → Naver polling API (real-time during market hours)
@@ -10,7 +15,12 @@
 //   → any ticker that fails both external sources goes to `failures[]`, client prompts manual entry.
 //
 // Caching: writes each successful fetch to `price_snapshots` table
-// (ticker, trade_date) for today; subsequent calls within the same day reuse cache.
+// (ticker, trade_date) for today. Cache is served only when fresh per the
+// staleness rule below:
+//   - Korean ETFs during market hours (Mon-Fri 09:00-15:30 KST): 2-min TTL
+//   - Korean ETFs outside market hours: cache for the rest of the day
+//     (last close is immutable until next market open)
+//   - Crypto (KRW-*): 2-min TTL (24/7 market, always tradable)
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -52,7 +62,7 @@ Deno.serve(async (req) => {
     : [];
 
   if (tickers.length === 0) {
-    return json({ prices: {}, failures: [], sources: {} }, 200);
+    return json({ prices: {}, failures: [], sources: {}, fetchedAt: {} }, 200);
   }
 
   const admin = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -62,51 +72,108 @@ Deno.serve(async (req) => {
   const today = todayIsoDate();
   const prices: Record<string, number> = {};
   const sources: Record<string, string> = {};
+  const fetchedAtMap: Record<string, string> = {};
   const failures: string[] = [];
 
-  // Check cache first (single query for all tickers)
+  // Check cache first (single query for all tickers) — including fetched_at
+  // so we can apply a TTL rather than blindly serving stale rows.
   const { data: cached } = await admin
     .from('price_snapshots')
-    .select('ticker, price, source')
+    .select('ticker, price, source, fetched_at')
     .in('ticker', tickers)
     .eq('trade_date', today);
 
-  const cachedMap = new Map<string, { price: number; source: string }>();
+  const cachedMap = new Map<
+    string,
+    { price: number; source: string; fetchedAt: string | null }
+  >();
   for (const row of cached ?? []) {
-    cachedMap.set(row.ticker, { price: Number(row.price), source: row.source });
+    cachedMap.set(row.ticker, {
+      price: Number(row.price),
+      source: row.source,
+      fetchedAt: row.fetched_at ?? null,
+    });
   }
+
+  const now = new Date();
 
   // Resolve each ticker
   for (const ticker of tickers) {
     const hit = cachedMap.get(ticker);
-    if (hit) {
+    // Serve from cache only if row exists AND is fresh per staleness rule.
+    // Manual entries are always trusted (user explicitly typed the price).
+    if (hit && (hit.source === 'manual' || !isStale(ticker, hit.fetchedAt, now))) {
       prices[ticker] = hit.price;
       sources[ticker] = 'cache';
+      if (hit.fetchedAt) fetchedAtMap[ticker] = hit.fetchedAt;
       continue;
     }
 
     const result = await resolveTicker(ticker);
     if (result) {
+      const fetchedAtIso = now.toISOString();
       prices[ticker] = result.price;
       sources[ticker] = result.source;
-      // Cache
+      fetchedAtMap[ticker] = fetchedAtIso;
+      // Cache (upsert refreshes fetched_at)
       await admin.from('price_snapshots').upsert(
         {
           ticker,
           trade_date: today,
           price: result.price,
           source: result.source,
-          fetched_at: new Date().toISOString(),
+          fetched_at: fetchedAtIso,
         },
         { onConflict: 'ticker,trade_date' },
       );
+    } else if (hit) {
+      // Upstream failed but we have a stale row — serve it rather than
+      // showing nothing. Better to show a 5-minute-old price than no price.
+      prices[ticker] = hit.price;
+      sources[ticker] = 'cache';
+      if (hit.fetchedAt) fetchedAtMap[ticker] = hit.fetchedAt;
     } else {
       failures.push(ticker);
     }
   }
 
-  return json({ prices, failures, sources }, 200);
+  return json({ prices, failures, sources, fetchedAt: fetchedAtMap }, 200);
 });
+
+// ─────────────────────────────────────────────────────────────
+// Staleness rule — decides whether a cached `price_snapshots` row
+// for today is fresh enough to serve without hitting the upstream API.
+// ─────────────────────────────────────────────────────────────
+
+const TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+function isStale(ticker: string, fetchedAt: string | null, now: Date): boolean {
+  if (!fetchedAt) return true;
+  const ageMs = now.getTime() - Date.parse(fetchedAt);
+  if (!Number.isFinite(ageMs) || ageMs < 0) return true;
+
+  // Crypto trades 24/7 — always honor TTL.
+  if (/^KRW-/.test(ticker)) return ageMs > TTL_MS;
+
+  // Korean ETF/stock: during market hours honor TTL; outside market
+  // hours the last close is immutable until next open, so treat as fresh.
+  if (/^\d{6}$/.test(ticker)) {
+    if (isKoreanMarketOpen(now)) return ageMs > TTL_MS;
+    return false;
+  }
+
+  // Unknown ticker type — default to TTL to be safe.
+  return ageMs > TTL_MS;
+}
+
+function isKoreanMarketOpen(now: Date): boolean {
+  // Korean market hours: Mon-Fri 09:00-15:30 KST
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const day = kst.getUTCDay(); // 0=Sun, 6=Sat
+  if (day === 0 || day === 6) return false;
+  const minutes = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+  return minutes >= 9 * 60 && minutes <= 15 * 60 + 30;
+}
 
 // ─────────────────────────────────────────────────────────────
 // Ticker type detection + resolution

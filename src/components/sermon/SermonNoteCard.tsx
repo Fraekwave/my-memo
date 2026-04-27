@@ -211,7 +211,7 @@ export function SermonNoteCard({ note, onClick, onDelete, activeDragId }: Sermon
           <motion.div
             className="relative z-10 w-full text-left px-4 py-3 group flex items-center gap-2"
             style={{
-              backgroundColor: '#f4f4f4',
+              backgroundColor: 'var(--surface-card-soft)',
               opacity: isDeleting ? 0 : 1,
               pointerEvents: isDeleting ? 'none' : 'auto',
               transition: isDeleting ? 'none' : undefined,

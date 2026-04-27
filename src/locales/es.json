@@ -127,7 +127,11 @@
     "trashAriaLabel": "Papelera",
     "statsTotal": "Total {{count}}",
     "statsCompleted": "Completadas {{count}}",
-    "footer": "Premium Minimalism © {{year}}"
+    "footer": "Premium Minimalism © {{year}}",
+    "themeLabel": "Tema",
+    "themeLight": "Claro",
+    "themeSystem": "Sistema",
+    "themeDark": "Oscuro"
   },
   "menu": {
     "howToUse": "Cómo usar",

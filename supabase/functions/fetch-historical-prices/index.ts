@@ -14,8 +14,16 @@
 //   - Crypto (KRW-*): Upbit candle API (paginated, 200/call)
 //   - All fetched rows are upserted into `price_snapshots` for reuse.
 //   - Before fetching, the cache is queried; if today's price is already
-//     present, we short-circuit and serve from cache. Otherwise we do a
-//     full fetch (idempotent via upsert) to pick up fresh data.
+//     present AND fresh (per the TTL rule), we short-circuit and serve
+//     from cache. Otherwise we do a full fetch (idempotent via upsert)
+//     to pick up fresh data.
+//   - Historical non-today rows are always treated as immutable and
+//     served from cache.
+//
+// Freshness rule for today's row (matches fetch-asset-prices):
+//   - Korean ETFs during market hours (Mon-Fri 09:00-15:30 KST): 2-min TTL
+//   - Korean ETFs outside market hours: no expiry (last close is immutable)
+//   - Crypto (KRW-*): 2-min TTL (24/7 market)
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -60,47 +68,62 @@ Deno.serve(async (req) => {
   const prices: Record<string, Record<string, number>> = {};
   const failures: string[] = [];
 
-  for (const ticker of tickers) {
-    try {
-      // 1. Read existing cache for this ticker/range
-      const cached = await loadCache(admin, ticker, fromDate, today);
+  const nowDate = new Date();
 
-      // 2. Decide whether to fetch: we need to fetch if either
-      //    (a) today's price is missing, OR
-      //    (b) the cache doesn't span far enough back — heuristic: count of
-      //        cached dates is less than ~60% of the expected range.
-      //    This prevents a stale small cache from blocking a full refresh.
-      const rangeDays = Math.max(
-        1,
-        Math.round(
-          (Date.parse(today + 'T00:00:00Z') - Date.parse(fromDate + 'T00:00:00Z')) / 86_400_000,
-        ),
-      );
-      const expectedMin = /^KRW-/.test(ticker)
-        ? rangeDays * 0.95   // crypto trades every day
-        : rangeDays * 0.55;  // ETFs exclude weekends + holidays (~70% of days)
-      const cachedCount = Object.keys(cached).length;
-      const hasToday = cached[today] != null;
-      const cacheAdequate = hasToday && cachedCount >= expectedMin;
+  // Process tickers in parallel — each one's cache lookup, optional upstream
+  // fetch, and upsert is independent. Bounded by the slowest ticker (typically
+  // Upbit's paginated crypto candles).
+  const rangeDays = Math.max(
+    1,
+    Math.round(
+      (Date.parse(today + 'T00:00:00Z') - Date.parse(fromDate + 'T00:00:00Z')) / 86_400_000,
+    ),
+  );
 
-      let full = cached;
-      if (!cacheAdequate) {
-        const fetched = await fetchHistorical(ticker, fromDate, today);
-        if (Object.keys(fetched).length > 0) {
-          await upsertSnapshots(admin, ticker, fetched, sourceFor(ticker));
-          full = { ...cached, ...fetched };
+  const settled = await Promise.all(
+    tickers.map(async (ticker): Promise<{ ticker: string; prices: Record<string, number> | null }> => {
+      try {
+        const { prices: cached, todayFetchedAt } = await loadCache(
+          admin,
+          ticker,
+          fromDate,
+          today,
+        );
+
+        // Decide whether to fetch: we need to fetch if any of
+        //   (a) today's price is missing,
+        //   (b) today's price is stale per the TTL rule,
+        //   (c) the cache doesn't span far enough back (heuristic: count of
+        //       cached dates is less than ~60% of the expected range).
+        const expectedMin = /^KRW-/.test(ticker)
+          ? rangeDays * 0.95   // crypto trades every day
+          : rangeDays * 0.55;  // ETFs exclude weekends + holidays
+        const cachedCount = Object.keys(cached).length;
+        const hasToday = cached[today] != null;
+        const todayFresh = hasToday && !isTodayStale(ticker, todayFetchedAt, nowDate);
+        const cacheAdequate = hasToday && todayFresh && cachedCount >= expectedMin;
+
+        let full = cached;
+        if (!cacheAdequate) {
+          const fetched = await fetchHistorical(ticker, fromDate, today);
+          if (Object.keys(fetched).length > 0) {
+            await upsertSnapshots(admin, ticker, fetched, sourceFor(ticker));
+            full = { ...cached, ...fetched };
+          }
         }
-      }
 
-      if (Object.keys(full).length === 0) {
-        failures.push(ticker);
-      } else {
-        prices[ticker] = full;
+        if (Object.keys(full).length === 0) return { ticker, prices: null };
+        return { ticker, prices: full };
+      } catch (err) {
+        console.error('[fetch-historical-prices]', ticker, err);
+        return { ticker, prices: null };
       }
-    } catch (err) {
-      console.error('[fetch-historical-prices]', ticker, err);
-      failures.push(ticker);
-    }
+    }),
+  );
+
+  for (const { ticker, prices: tickerPrices } of settled) {
+    if (tickerPrices == null) failures.push(ticker);
+    else prices[ticker] = tickerPrices;
   }
 
   return json({ prices, failures }, 200);
@@ -115,16 +138,49 @@ async function loadCache(
   ticker: string,
   fromDate: string,
   toDate: string,
-): Promise<Record<string, number>> {
+): Promise<{ prices: Record<string, number>; todayFetchedAt: string | null }> {
   const { data } = await admin
     .from('price_snapshots')
-    .select('trade_date, price')
+    .select('trade_date, price, fetched_at')
     .eq('ticker', ticker)
     .gte('trade_date', fromDate)
     .lte('trade_date', toDate);
-  const out: Record<string, number> = {};
-  for (const row of data ?? []) out[row.trade_date] = Number(row.price);
-  return out;
+  const prices: Record<string, number> = {};
+  let todayFetchedAt: string | null = null;
+  for (const row of data ?? []) {
+    prices[row.trade_date] = Number(row.price);
+    if (row.trade_date === toDate) todayFetchedAt = row.fetched_at ?? null;
+  }
+  return { prices, todayFetchedAt };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Today-row staleness rule (identical to fetch-asset-prices)
+// ─────────────────────────────────────────────────────────────────
+
+const TTL_MS = 2 * 60 * 1000;
+
+function isTodayStale(ticker: string, fetchedAt: string | null, now: Date): boolean {
+  if (!fetchedAt) return true;
+  const ageMs = now.getTime() - Date.parse(fetchedAt);
+  if (!Number.isFinite(ageMs) || ageMs < 0) return true;
+
+  if (/^KRW-/.test(ticker)) return ageMs > TTL_MS;
+
+  if (/^\d{6}$/.test(ticker)) {
+    if (isKoreanMarketOpen(now)) return ageMs > TTL_MS;
+    return false;
+  }
+
+  return ageMs > TTL_MS;
+}
+
+function isKoreanMarketOpen(now: Date): boolean {
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const day = kst.getUTCDay();
+  if (day === 0 || day === 6) return false;
+  const minutes = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+  return minutes >= 9 * 60 && minutes <= 15 * 60 + 30;
 }
 
 async function upsertSnapshots(

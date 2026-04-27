@@ -42,15 +42,8 @@ export function PortfolioSummary({
     );
   }
 
-  const activePortfolioIds = portfolios.map((p) => p.portfolio.id);
-
   return (
     <div>
-      {/* Landing: 수익률 추이 chart across all portfolios */}
-      {portfolios.length > 0 && (
-        <ReturnSummary userId={userId} portfolioIds={activePortfolioIds} />
-      )}
-
       <button
         type="button"
         onClick={onNew}
@@ -66,18 +59,25 @@ export function PortfolioSummary({
           <p className="text-stone-300 text-base mt-1">{t('portfolio.emptySub')}</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-5">
           {portfolios.map((p) => {
             const id = p.portfolio.id;
             const isDeleting = deletingId === id;
             return (
               <div
                 key={id}
-                className="rounded-xl border border-stone-200 bg-stone-50 p-4"
+                className="rounded-2xl border-2 border-stone-200 bg-white p-5 shadow-sm"
               >
                 {/* Header: name + edit */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-base font-semibold text-black">{p.portfolio.name}</span>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-black">{p.portfolio.name}</h2>
+                    <div className="text-xs text-stone-500 mt-0.5">
+                      {t('portfolio.monthlyBudget')}: {p.portfolio.monthly_budget.toLocaleString('ko-KR')}원
+                      {' · '}
+                      {p.assets.length} {p.portfolio.kind === 'crypto' ? '자산' : 'ETF'}
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => onEdit(id)}
@@ -87,15 +87,11 @@ export function PortfolioSummary({
                   </button>
                 </div>
 
-                {/* Metadata */}
-                <div className="text-sm text-stone-500 mb-3">
-                  {t('portfolio.monthlyBudget')}: {p.portfolio.monthly_budget.toLocaleString('ko-KR')}원
-                  {' · '}
-                  {p.assets.length} {p.portfolio.kind === 'crypto' ? '자산' : 'ETF'}
-                </div>
+                {/* Per-portfolio chart with toggleable asset overlays */}
+                <ReturnSummary userId={userId} portfolio={p} />
 
                 {/* Primary action buttons */}
-                <div className="flex gap-2 mb-3">
+                <div className="flex gap-2 mt-4 mb-3">
                   <button
                     type="button"
                     onClick={() => onPnl(id)}

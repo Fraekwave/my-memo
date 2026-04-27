@@ -6,6 +6,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAssetPrices } from '@/hooks/useAssetPrices';
 import { computePortfolioPnl } from '@/lib/pnl';
 import { formatKrw, formatShares, formatSignedPct } from '@/lib/formatNumber';
+import { PriceFreshnessLabel } from './PriceFreshnessLabel';
 
 interface PnlDashboardProps {
   userId: string | null;
@@ -36,7 +37,7 @@ export function PnlDashboard({ userId, portfolio, onBack }: PnlDashboardProps) {
     [portfolio.assets],
   );
 
-  const { prices, failures, isLoading, refresh, setManualPrice } = useAssetPrices(tickers);
+  const { prices, failures, isLoading, lastFetchedAt, refresh, setManualPrice } = useAssetPrices(tickers);
 
   // Inline manual-entry state for failed tickers
   const [manualDrafts, setManualDrafts] = useState<Record<string, string>>({});
@@ -194,6 +195,11 @@ export function PnlDashboard({ userId, portfolio, onBack }: PnlDashboardProps) {
                 <div className="text-2xl font-semibold text-black tabular-nums">
                   {formatKrw(pnl.totalCurrentValue)}
                 </div>
+                {lastFetchedAt != null && (
+                  <div className="mt-0.5">
+                    <PriceFreshnessLabel lastFetchedAt={lastFetchedAt} />
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between text-sm">

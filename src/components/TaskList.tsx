@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useReducer } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext,
@@ -46,6 +46,16 @@ export const TaskList = ({ tasks, onToggle, onUpdate, onDelete, onReorder, disab
   // DragOverlay용: 현재 드래그 중인 Task ID 추적
   const [activeId, setActiveId] = useState<number | null>(null);
   const activeTask = activeId !== null ? tasks.find((t) => t.id === activeId) : null;
+
+  // Force a re-render when the user toggles the theme so visualAging
+  // (which reads document.documentElement.dataset.theme synchronously
+  // at render time) recomputes the right gradient direction.
+  const [, bumpAgingTick] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const onThemeChange = () => bumpAgingTick();
+    window.addEventListener('themechange', onThemeChange);
+    return () => window.removeEventListener('themechange', onThemeChange);
+  }, []);
 
   const mouseOptions = useMemo(() => ({ activationConstraint: { distance: 10 } }), []);
   const touchOptions = useMemo(() => ({ activationConstraint: { delay: 250, tolerance: 5 } }), []);

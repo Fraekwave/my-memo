@@ -127,7 +127,11 @@
     "trashAriaLabel": "ゴミ箱",
     "statsTotal": "合計 {{count}} 件",
     "statsCompleted": "完了 {{count}} 件",
-    "footer": "Premium Minimalism © {{year}}"
+    "footer": "Premium Minimalism © {{year}}",
+    "themeLabel": "テーマ",
+    "themeLight": "ライト",
+    "themeSystem": "システム",
+    "themeDark": "ダーク"
   },
   "menu": {
     "howToUse": "使い方",

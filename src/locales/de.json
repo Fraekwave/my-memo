@@ -127,7 +127,11 @@
     "trashAriaLabel": "Papierkorb",
     "statsTotal": "Gesamt {{count}}",
     "statsCompleted": "Erledigt {{count}}",
-    "footer": "Premium Minimalism © {{year}}"
+    "footer": "Premium Minimalism © {{year}}",
+    "themeLabel": "Theme",
+    "themeLight": "Hell",
+    "themeSystem": "System",
+    "themeDark": "Dunkel"
   },
   "menu": {
     "howToUse": "Anleitung",

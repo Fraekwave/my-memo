@@ -169,6 +169,9 @@ export function usePortfolios(userId: string | null) {
           setError(aErr.message);
         } else {
           assets = (aData ?? []) as PortfolioAsset[];
+          // INSERT-RETURNING is unordered — sort by order_index to match
+          // the initial fetch path.
+          assets.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
         }
       }
 
@@ -261,6 +264,10 @@ export function usePortfolios(userId: string | null) {
           return false;
         }
         assets = (data ?? []) as PortfolioAsset[];
+        // Postgres INSERT-RETURNING comes back in arbitrary order. Always
+        // sort by order_index so every consumer (asset pills, PnlDashboard,
+        // BuyPlanScreen) sees a stable order across edits.
+        assets.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
       }
 
       updateCache((p) =>
