@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { PortfolioWithAssets, PortfolioInput, AssetInput } from '@/hooks/usePortfolios';
 import { AssetCategory, PortfolioKind } from '@/lib/types';
+import { resolveTickerName } from '@/lib/tickerName';
 
 interface PortfolioEditorProps {
   existing: PortfolioWithAssets | null;
@@ -134,6 +135,37 @@ export function PortfolioEditor({
       }),
     );
   };
+
+  /**
+   * On ticker input blur: if the code is a valid 6-digit Korean ticker
+   * AND the name field is still empty, auto-fill the name from Naver.
+   * Failures are silent — the user can always type the name manually.
+   */
+  const handleTickerBlur = useCallback(
+    async (idx: number) => {
+      const asset = assets[idx];
+      if (!asset) return;
+      // Don't overwrite a name the user has already entered.
+      if (asset.name.trim().length > 0) return;
+      // Skip crypto — it's already handled by the category-change effect.
+      if (asset.category === '암호화폐') return;
+      // Only valid 6-digit codes get auto-resolved.
+      if (!/^\d{6}$/.test(asset.ticker)) return;
+
+      const resolved = await resolveTickerName(asset.ticker);
+      if (!resolved) return;
+      // Re-check name is still empty (user may have typed in the meantime).
+      setAssets((prev) =>
+        prev.map((a, i) => {
+          if (i !== idx) return a;
+          if (a.name.trim().length > 0) return a;
+          if (a.ticker !== asset.ticker) return a; // user changed ticker
+          return { ...a, name: resolved };
+        }),
+      );
+    },
+    [assets],
+  );
 
   const addAssetRow = () => {
     setAssets((prev) => [
@@ -313,6 +345,7 @@ export function PortfolioEditor({
                     type="text"
                     value={asset.ticker}
                     onChange={(e) => updateAsset(idx, { ticker: e.target.value.trim() })}
+                    onBlur={() => handleTickerBlur(idx)}
                     readOnly={asset.category === '암호화폐'}
                     placeholder={t('portfolio.assetTickerPlaceholder')}
                     className={`w-28 flex-shrink-0 px-3 py-2 rounded-lg border border-stone-200 text-base text-black placeholder-stone-300 outline-none focus:border-amber-400 ${
