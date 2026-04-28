@@ -118,6 +118,12 @@ export function PortfolioEditor({
   // "검색 중..." in the name field. Set of asset row indexes.
   const [resolvingRows, setResolvingRows] = useState<Set<number>>(new Set());
 
+  // Tracks rows whose name was auto-filled by the resolver (vs. typed
+  // by the user). When the user re-types the ticker on a row whose name
+  // was auto-filled, we refresh — when they edit the name field
+  // themselves, we mark the row "owned" and stop refreshing.
+  const [autoFilledRows, setAutoFilledRows] = useState<Set<number>>(new Set());
+
   // Pre-warm the resolve-ticker-name edge function on mount so the
   // user's first lookup doesn't pay Deno cold-start latency.
   useEffect(() => {
@@ -143,14 +149,22 @@ export function PortfolioEditor({
       return next;
     });
     if (!resolved) return;
+    let didFill = false;
     setAssets((prev) =>
       prev.map((a, i) => {
         if (i !== idx) return a;
-        if (a.name.trim().length > 0) return a; // user typed something meanwhile
-        if (a.ticker !== code) return a;        // user changed ticker meanwhile
+        if (a.ticker !== code) return a; // user changed ticker meanwhile
+        didFill = true;
         return { ...a, name: resolved };
       }),
     );
+    if (didFill) {
+      setAutoFilledRows((prev) => {
+        const next = new Set(prev);
+        next.add(idx);
+        return next;
+      });
+    }
   }, []);
 
   const updateAsset = (idx: number, patch: Partial<DraftAsset>) => {
@@ -171,16 +185,24 @@ export function PortfolioEditor({
           }
         }
         // Instant name lookup the moment the ticker becomes a valid
-        // 6-digit Korean code AND the name field is still empty.
+        // 6-digit Korean code. Refresh whenever:
+        //   (a) name field is empty, OR
+        //   (b) name was previously auto-filled by us (so the user is
+        //       just re-typing a different code on the same row).
+        // We DO NOT refresh if the user typed the name themselves.
         if (
           patch.ticker !== undefined &&
           patch.ticker !== a.ticker &&
           /^\d{6}$/.test(patch.ticker) &&
-          next.name.trim().length === 0 &&
           next.category !== '암호화폐'
         ) {
-          // Fire-and-forget; setAssets above isn't blocked by it.
-          void triggerNameLookup(idx, patch.ticker);
+          const isUserEdited =
+            next.name.trim().length > 0 && !autoFilledRows.has(idx);
+          if (!isUserEdited) {
+            // Clear the previous auto-fill so "검색 중…" placeholder shows.
+            next.name = '';
+            void triggerNameLookup(idx, patch.ticker);
+          }
         }
         return next;
       }),
@@ -201,6 +223,17 @@ export function PortfolioEditor({
 
   const removeAssetRow = (idx: number) => {
     setAssets((prev) => prev.filter((_, i) => i !== idx));
+    // Remap the index-keyed Sets: drop idx, decrement everything above it.
+    const remap = (s: Set<number>) => {
+      const out = new Set<number>();
+      for (const i of s) {
+        if (i === idx) continue;
+        out.add(i > idx ? i - 1 : i);
+      }
+      return out;
+    };
+    setAutoFilledRows((prev) => remap(prev));
+    setResolvingRows((prev) => remap(prev));
   };
 
   const handleSave = useCallback(async () => {
@@ -374,7 +407,18 @@ export function PortfolioEditor({
                   <input
                     type="text"
                     value={asset.name}
-                    onChange={(e) => updateAsset(idx, { name: e.target.value })}
+                    onChange={(e) => {
+                      // The user is taking ownership of the name — stop
+                      // overwriting it on future ticker changes.
+                      if (autoFilledRows.has(idx)) {
+                        setAutoFilledRows((prev) => {
+                          const next = new Set(prev);
+                          next.delete(idx);
+                          return next;
+                        });
+                      }
+                      updateAsset(idx, { name: e.target.value });
+                    }}
                     placeholder={
                       resolvingRows.has(idx)
                         ? '검색 중…'
