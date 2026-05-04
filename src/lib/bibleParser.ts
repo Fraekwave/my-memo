@@ -9,8 +9,8 @@ export interface BibleRef {
   raw: string;        // 원본 텍스트 (예: "@마27:27-28")
 }
 
-// @마27:27-28 또는 @마27:27 패턴 감지
-const BIBLE_REF_PATTERN = /@([가-힣]+)(\d+):(\d+)(?:-(\d+))?/g;
+// @마27:27-28, @마27:27~28 또는 @마27:27 패턴 감지
+const BIBLE_REF_PATTERN = /@([가-힣]+)(\d+):(\d+)(?:[~-](\d+))?/g;
 
 export function parseBibleRefs(text: string): BibleRef[] {
   const refs: BibleRef[] = [];
@@ -48,7 +48,7 @@ const FULL_NAMES_SORTED = Object.keys(FULL_NAME_TO_KEY).sort((a, b) => b.length 
 
 /**
  * Parse a bare bible reference without @ prefix.
- * Supports abbreviated ("마1:3", "마1:3-5") and full name ("마태복음1:3-5") formats.
+ * Supports abbreviated ("마1:3", "마1:3-5", "마1:3~5") and full name formats.
  */
 export function parseBareRef(text: string): BibleRef | null {
   const trimmed = text.trim();
@@ -58,7 +58,7 @@ export function parseBareRef(text: string): BibleRef | null {
   for (const fullName of FULL_NAMES_SORTED) {
     if (trimmed.startsWith(fullName)) {
       const rest = trimmed.slice(fullName.length);
-      const m = rest.match(/^(\d+):(\d+)(?:-(\d+))?$/);
+      const m = rest.match(/^(\d+):(\d+)(?:[~-](\d+))?$/);
       if (m) {
         const key = FULL_NAME_TO_KEY[fullName];
         return {
@@ -77,7 +77,7 @@ export function parseBareRef(text: string): BibleRef | null {
   for (const key of BIBLE_BOOK_KEYS) {
     if (trimmed.startsWith(key)) {
       const rest = trimmed.slice(key.length);
-      const m = rest.match(/^(\d+):(\d+)(?:-(\d+))?$/);
+      const m = rest.match(/^(\d+):(\d+)(?:[~-](\d+))?$/);
       if (m) {
         return {
           book: key,
@@ -96,7 +96,7 @@ export function parseBareRef(text: string): BibleRef | null {
 
 // 입력 중 마지막 @패턴 감지 (공백이 입력된 후에만 트리거)
 export function detectPartialBibleRef(text: string): BibleRef | null {
-  const partial = /@([가-힣]+)(\d+):(\d+)(?:-(\d+))?\s$/;
+  const partial = /@([가-힣]+)(\d+):(\d+)(?:[~-](\d+))?\s$/;
   const match = partial.exec(text);
   if (!match) return null;
 
@@ -120,7 +120,7 @@ export function detectPartialBibleRef(text: string): BibleRef | null {
  */
 export function detectBibleRefBeforeCursor(text: string, cursorPos: number): BibleRef | null {
   const before = text.slice(0, cursorPos);
-  const pattern = /@([가-힣]+)(\d+):(\d+)(?:-(\d+))?$/;
+  const pattern = /@([가-힣]+)(\d+):(\d+)(?:[~-](\d+))?$/;
   const match = pattern.exec(before);
   if (!match) return null;
 
