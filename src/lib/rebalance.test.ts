@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   computeTargetValueGaps,
   planBuys,
+  planBuysWithFixedFractionalBudget,
   scaleTargetPctToPlanningBase,
   validateTargetAllocation,
   RebalanceAsset,
@@ -112,6 +113,64 @@ describe('planBuys — fractional (crypto mode)', () => {
     const eth = result.buys.find((b) => b.ticker === 'KRW-ETH')!;
     expect(btc.estimatedCost).toBeCloseTo(70_000, -1); // 70k ± 10
     expect(eth.estimatedCost).toBeCloseTo(30_000, -1); // 30k ± 10
+  });
+});
+
+describe('planBuysWithFixedFractionalBudget — mixed monthly plan', () => {
+  const mixedAssets = (btcShares = 0): RebalanceAsset[] => [
+    {
+      ticker: 'KRW-BTC',
+      targetPct: 20,
+      currentShares: btcShares,
+      price: 100_000_000,
+      category: '암호화폐',
+    },
+    { ticker: 'STK', targetPct: 60, currentShares: 0, price: 10_000, category: '주식' },
+    { ticker: 'BND', targetPct: 20, currentShares: 0, price: 10_000, category: '채권' },
+  ];
+
+  it('reserves the crypto target slice before planning the remaining cash', () => {
+    const result = planBuysWithFixedFractionalBudget(mixedAssets(), 500_000);
+
+    const btc = result.buys.find((b) => b.ticker === 'KRW-BTC')!;
+    const stock = result.buys.find((b) => b.ticker === 'STK')!;
+    const bond = result.buys.find((b) => b.ticker === 'BND')!;
+
+    expect(btc.estimatedCost).toBeCloseTo(100_000, 0);
+    expect(btc.sharesToBuy).toBeCloseTo(0.001, 8);
+    expect(stock.estimatedCost).toBe(300_000);
+    expect(bond.estimatedCost).toBe(100_000);
+    expect(result.remainingCash).toBe(0);
+  });
+
+  it('scales the fixed crypto slice with the entered monthly amount', () => {
+    const result = planBuysWithFixedFractionalBudget(mixedAssets(), 1_000_000);
+
+    const btc = result.buys.find((b) => b.ticker === 'KRW-BTC')!;
+    const stock = result.buys.find((b) => b.ticker === 'STK')!;
+    const bond = result.buys.find((b) => b.ticker === 'BND')!;
+
+    expect(btc.estimatedCost).toBeCloseTo(200_000, 0);
+    expect(btc.sharesToBuy).toBeCloseTo(0.002, 8);
+    expect(stock.estimatedCost).toBe(600_000);
+    expect(bond.estimatedCost).toBe(200_000);
+    expect(result.remainingCash).toBe(0);
+  });
+
+  it('keeps BTC fixed across strategy choices even when BTC is already overweight', () => {
+    for (const strategy of ['balanced', 'aggressive', 'conservative'] as const) {
+      const result = planBuysWithFixedFractionalBudget(mixedAssets(0.01), 500_000, {
+        strategy,
+      });
+
+      const btc = result.buys.find((b) => b.ticker === 'KRW-BTC')!;
+      const nonCryptoCost = result.buys
+        .filter((b) => b.ticker !== 'KRW-BTC')
+        .reduce((sum, b) => sum + b.estimatedCost, 0);
+
+      expect(btc.estimatedCost).toBeCloseTo(100_000, 0);
+      expect(nonCryptoCost).toBe(400_000);
+    }
   });
 });
 

@@ -6,9 +6,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAssetPrices } from '@/hooks/useAssetPrices';
 import { computeHoldings } from '@/lib/pnl';
 import {
-  computeTargetValueGaps,
-  planBuys,
-  scaleTargetPctToPlanningBase,
+  planBuysWithFixedFractionalBudget,
   type BuyRecommendation,
   type RebalanceAsset,
   type Strategy,
@@ -94,117 +92,23 @@ export function BuyPlanScreen({
   const cashToInvest = useMemo(() => parseKrwInput(cashInput), [cashInput]);
 
   /**
-   * Split the portfolio's assets into crypto and non-crypto groups,
-   * split the cash by portfolio-level underweight gaps, then run planBuys
-   * separately for each group (fractional vs integer). Merge results.
+   * Mixed portfolio rule:
+   * - fractional/crypto assets keep their fixed target slice of each monthly
+   *   contribution (e.g. BTC 20% of 500,000 KRW = 100,000 KRW).
+   * - the remaining cash is planned only among non-crypto assets.
    */
   const initialPlan = useMemo(() => {
     if (!allPricesReady) return null;
 
-    const cryptoAssets = portfolio.assets.filter(isFractional);
-    const nonCryptoAssets = portfolio.assets.filter((a) => !isFractional(a));
-
-    const cryptoPctSum = cryptoAssets.reduce((s, a) => s + Number(a.target_pct), 0);
-    const nonCryptoPctSum = nonCryptoAssets.reduce((s, a) => s + Number(a.target_pct), 0);
-    const totalPctSum = cryptoPctSum + nonCryptoPctSum || 1;
-
-    const fullRebalanceAssets: RebalanceAsset[] = portfolio.assets.map((a) => ({
+    const assets: RebalanceAsset[] = portfolio.assets.map((a) => ({
       ticker: a.ticker,
       targetPct: Number(a.target_pct),
       currentShares: holdings[a.ticker] ?? 0,
       price: prices[a.ticker] ?? 0,
       category: a.category,
     }));
-    const targetGaps = computeTargetValueGaps(fullRebalanceAssets, cashToInvest);
-    const currentPortfolioValue = fullRebalanceAssets.reduce(
-      (sum, a) => sum + a.currentShares * a.price,
-      0,
-    );
-    const portfolioFutureValue = currentPortfolioValue + cashToInvest;
-    const positiveGapSum = (assets: PortfolioAsset[]) =>
-      assets.reduce((sum, a) => sum + Math.max(0, targetGaps[a.ticker] ?? 0), 0);
-    const cryptoGapSum = positiveGapSum(cryptoAssets);
-    const nonCryptoGapSum = positiveGapSum(nonCryptoAssets);
-    const totalGapSum = cryptoGapSum + nonCryptoGapSum;
 
-    const cryptoCash =
-      totalGapSum > 0
-        ? Math.round((cashToInvest * cryptoGapSum) / totalGapSum)
-        : Math.round((cashToInvest * cryptoPctSum) / totalPctSum);
-    const nonCryptoCash = cashToInvest - cryptoCash;
-
-    // Keep each subset anchored to the full portfolio future value. The target
-    // pct may sum above/below 100 inside a subset; that is intentional.
-    const toRebalance = (assets: PortfolioAsset[], groupCash: number): RebalanceAsset[] => {
-      const groupFutureValue =
-        assets.reduce((sum, a) => {
-          const shares = holdings[a.ticker] ?? 0;
-          const price = prices[a.ticker] ?? 0;
-          return sum + shares * price;
-        }, 0) + groupCash;
-
-      return assets.map((a) => ({
-        ticker: a.ticker,
-        targetPct: scaleTargetPctToPlanningBase(
-          Number(a.target_pct),
-          portfolioFutureValue,
-          groupFutureValue,
-        ),
-        currentShares: holdings[a.ticker] ?? 0,
-        price: prices[a.ticker] ?? 0,
-        category: a.category,
-      }));
-    };
-
-    const toFallbackRebalance = (
-      assets: PortfolioAsset[],
-      subsetPctSum: number,
-    ): RebalanceAsset[] =>
-      assets.map((a) => ({
-        ticker: a.ticker,
-        targetPct: subsetPctSum > 0 ? (Number(a.target_pct) / subsetPctSum) * 100 : 0,
-        currentShares: holdings[a.ticker] ?? 0,
-        price: prices[a.ticker] ?? 0,
-        category: a.category,
-      }));
-
-    const cryptoRebalance =
-      totalGapSum > 0
-        ? toRebalance(cryptoAssets, cryptoCash)
-        : toFallbackRebalance(cryptoAssets, cryptoPctSum);
-    const nonCryptoRebalance =
-      totalGapSum > 0
-        ? toRebalance(nonCryptoAssets, nonCryptoCash)
-        : toFallbackRebalance(nonCryptoAssets, nonCryptoPctSum);
-
-    const cryptoResult =
-      cryptoAssets.length > 0
-        ? planBuys(cryptoRebalance, cryptoCash, {
-            allowFractional: true,
-          })
-        : {
-            buys: [] as BuyRecommendation[],
-            remainingCash: cryptoCash,
-            projectedWeights: {},
-            projectedDrift: 0,
-          };
-
-    const nonCryptoResult =
-      nonCryptoAssets.length > 0
-        ? planBuys(nonCryptoRebalance, nonCryptoCash, {
-            strategy,
-          })
-        : {
-            buys: [] as BuyRecommendation[],
-            remainingCash: nonCryptoCash,
-            projectedWeights: {},
-            projectedDrift: 0,
-          };
-
-    return {
-      buys: [...cryptoResult.buys, ...nonCryptoResult.buys],
-      remainingCash: cryptoResult.remainingCash + nonCryptoResult.remainingCash,
-    };
+    return planBuysWithFixedFractionalBudget(assets, cashToInvest, { strategy });
   }, [allPricesReady, portfolio.assets, holdings, prices, cashToInvest, strategy]);
 
   // User-adjustable share count per ticker.

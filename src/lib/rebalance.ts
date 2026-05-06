@@ -60,6 +60,15 @@ export interface PlanBuysOptions {
   strategy?: Strategy;
 }
 
+export interface FixedFractionalBudgetOptions {
+  /** Strategy modifier for the non-fractional group. Default 'balanced'. */
+  strategy?: Strategy;
+  /** Decimal precision for fractional shares. Default 8 (BTC standard). */
+  fractionalPrecision?: number;
+  /** Category treated as fractional/fixed-slice. Default '암호화폐'. */
+  fractionalCategory?: string;
+}
+
 // Categories that benefit growth-oriented strategies
 const GROWTH_CATEGORIES = new Set(['주식', '암호화폐', '리츠']);
 // Categories that benefit safety-oriented strategies
@@ -135,6 +144,84 @@ export function planBuys(
     return planBuysFractional(assets, cashToInvest, fractionalPrecision);
   }
   return planBuysInteger(assets, cashToInvest, strategy);
+}
+
+/**
+ * Mixed portfolio planner for integer assets + fractional crypto.
+ *
+ * Crypto is intentionally treated as a fixed slice of each new contribution:
+ * if BTC target is 20% and cash is 500,000 KRW, 100,000 KRW is reserved for
+ * BTC before any strategy logic runs. The remaining cash is planned only among
+ * non-crypto assets, using their target percentages normalized within that
+ * non-crypto group.
+ */
+export function planBuysWithFixedFractionalBudget(
+  assets: RebalanceAsset[],
+  cashToInvest: number,
+  options: FixedFractionalBudgetOptions = {},
+): RebalanceResult {
+  const {
+    strategy = 'balanced',
+    fractionalPrecision = 8,
+    fractionalCategory = '암호화폐',
+  } = options;
+
+  const fractionalAssets = assets.filter((a) => a.category === fractionalCategory);
+  const integerAssets = assets.filter((a) => a.category !== fractionalCategory);
+
+  const fractionalPctSum = fractionalAssets.reduce((s, a) => s + a.targetPct, 0);
+  const integerPctSum = integerAssets.reduce((s, a) => s + a.targetPct, 0);
+  const totalPctSum = fractionalPctSum + integerPctSum;
+
+  const fractionalCash =
+    fractionalAssets.length === 0
+      ? 0
+      : integerAssets.length === 0
+        ? cashToInvest
+        : totalPctSum > 0
+          ? Math.round((cashToInvest * fractionalPctSum) / totalPctSum)
+          : 0;
+  const integerCash = cashToInvest - fractionalCash;
+
+  const normalizeTargets = (group: RebalanceAsset[], pctSum: number): RebalanceAsset[] =>
+    group.map((a) => ({
+      ...a,
+      targetPct: pctSum > 0 ? (a.targetPct / pctSum) * 100 : 0,
+    }));
+
+  const fractionalResult =
+    fractionalAssets.length > 0
+      ? planBuys(normalizeTargets(fractionalAssets, fractionalPctSum), fractionalCash, {
+          allowFractional: true,
+          fractionalPrecision,
+        })
+      : emptyResult(0);
+
+  const integerResult =
+    integerAssets.length > 0
+      ? planBuys(normalizeTargets(integerAssets, integerPctSum), integerCash, {
+          strategy,
+        })
+      : emptyResult(0);
+
+  const boughtByTicker = new Map<string, number>();
+  for (const buy of [...fractionalResult.buys, ...integerResult.buys]) {
+    boughtByTicker.set(buy.ticker, (boughtByTicker.get(buy.ticker) ?? 0) + buy.sharesToBuy);
+  }
+
+  const state = assets.map((a) => ({
+    ticker: a.ticker,
+    targetPct: a.targetPct,
+    shares: a.currentShares,
+    price: a.price,
+  }));
+  const bought = state.map((s) => boughtByTicker.get(s.ticker) ?? 0);
+
+  return buildResult(
+    state,
+    bought,
+    fractionalResult.remainingCash + integerResult.remainingCash,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -295,6 +382,15 @@ function buildResult(
     remainingCash: round2(cash),
     projectedWeights,
     projectedDrift: round2(projectedDrift),
+  };
+}
+
+function emptyResult(remainingCash: number): RebalanceResult {
+  return {
+    buys: [],
+    remainingCash,
+    projectedWeights: {},
+    projectedDrift: 0,
   };
 }
 
