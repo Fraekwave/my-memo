@@ -18,10 +18,10 @@
  * Fractional mode (crypto): distributes cash proportionally to positive
  *   gaps, capped at each gap. Unchanged from the original.
  *
- * Strategies bias tie-breaking via a small per-category penalty added to
- * the drift score. "Balanced" is neutral; "Aggressive" subtracts score from
- * growth assets (stocks, crypto, REITs); "Conservative" subtracts from
- * safety assets (bonds, gold, cash).
+ * Strategies bias only near-ties after the target-gap math has decided the
+ * primary ordering. "Balanced" is neutral; "Aggressive" prefers growth assets
+ * (stocks, crypto, REITs); "Conservative" prefers safety assets (bonds, gold,
+ * cash).
  *
  * Pure function. Fully unit-testable.
  */
@@ -65,21 +65,45 @@ const GROWTH_CATEGORIES = new Set(['주식', '암호화폐', '리츠']);
 // Categories that benefit safety-oriented strategies
 const SAFETY_CATEGORIES = new Set(['채권', '금', '현금']);
 
-// Small penalty/bonus that only tips the scales in tie-breaking —
-// never overrides the primary objective (drift minimization).
-const STRATEGY_PENALTY = 2.0; // percentage points added/subtracted from drift score
+// Maximum drift-score difference that counts as a strategy tie. This keeps
+// "aggressive" and "conservative" from overpowering target allocation.
+const DRIFT_TIE_EPSILON = 0.05;
 
-function strategyPenalty(category: string | undefined, strategy: Strategy): number {
+function strategyPreference(category: string | undefined, strategy: Strategy): number {
   if (!category) return 0;
   if (strategy === 'aggressive') {
-    if (GROWTH_CATEGORIES.has(category)) return -STRATEGY_PENALTY;
-    if (SAFETY_CATEGORIES.has(category)) return +STRATEGY_PENALTY;
+    if (GROWTH_CATEGORIES.has(category)) return -1;
+    if (SAFETY_CATEGORIES.has(category)) return +1;
   }
   if (strategy === 'conservative') {
-    if (SAFETY_CATEGORIES.has(category)) return -STRATEGY_PENALTY;
-    if (GROWTH_CATEGORIES.has(category)) return +STRATEGY_PENALTY;
+    if (SAFETY_CATEGORIES.has(category)) return -1;
+    if (GROWTH_CATEGORIES.has(category)) return +1;
   }
   return 0;
+}
+
+/**
+ * Compute each asset's absolute KRW gap against the portfolio target after
+ * adding the new cash. Positive = underweight, negative = overweight.
+ */
+export function computeTargetValueGaps(
+  assets: RebalanceAsset[],
+  cashToInvest: number,
+): Record<string, number> {
+  const currentTotal = assets.reduce(
+    (sum, a) => sum + a.currentShares * a.price,
+    0,
+  );
+  const totalFutureValue = currentTotal + cashToInvest;
+  const gaps: Record<string, number> = {};
+
+  for (const asset of assets) {
+    const currentValue = asset.currentShares * asset.price;
+    const targetValue = (totalFutureValue * asset.targetPct) / 100;
+    gaps[asset.ticker] = targetValue - currentValue;
+  }
+
+  return gaps;
 }
 
 export function planBuys(
@@ -118,20 +142,27 @@ function planBuysInteger(
   const bought: number[] = new Array(state.length).fill(0);
   let cash = cashToInvest;
 
-  /** Compute the current total drift from target based on an optional +1 at idx. */
+  const currentTotal = state.reduce((sum, s) => sum + s.shares * s.price, 0);
+  const totalFutureValue = currentTotal + cashToInvest;
+  const targetValue = state.map((s) => (totalFutureValue * s.targetPct) / 100);
+
+  const valueAt = (idx: number, simulatedAddIdx: number | null): number =>
+    (state[idx].shares +
+      bought[idx] +
+      (simulatedAddIdx === idx ? 1 : 0)) *
+    state[idx].price;
+
+  const remainingGap = (idx: number): number =>
+    targetValue[idx] - valueAt(idx, null);
+
+  /** Compute absolute target-value drift after an optional +1 at idx. */
   const drift = (simulatedAddIdx: number | null): number => {
-    const values = state.map(
-      (s, i) =>
-        (s.shares + bought[i] + (simulatedAddIdx === i ? 1 : 0)) * s.price,
-    );
-    const total = values.reduce((sum, v) => sum + v, 0);
-    if (total === 0) return Infinity; // undefined — pick by price/target
+    if (totalFutureValue <= 0) return Infinity;
     let d = 0;
     for (let i = 0; i < state.length; i++) {
-      const pct = (values[i] / total) * 100;
-      d += Math.abs(pct - state[i].targetPct);
+      d += Math.abs(valueAt(i, simulatedAddIdx) - targetValue[i]);
     }
-    return d;
+    return (d / totalFutureValue) * 100;
   };
 
   // Safety limit — in practice a real portfolio spends ≤ 100 shares total.
@@ -139,19 +170,23 @@ function planBuysInteger(
 
   for (let iter = 0; iter < maxIters; iter++) {
     let bestIdx = -1;
-    let bestScore = Infinity;
+    let bestDrift = Infinity;
+    let bestPreference = Infinity;
 
-    // Edge case: if we haven't bought anything yet and all current shares
-    // are zero, `drift(null)` = Infinity. Use an asset-centric fallback:
-    // pick the asset whose +1 share gets us CLOSEST to its own target
-    // value (as a fraction of what the total would become).
     for (let i = 0; i < state.length; i++) {
       if (state[i].price > cash) continue;
+      if (remainingGap(i) <= 0) continue;
+
       const postDrift = drift(i);
-      const penalty = strategyPenalty(state[i].category, strategy);
-      const score = postDrift + penalty;
-      if (score < bestScore) {
-        bestScore = score;
+      const preference = strategyPreference(state[i].category, strategy);
+
+      if (
+        postDrift < bestDrift - DRIFT_TIE_EPSILON ||
+        (Math.abs(postDrift - bestDrift) <= DRIFT_TIE_EPSILON &&
+          preference < bestPreference)
+      ) {
+        bestDrift = postDrift;
+        bestPreference = preference;
         bestIdx = i;
       }
     }

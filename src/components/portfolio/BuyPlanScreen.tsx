@@ -6,6 +6,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAssetPrices } from '@/hooks/useAssetPrices';
 import { computeHoldings } from '@/lib/pnl';
 import {
+  computeTargetValueGaps,
   planBuys,
   type BuyRecommendation,
   type RebalanceAsset,
@@ -93,7 +94,7 @@ export function BuyPlanScreen({
 
   /**
    * Split the portfolio's assets into crypto and non-crypto groups,
-   * split the cash proportionally by target_pct sums, then run planBuys
+   * split the cash by portfolio-level underweight gaps, then run planBuys
    * separately for each group (fractional vs integer). Merge results.
    */
   const initialPlan = useMemo(() => {
@@ -106,7 +107,24 @@ export function BuyPlanScreen({
     const nonCryptoPctSum = nonCryptoAssets.reduce((s, a) => s + Number(a.target_pct), 0);
     const totalPctSum = cryptoPctSum + nonCryptoPctSum || 1;
 
-    const cryptoCash = Math.round((cashToInvest * cryptoPctSum) / totalPctSum);
+    const fullRebalanceAssets: RebalanceAsset[] = portfolio.assets.map((a) => ({
+      ticker: a.ticker,
+      targetPct: Number(a.target_pct),
+      currentShares: holdings[a.ticker] ?? 0,
+      price: prices[a.ticker] ?? 0,
+      category: a.category,
+    }));
+    const targetGaps = computeTargetValueGaps(fullRebalanceAssets, cashToInvest);
+    const positiveGapSum = (assets: PortfolioAsset[]) =>
+      assets.reduce((sum, a) => sum + Math.max(0, targetGaps[a.ticker] ?? 0), 0);
+    const cryptoGapSum = positiveGapSum(cryptoAssets);
+    const nonCryptoGapSum = positiveGapSum(nonCryptoAssets);
+    const totalGapSum = cryptoGapSum + nonCryptoGapSum;
+
+    const cryptoCash =
+      totalGapSum > 0
+        ? Math.round((cashToInvest * cryptoGapSum) / totalGapSum)
+        : Math.round((cashToInvest * cryptoPctSum) / totalPctSum);
     const nonCryptoCash = cashToInvest - cryptoCash;
 
     // Renormalize target_pct within each subset so each sums to 100.

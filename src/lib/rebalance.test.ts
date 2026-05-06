@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { planBuys, validateTargetAllocation, RebalanceAsset } from './rebalance';
+import {
+  computeTargetValueGaps,
+  planBuys,
+  validateTargetAllocation,
+  RebalanceAsset,
+} from './rebalance';
 
 // Shorthand to build a well-balanced 5-asset portfolio at target
 const balanced5 = (): RebalanceAsset[] => [
@@ -193,6 +198,34 @@ describe('strategy options', () => {
     const bnd = r.buys.find((b) => b.ticker === 'BND')!;
     // Bond should still dominate because drift math overwhelms the penalty
     expect(bnd.sharesToBuy).toBeGreaterThanOrEqual(8);
+  });
+
+  it('strategy bias cannot buy an asset already at its future target gap', () => {
+    const assets: RebalanceAsset[] = [
+      { ticker: 'STK', targetPct: 50, currentShares: 50, price: 1_000, category: '주식' },
+      { ticker: 'BND', targetPct: 50, currentShares: 49, price: 1_000, category: '채권' },
+    ];
+
+    const r = planBuys(assets, 1_000, { strategy: 'aggressive' });
+
+    expect(r.buys).toEqual([
+      { ticker: 'BND', sharesToBuy: 1, estimatedCost: 1_000 },
+    ]);
+  });
+});
+
+describe('computeTargetValueGaps', () => {
+  it('computes gaps against the full future portfolio value', () => {
+    const gaps = computeTargetValueGaps(
+      [
+        { ticker: 'ETF', targetPct: 50, currentShares: 10, price: 10_000 },
+        { ticker: 'BTC', targetPct: 50, currentShares: 0, price: 100_000_000 },
+      ],
+      100_000,
+    );
+
+    expect(gaps.ETF).toBe(0);
+    expect(gaps.BTC).toBe(100_000);
   });
 });
 
