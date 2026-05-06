@@ -8,6 +8,7 @@ import { computeHoldings } from '@/lib/pnl';
 import {
   computeTargetValueGaps,
   planBuys,
+  scaleTargetPctToPlanningBase,
   type BuyRecommendation,
   type RebalanceAsset,
   type Strategy,
@@ -115,6 +116,11 @@ export function BuyPlanScreen({
       category: a.category,
     }));
     const targetGaps = computeTargetValueGaps(fullRebalanceAssets, cashToInvest);
+    const currentPortfolioValue = fullRebalanceAssets.reduce(
+      (sum, a) => sum + a.currentShares * a.price,
+      0,
+    );
+    const portfolioFutureValue = currentPortfolioValue + cashToInvest;
     const positiveGapSum = (assets: PortfolioAsset[]) =>
       assets.reduce((sum, a) => sum + Math.max(0, targetGaps[a.ticker] ?? 0), 0);
     const cryptoGapSum = positiveGapSum(cryptoAssets);
@@ -127,8 +133,33 @@ export function BuyPlanScreen({
         : Math.round((cashToInvest * cryptoPctSum) / totalPctSum);
     const nonCryptoCash = cashToInvest - cryptoCash;
 
-    // Renormalize target_pct within each subset so each sums to 100.
-    const toRebalance = (assets: PortfolioAsset[], subsetPctSum: number): RebalanceAsset[] =>
+    // Keep each subset anchored to the full portfolio future value. The target
+    // pct may sum above/below 100 inside a subset; that is intentional.
+    const toRebalance = (assets: PortfolioAsset[], groupCash: number): RebalanceAsset[] => {
+      const groupFutureValue =
+        assets.reduce((sum, a) => {
+          const shares = holdings[a.ticker] ?? 0;
+          const price = prices[a.ticker] ?? 0;
+          return sum + shares * price;
+        }, 0) + groupCash;
+
+      return assets.map((a) => ({
+        ticker: a.ticker,
+        targetPct: scaleTargetPctToPlanningBase(
+          Number(a.target_pct),
+          portfolioFutureValue,
+          groupFutureValue,
+        ),
+        currentShares: holdings[a.ticker] ?? 0,
+        price: prices[a.ticker] ?? 0,
+        category: a.category,
+      }));
+    };
+
+    const toFallbackRebalance = (
+      assets: PortfolioAsset[],
+      subsetPctSum: number,
+    ): RebalanceAsset[] =>
       assets.map((a) => ({
         ticker: a.ticker,
         targetPct: subsetPctSum > 0 ? (Number(a.target_pct) / subsetPctSum) * 100 : 0,
@@ -137,9 +168,18 @@ export function BuyPlanScreen({
         category: a.category,
       }));
 
+    const cryptoRebalance =
+      totalGapSum > 0
+        ? toRebalance(cryptoAssets, cryptoCash)
+        : toFallbackRebalance(cryptoAssets, cryptoPctSum);
+    const nonCryptoRebalance =
+      totalGapSum > 0
+        ? toRebalance(nonCryptoAssets, nonCryptoCash)
+        : toFallbackRebalance(nonCryptoAssets, nonCryptoPctSum);
+
     const cryptoResult =
       cryptoAssets.length > 0
-        ? planBuys(toRebalance(cryptoAssets, cryptoPctSum), cryptoCash, {
+        ? planBuys(cryptoRebalance, cryptoCash, {
             allowFractional: true,
           })
         : {
@@ -151,7 +191,7 @@ export function BuyPlanScreen({
 
     const nonCryptoResult =
       nonCryptoAssets.length > 0
-        ? planBuys(toRebalance(nonCryptoAssets, nonCryptoPctSum), nonCryptoCash, {
+        ? planBuys(nonCryptoRebalance, nonCryptoCash, {
             strategy,
           })
         : {

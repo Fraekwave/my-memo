@@ -106,6 +106,20 @@ export function computeTargetValueGaps(
   return gaps;
 }
 
+/**
+ * Convert a portfolio-level target percent to the equivalent percent inside a
+ * separately planned group. This lets mixed integer/fractional planners keep
+ * using the full portfolio as the target base.
+ */
+export function scaleTargetPctToPlanningBase(
+  targetPct: number,
+  portfolioFutureValue: number,
+  planningFutureValue: number,
+): number {
+  if (planningFutureValue <= 0) return 0;
+  return (targetPct * portfolioFutureValue) / planningFutureValue;
+}
+
 export function planBuys(
   assets: RebalanceAsset[],
   cashToInvest: number,

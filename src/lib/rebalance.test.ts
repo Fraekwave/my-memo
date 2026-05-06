@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   computeTargetValueGaps,
   planBuys,
+  scaleTargetPctToPlanningBase,
   validateTargetAllocation,
   RebalanceAsset,
 } from './rebalance';
@@ -226,6 +227,15 @@ describe('computeTargetValueGaps', () => {
 
     expect(gaps.ETF).toBe(0);
     expect(gaps.BTC).toBe(100_000);
+  });
+});
+
+describe('scaleTargetPctToPlanningBase', () => {
+  it('preserves portfolio-level target value inside a smaller planning group', () => {
+    const targetPct = scaleTargetPctToPlanningBase(12.5, 1_000_000, 500_000);
+
+    expect(targetPct).toBe(25);
+    expect((500_000 * targetPct) / 100).toBe(125_000);
   });
 });
 
