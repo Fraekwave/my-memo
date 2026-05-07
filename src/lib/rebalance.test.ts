@@ -200,12 +200,12 @@ describe('planBuysWithFixedFractionalBudget — mixed monthly plan', () => {
     expect(byTicker.get('KRW-BTC')?.estimatedCost).toBeCloseTo(100_000, 0);
     expect(byTicker.get('360200')).toMatchObject({ sharesToBuy: 2, estimatedCost: 53_130 });
     expect(byTicker.get('379810')).toMatchObject({ sharesToBuy: 2, estimatedCost: 54_420 });
-    expect(byTicker.get('283580')).toMatchObject({ sharesToBuy: 3, estimatedCost: 50_175 });
+    expect(byTicker.get('283580')).toMatchObject({ sharesToBuy: 4, estimatedCost: 66_900 });
     expect(byTicker.get('294400')).toBeUndefined();
     expect(byTicker.get('365780')).toMatchObject({ sharesToBuy: 1, estimatedCost: 83_770 });
-    expect(byTicker.get('308620')).toMatchObject({ sharesToBuy: 2, estimatedCost: 24_570 });
+    expect(byTicker.get('308620')).toMatchObject({ sharesToBuy: 4, estimatedCost: 49_140 });
     expect(byTicker.get('411060')).toMatchObject({ sharesToBuy: 3, estimatedCost: 90_330 });
-    expect(result.remainingCash).toBeCloseTo(43_605, 0);
+    expect(result.remainingCash).toBeCloseTo(2_310, 0);
   });
 
   it('tilts only the non-crypto budget for aggressive and conservative strategies', () => {
@@ -248,6 +248,27 @@ describe('planBuysWithFixedFractionalBudget — mixed monthly plan', () => {
     expect(totalCostFor(conservative, growthCategories)).toBeLessThan(
       totalCostFor(balanced, growthCategories),
     );
+  });
+
+  it('spends leftover cash for every mixed strategy without exceeding the budget', () => {
+    const assets = suppliedMixedAssets();
+    const nonCryptoPrices = assets
+      .filter((a) => a.category !== '암호화폐')
+      .map((a) => a.price);
+    const cheapestNonCrypto = Math.min(...nonCryptoPrices);
+
+    for (const strategy of ['balanced', 'aggressive', 'conservative'] as const) {
+      const result = planBuysWithFixedFractionalBudget(assets, 500_000, { strategy });
+      const totalCost = result.buys.reduce((sum, b) => sum + b.estimatedCost, 0);
+
+      expect(result.buys.find((b) => b.ticker === 'KRW-BTC')?.estimatedCost).toBeCloseTo(
+        100_000,
+        0,
+      );
+      expect(totalCost).toBeLessThanOrEqual(500_000);
+      expect(result.remainingCash).toBeGreaterThanOrEqual(0);
+      expect(result.remainingCash).toBeLessThan(cheapestNonCrypto);
+    }
   });
 });
 

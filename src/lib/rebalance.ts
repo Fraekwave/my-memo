@@ -169,8 +169,8 @@ export function planBuys(
  * Crypto is intentionally treated as a fixed slice of each new contribution:
  * if BTC target is 20% and cash is 500,000 KRW, 100,000 KRW is reserved for
  * BTC. The remaining cash is planned only among non-crypto assets by row-level
- * target amount. Whole-share rows are rounded independently and leftover cash
- * from unbuyable/rounded-down assets is not redistributed into other rows.
+ * target amount. Whole-share rows are rounded independently, then a second
+ * pass spends leftover cash on affordable rows without exceeding the budget.
  */
 export function planBuysWithFixedFractionalBudget(
   assets: RebalanceAsset[],
@@ -290,6 +290,50 @@ function planIntegerBuysByTargetAmount(
     if (trimIdx === -1) break;
     rows[trimIdx].shares -= 1;
     totalCost -= rows[trimIdx].asset.price;
+  }
+
+  // Second pass: spend leftover cash without exceeding the group budget.
+  // We first favor buys that improve closeness to their strategy-adjusted row
+  // target. Once every affordable extra buy is over-target, keep buying the
+  // least harmful affordable row so idle cash is minimized.
+  for (let iter = 0; iter < 10_000; iter++) {
+    const remaining = cashToInvest - totalCost;
+    let bestIdx = -1;
+    let bestImproves = false;
+    let bestPostGap = Infinity;
+    let bestPreference = Infinity;
+    let bestPrice = -Infinity;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const price = row.asset.price;
+      if (price <= 0 || price > remaining) continue;
+
+      const currentCost = row.shares * price;
+      const currentGap = Math.abs(currentCost - row.targetCash);
+      const postGap = Math.abs(currentCost + price - row.targetCash);
+      const improves = postGap < currentGap;
+      const preference = strategyPreference(row.asset.category, strategy);
+
+      if (
+        (improves && !bestImproves) ||
+        (improves === bestImproves &&
+          (postGap < bestPostGap - 0.01 ||
+            (Math.abs(postGap - bestPostGap) <= 0.01 &&
+              (preference < bestPreference ||
+                (preference === bestPreference && price > bestPrice)))))
+      ) {
+        bestIdx = i;
+        bestImproves = improves;
+        bestPostGap = postGap;
+        bestPreference = preference;
+        bestPrice = price;
+      }
+    }
+
+    if (bestIdx === -1) break;
+    rows[bestIdx].shares += 1;
+    totalCost += rows[bestIdx].asset.price;
   }
 
   const state = assets.map((a) => ({
