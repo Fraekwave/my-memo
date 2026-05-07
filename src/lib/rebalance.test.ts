@@ -128,6 +128,22 @@ describe('planBuysWithFixedFractionalBudget — mixed monthly plan', () => {
     { ticker: 'STK', targetPct: 60, currentShares: 0, price: 10_000, category: '주식' },
     { ticker: 'BND', targetPct: 20, currentShares: 0, price: 10_000, category: '채권' },
   ];
+  const suppliedMixedAssets = (): RebalanceAsset[] => [
+    {
+      ticker: 'KRW-BTC',
+      targetPct: 20,
+      currentShares: 0,
+      price: 100_000_000,
+      category: '암호화폐',
+    },
+    { ticker: '360200', targetPct: 12.5, currentShares: 0, price: 26_565, category: '주식' },
+    { ticker: '379810', targetPct: 12.5, currentShares: 0, price: 27_210, category: '주식' },
+    { ticker: '283580', targetPct: 10, currentShares: 0, price: 16_725, category: '주식' },
+    { ticker: '294400', targetPct: 10, currentShares: 0, price: 148_295, category: '주식' },
+    { ticker: '365780', targetPct: 10, currentShares: 0, price: 83_770, category: '채권' },
+    { ticker: '308620', targetPct: 5, currentShares: 0, price: 12_285, category: '채권' },
+    { ticker: '411060', targetPct: 20, currentShares: 0, price: 30_110, category: '금' },
+  ];
 
   it('reserves the crypto target slice before planning the remaining cash', () => {
     const result = planBuysWithFixedFractionalBudget(mixedAssets(), 500_000);
@@ -175,22 +191,7 @@ describe('planBuysWithFixedFractionalBudget — mixed monthly plan', () => {
 
   it('matches the supplied 2026-05-07 mixed ETF plan table', () => {
     const result = planBuysWithFixedFractionalBudget(
-      [
-        {
-          ticker: 'KRW-BTC',
-          targetPct: 20,
-          currentShares: 0,
-          price: 100_000_000,
-          category: '암호화폐',
-        },
-        { ticker: '360200', targetPct: 12.5, currentShares: 0, price: 26_565, category: '주식' },
-        { ticker: '379810', targetPct: 12.5, currentShares: 0, price: 27_210, category: '주식' },
-        { ticker: '283580', targetPct: 10, currentShares: 0, price: 16_725, category: '주식' },
-        { ticker: '294400', targetPct: 10, currentShares: 0, price: 148_295, category: '주식' },
-        { ticker: '365780', targetPct: 10, currentShares: 0, price: 83_770, category: '채권' },
-        { ticker: '308620', targetPct: 5, currentShares: 0, price: 12_285, category: '채권' },
-        { ticker: '411060', targetPct: 20, currentShares: 0, price: 30_110, category: '금' },
-      ],
+      suppliedMixedAssets(),
       500_000,
     );
 
@@ -205,6 +206,48 @@ describe('planBuysWithFixedFractionalBudget — mixed monthly plan', () => {
     expect(byTicker.get('308620')).toMatchObject({ sharesToBuy: 2, estimatedCost: 24_570 });
     expect(byTicker.get('411060')).toMatchObject({ sharesToBuy: 3, estimatedCost: 90_330 });
     expect(result.remainingCash).toBeCloseTo(43_605, 0);
+  });
+
+  it('tilts only the non-crypto budget for aggressive and conservative strategies', () => {
+    const assets = suppliedMixedAssets();
+    const categoryByTicker = new Map(assets.map((a) => [a.ticker, a.category]));
+    const totalCostFor = (result: ReturnType<typeof planBuysWithFixedFractionalBudget>, categories: string[]) =>
+      result.buys
+        .filter((buy) => categories.includes(categoryByTicker.get(buy.ticker) ?? ''))
+        .reduce((sum, buy) => sum + buy.estimatedCost, 0);
+
+    const balanced = planBuysWithFixedFractionalBudget(assets, 500_000, {
+      strategy: 'balanced',
+    });
+    const aggressive = planBuysWithFixedFractionalBudget(assets, 500_000, {
+      strategy: 'aggressive',
+    });
+    const conservative = planBuysWithFixedFractionalBudget(assets, 500_000, {
+      strategy: 'conservative',
+    });
+
+    for (const result of [balanced, aggressive, conservative]) {
+      expect(result.buys.find((b) => b.ticker === 'KRW-BTC')?.estimatedCost).toBeCloseTo(
+        100_000,
+        0,
+      );
+    }
+
+    const growthCategories = ['주식'];
+    const safetyCategories = ['채권', '금', '현금'];
+
+    expect(totalCostFor(aggressive, growthCategories)).toBeGreaterThan(
+      totalCostFor(balanced, growthCategories),
+    );
+    expect(totalCostFor(aggressive, safetyCategories)).toBeLessThan(
+      totalCostFor(balanced, safetyCategories),
+    );
+    expect(totalCostFor(conservative, safetyCategories)).toBeGreaterThan(
+      totalCostFor(balanced, safetyCategories),
+    );
+    expect(totalCostFor(conservative, growthCategories)).toBeLessThan(
+      totalCostFor(balanced, growthCategories),
+    );
   });
 });
 

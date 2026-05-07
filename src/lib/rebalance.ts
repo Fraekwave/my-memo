@@ -77,6 +77,7 @@ const SAFETY_CATEGORIES = new Set(['채권', '금', '현금']);
 // Maximum drift-score difference that counts as a strategy tie. This keeps
 // "aggressive" and "conservative" from overpowering target allocation.
 const DRIFT_TIE_EPSILON = 0.05;
+const STRATEGY_TARGET_TILT = 0.25;
 
 function strategyPreference(category: string | undefined, strategy: Strategy): number {
   if (!category) return 0;
@@ -89,6 +90,22 @@ function strategyPreference(category: string | undefined, strategy: Strategy): n
     if (GROWTH_CATEGORIES.has(category)) return +1;
   }
   return 0;
+}
+
+function strategyTargetMultiplier(category: string | undefined, strategy: Strategy): number {
+  if (!category || strategy === 'balanced') return 1;
+
+  if (strategy === 'aggressive') {
+    if (GROWTH_CATEGORIES.has(category)) return 1 + STRATEGY_TARGET_TILT;
+    if (SAFETY_CATEGORIES.has(category)) return 1 - STRATEGY_TARGET_TILT;
+  }
+
+  if (strategy === 'conservative') {
+    if (SAFETY_CATEGORIES.has(category)) return 1 + STRATEGY_TARGET_TILT;
+    if (GROWTH_CATEGORIES.has(category)) return 1 - STRATEGY_TARGET_TILT;
+  }
+
+  return 1;
 }
 
 /**
@@ -161,6 +178,7 @@ export function planBuysWithFixedFractionalBudget(
   options: FixedFractionalBudgetOptions = {},
 ): RebalanceResult {
   const {
+    strategy = 'balanced',
     fractionalPrecision = 8,
     fractionalCategory = '암호화폐',
   } = options;
@@ -198,7 +216,7 @@ export function planBuysWithFixedFractionalBudget(
 
   const integerResult =
     integerAssets.length > 0
-      ? planIntegerBuysByTargetAmount(integerAssets, integerCash, integerPctSum)
+      ? planIntegerBuysByTargetAmount(integerAssets, integerCash, integerPctSum, strategy)
       : emptyResult(0);
 
   const boughtByTicker = new Map<string, number>();
@@ -225,9 +243,17 @@ function planIntegerBuysByTargetAmount(
   assets: RebalanceAsset[],
   cashToInvest: number,
   pctSum: number,
+  strategy: Strategy,
 ): RebalanceResult {
+  const adjustedPctSum = assets.reduce(
+    (sum, a) => sum + a.targetPct * strategyTargetMultiplier(a.category, strategy),
+    0,
+  );
+  const planningPctSum = adjustedPctSum > 0 ? adjustedPctSum : pctSum;
+
   const rows = assets.map((a) => {
-    const targetCash = pctSum > 0 ? (cashToInvest * a.targetPct) / pctSum : 0;
+    const adjustedPct = a.targetPct * strategyTargetMultiplier(a.category, strategy);
+    const targetCash = planningPctSum > 0 ? (cashToInvest * adjustedPct) / planningPctSum : 0;
     const shares = a.price > 0 ? Math.round(targetCash / a.price) : 0;
     return {
       asset: a,
