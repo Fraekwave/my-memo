@@ -35,6 +35,8 @@ export interface RebalanceAsset {
   price: number;          // KRW per share
   /** Optional. Used by strategy tie-breaking. */
   category?: string;
+  /** Optional daily close history, keyed by YYYY-MM-DD, used for simulation. */
+  priceHistory?: Record<string, number>;
 }
 
 export interface BuyRecommendation {
@@ -78,6 +80,7 @@ const SAFETY_CATEGORIES = new Set(['채권', '금', '현금']);
 // "aggressive" and "conservative" from overpowering target allocation.
 const DRIFT_TIE_EPSILON = 0.05;
 const STRATEGY_TARGET_TILT = 0.25;
+const SIMULATION_EPSILON = 0.000001;
 
 function strategyPreference(category: string | undefined, strategy: Strategy): number {
   if (!category) return 0;
@@ -168,9 +171,11 @@ export function planBuys(
  *
  * Crypto is intentionally treated as a fixed slice of each new contribution:
  * if BTC target is 20% and cash is 500,000 KRW, 100,000 KRW is reserved for
- * BTC. The remaining cash is planned only among non-crypto assets by row-level
- * target amount. Whole-share rows are rounded independently, then a second
- * pass spends leftover cash on affordable rows without exceeding the budget.
+ * BTC. In balanced mode, the remaining cash is planned among non-crypto
+ * assets by row-level target amount and then leftover cash is spent on
+ * affordable rows. Aggressive and conservative modes use historical-price
+ * simulation instead: aggressive seeks highest simulated profit, conservative
+ * seeks lowest simulated maximum drawdown, and both stay within the budget.
  */
 export function planBuysWithFixedFractionalBudget(
   assets: RebalanceAsset[],
@@ -216,7 +221,9 @@ export function planBuysWithFixedFractionalBudget(
 
   const integerResult =
     integerAssets.length > 0
-      ? planIntegerBuysByTargetAmount(integerAssets, integerCash, integerPctSum, strategy)
+      ? strategy === 'balanced'
+        ? planIntegerBuysByTargetAmount(integerAssets, integerCash, integerPctSum, strategy)
+        : planIntegerBuysBySimulationObjective(integerAssets, integerCash, integerPctSum, strategy)
       : emptyResult(0);
 
   const boughtByTicker = new Map<string, number>();
@@ -237,6 +244,402 @@ export function planBuysWithFixedFractionalBudget(
     bought,
     fractionalResult.remainingCash + integerResult.remainingCash,
   );
+}
+
+interface IntegerPlanRow {
+  asset: RebalanceAsset;
+  targetCash: number;
+  shares: number;
+}
+
+interface SimulationData {
+  dates: string[];
+  pricesByAsset: number[][];
+  expectedReturns: number[];
+  fallbackMdds: number[];
+}
+
+interface SimulationScore {
+  simulatedProfit: number;
+  simulatedMdd: number;
+  remainingCash: number;
+  projectedDrift: number;
+  preference: number;
+  candidatePrice: number;
+}
+
+function planIntegerBuysBySimulationObjective(
+  assets: RebalanceAsset[],
+  cashToInvest: number,
+  pctSum: number,
+  strategy: Exclude<Strategy, 'balanced'>,
+): RebalanceResult {
+  const planningPctSum = pctSum > 0 ? pctSum : assets.reduce((sum, a) => sum + a.targetPct, 0);
+  const rows: IntegerPlanRow[] = assets.map((a) => ({
+    asset: a,
+    targetCash: planningPctSum > 0 ? (cashToInvest * a.targetPct) / planningPctSum : 0,
+    shares: 0,
+  }));
+  const simulation = buildSimulationData(rows);
+
+  if (strategy === 'aggressive') {
+    const maxProfitBought = optimizeMaxProfitShares(rows, cashToInvest, simulation);
+    if (maxProfitBought) {
+      return buildIntegerResultFromBought(assets, maxProfitBought, cashToInvest);
+    }
+  }
+
+  const bought = rows.map(() => 0);
+  let totalCost = 0;
+  for (let iter = 0; iter < 10_000; iter++) {
+    const remaining = cashToInvest - totalCost;
+    let bestIdx = -1;
+    let bestScore: SimulationScore | null = null;
+
+    for (let i = 0; i < rows.length; i++) {
+      const price = rows[i].asset.price;
+      if (price <= 0 || price > remaining) continue;
+
+      const candidateBought = bought.slice();
+      candidateBought[i] += 1;
+      const score = evaluateSimulationScore(
+        rows,
+        candidateBought,
+        cashToInvest,
+        simulation,
+        strategy,
+        i,
+      );
+
+      if (!bestScore || isBetterSimulationScore(score, bestScore, strategy)) {
+        bestIdx = i;
+        bestScore = score;
+      }
+    }
+
+    if (bestIdx === -1) break;
+    bought[bestIdx] += 1;
+    totalCost += rows[bestIdx].asset.price;
+  }
+
+  return buildIntegerResultFromBought(assets, bought, cashToInvest);
+}
+
+function buildIntegerResultFromBought(
+  assets: RebalanceAsset[],
+  bought: number[],
+  cashToInvest: number,
+): RebalanceResult {
+  const totalCost = assets.reduce((sum, asset, idx) => sum + bought[idx] * asset.price, 0);
+  const state = assets.map((a) => ({
+    ticker: a.ticker,
+    targetPct: a.targetPct,
+    shares: a.currentShares,
+    price: a.price,
+  }));
+
+  return buildResult(state, bought, cashToInvest - totalCost);
+}
+
+function optimizeMaxProfitShares(
+  rows: IntegerPlanRow[],
+  cashToInvest: number,
+  simulation: SimulationData,
+): number[] | null {
+  const affordable = rows
+    .map((row, idx) => ({ idx, price: Math.round(row.asset.price) }))
+    .filter((row) => row.price > 0 && row.price <= cashToInvest);
+  if (affordable.length === 0) return rows.map(() => 0);
+
+  const cash = Math.round(cashToInvest);
+  const divisor = affordable.reduce((g, row) => gcd(g, row.price), cash);
+  const scaledCash = Math.floor(cash / divisor);
+  const scaled = affordable.map((row) => ({
+    ...row,
+    scaledPrice: Math.max(1, Math.round(row.price / divisor)),
+    profitPerShare: rows[row.idx].asset.price * simulation.expectedReturns[row.idx],
+  }));
+  if (scaledCash > 500_000) return null;
+
+  const profit = new Float64Array(scaledCash + 1);
+  profit.fill(Number.NEGATIVE_INFINITY);
+  const prevCost = new Int32Array(scaledCash + 1);
+  prevCost.fill(-1);
+  const prevAsset = new Int16Array(scaledCash + 1);
+  prevAsset.fill(-1);
+  profit[0] = 0;
+
+  for (let cost = 0; cost <= scaledCash; cost++) {
+    if (!Number.isFinite(profit[cost])) continue;
+    for (const row of scaled) {
+      const nextCost = cost + row.scaledPrice;
+      if (nextCost > scaledCash) continue;
+      const nextProfit = profit[cost] + row.profitPerShare;
+      if (nextProfit > profit[nextCost] + 0.01) {
+        profit[nextCost] = nextProfit;
+        prevCost[nextCost] = cost;
+        prevAsset[nextCost] = row.idx;
+      }
+    }
+  }
+
+  const minPrice = Math.min(...scaled.map((row) => row.scaledPrice));
+  let bestCost = -1;
+  for (let cost = 0; cost <= scaledCash; cost++) {
+    if (!Number.isFinite(profit[cost])) continue;
+    if (scaledCash - cost >= minPrice) continue;
+    if (
+      bestCost === -1 ||
+      profit[cost] > profit[bestCost] + 0.01 ||
+      (Math.abs(profit[cost] - profit[bestCost]) <= 0.01 && cost > bestCost)
+    ) {
+      bestCost = cost;
+    }
+  }
+
+  if (bestCost === -1) {
+    for (let cost = 0; cost <= scaledCash; cost++) {
+      if (!Number.isFinite(profit[cost])) continue;
+      if (
+        bestCost === -1 ||
+        profit[cost] > profit[bestCost] + 0.01 ||
+        (Math.abs(profit[cost] - profit[bestCost]) <= 0.01 && cost > bestCost)
+      ) {
+        bestCost = cost;
+      }
+    }
+  }
+
+  if (bestCost <= 0) return rows.map(() => 0);
+
+  const bought = rows.map(() => 0);
+  for (let cost = bestCost; cost > 0 && prevAsset[cost] >= 0; cost = prevCost[cost]) {
+    bought[prevAsset[cost]] += 1;
+  }
+  return bought;
+}
+
+function gcd(a: number, b: number): number {
+  let x = Math.abs(Math.round(a));
+  let y = Math.abs(Math.round(b));
+  while (y !== 0) {
+    const next = x % y;
+    x = y;
+    y = next;
+  }
+  return x || 1;
+}
+
+function evaluateSimulationScore(
+  rows: IntegerPlanRow[],
+  bought: number[],
+  cashToInvest: number,
+  simulation: SimulationData,
+  strategy: Exclude<Strategy, 'balanced'>,
+  candidateIdx: number,
+): SimulationScore {
+  const totalCost = bought.reduce(
+    (sum, shares, idx) => sum + shares * rows[idx].asset.price,
+    0,
+  );
+  const simulatedProfit = bought.reduce(
+    (sum, shares, idx) =>
+      sum + shares * rows[idx].asset.price * simulation.expectedReturns[idx],
+    0,
+  );
+
+  return {
+    simulatedProfit,
+    simulatedMdd: evaluateSimulatedMdd(rows, bought, simulation, totalCost),
+    remainingCash: cashToInvest - totalCost,
+    projectedDrift: projectedDriftForBoughtRows(rows, bought),
+    preference: strategyPreference(rows[candidateIdx].asset.category, strategy),
+    candidatePrice: rows[candidateIdx].asset.price,
+  };
+}
+
+function isBetterSimulationScore(
+  next: SimulationScore,
+  current: SimulationScore,
+  strategy: Exclude<Strategy, 'balanced'>,
+): boolean {
+  if (strategy === 'aggressive') {
+    if (next.simulatedProfit > current.simulatedProfit + 0.01) return true;
+    if (next.simulatedProfit < current.simulatedProfit - 0.01) return false;
+    if (next.simulatedMdd < current.simulatedMdd - SIMULATION_EPSILON) return true;
+    if (next.simulatedMdd > current.simulatedMdd + SIMULATION_EPSILON) return false;
+  } else {
+    if (next.simulatedMdd < current.simulatedMdd - SIMULATION_EPSILON) return true;
+    if (next.simulatedMdd > current.simulatedMdd + SIMULATION_EPSILON) return false;
+    if (next.remainingCash < current.remainingCash - 0.01) return true;
+    if (next.remainingCash > current.remainingCash + 0.01) return false;
+    if (next.simulatedProfit > current.simulatedProfit + 0.01) return true;
+    if (next.simulatedProfit < current.simulatedProfit - 0.01) return false;
+  }
+
+  if (next.remainingCash < current.remainingCash - 0.01) return true;
+  if (next.remainingCash > current.remainingCash + 0.01) return false;
+  if (next.projectedDrift < current.projectedDrift - DRIFT_TIE_EPSILON) return true;
+  if (next.projectedDrift > current.projectedDrift + DRIFT_TIE_EPSILON) return false;
+  if (next.preference < current.preference) return true;
+  if (next.preference > current.preference) return false;
+  return next.candidatePrice > current.candidatePrice;
+}
+
+function buildSimulationData(rows: IntegerPlanRow[]): SimulationData {
+  const histories = rows.map((row) => sortedHistoryEntries(row.asset.priceHistory));
+  const dates = Array.from(
+    new Set(histories.flatMap((entries) => (entries.length >= 2 ? entries.map((e) => e.date) : []))),
+  ).sort();
+
+  return {
+    dates,
+    pricesByAsset: histories.map((entries, idx) =>
+      fillHistoryPrices(entries, dates, rows[idx].asset.price),
+    ),
+    expectedReturns: histories.map((entries, idx) =>
+      entries.length >= 2
+        ? entries[entries.length - 1].price / entries[0].price - 1
+        : fallbackExpectedReturn(rows[idx].asset.category),
+    ),
+    fallbackMdds: histories.map((entries, idx) =>
+      entries.length >= 2
+        ? maxDrawdownFromPrices(entries.map((entry) => entry.price))
+        : fallbackMdd(rows[idx].asset.category),
+    ),
+  };
+}
+
+function sortedHistoryEntries(
+  history: Record<string, number> | undefined,
+): Array<{ date: string; price: number }> {
+  if (!history) return [];
+  return Object.entries(history)
+    .filter(([, price]) => Number.isFinite(price) && price > 0)
+    .map(([date, price]) => ({ date, price }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function fillHistoryPrices(
+  entries: Array<{ date: string; price: number }>,
+  dates: string[],
+  fallbackPrice: number,
+): number[] {
+  if (dates.length === 0) return [];
+  if (entries.length === 0) return dates.map(() => fallbackPrice);
+
+  const out: number[] = [];
+  let entryIdx = 0;
+  let lastPrice = entries[0].price;
+
+  for (const date of dates) {
+    while (entryIdx < entries.length && entries[entryIdx].date <= date) {
+      lastPrice = entries[entryIdx].price;
+      entryIdx += 1;
+    }
+    out.push(lastPrice);
+  }
+
+  return out;
+}
+
+function evaluateSimulatedMdd(
+  rows: IntegerPlanRow[],
+  bought: number[],
+  simulation: SimulationData,
+  totalCost: number,
+): number {
+  if (simulation.dates.length >= 2) {
+    let peak = 0;
+    let maxDrawdown = 0;
+
+    for (let dateIdx = 0; dateIdx < simulation.dates.length; dateIdx++) {
+      const value = bought.reduce(
+        (sum, shares, assetIdx) =>
+          sum + shares * (simulation.pricesByAsset[assetIdx][dateIdx] ?? rows[assetIdx].asset.price),
+        0,
+      );
+      if (value <= 0) continue;
+      peak = Math.max(peak, value);
+      if (peak > 0) maxDrawdown = Math.max(maxDrawdown, (peak - value) / peak);
+    }
+
+    return maxDrawdown;
+  }
+
+  if (totalCost <= 0) return 0;
+  return bought.reduce((sum, shares, idx) => {
+    const cost = shares * rows[idx].asset.price;
+    return sum + (cost / totalCost) * simulation.fallbackMdds[idx];
+  }, 0);
+}
+
+function projectedDriftForBoughtRows(rows: IntegerPlanRow[], bought: number[]): number {
+  const projectedValues = rows.map((row, idx) => {
+    const shares = row.asset.currentShares + bought[idx];
+    return shares * row.asset.price;
+  });
+  const total = projectedValues.reduce((sum, value) => sum + value, 0);
+  if (total <= 0) return Infinity;
+
+  return rows.reduce((sum, row, idx) => {
+    const actualPct = (projectedValues[idx] / total) * 100;
+    return sum + Math.abs(actualPct - row.asset.targetPct);
+  }, 0);
+}
+
+function maxDrawdownFromPrices(prices: number[]): number {
+  let peak = 0;
+  let maxDrawdown = 0;
+
+  for (const price of prices) {
+    if (price <= 0) continue;
+    peak = Math.max(peak, price);
+    if (peak > 0) maxDrawdown = Math.max(maxDrawdown, (peak - price) / peak);
+  }
+
+  return maxDrawdown;
+}
+
+function fallbackExpectedReturn(category: string | undefined): number {
+  switch (category) {
+    case '암호화폐':
+      return 0.12;
+    case '주식':
+    case '리츠':
+      return 0.08;
+    case '원자재':
+      return 0.05;
+    case '금':
+      return 0.04;
+    case '채권':
+      return 0.025;
+    case '현금':
+      return 0;
+    default:
+      return 0.03;
+  }
+}
+
+function fallbackMdd(category: string | undefined): number {
+  switch (category) {
+    case '암호화폐':
+      return 0.45;
+    case '리츠':
+      return 0.28;
+    case '주식':
+      return 0.25;
+    case '원자재':
+      return 0.22;
+    case '금':
+      return 0.12;
+    case '채권':
+      return 0.08;
+    case '현금':
+      return 0;
+    default:
+      return 0.15;
+  }
 }
 
 function planIntegerBuysByTargetAmount(

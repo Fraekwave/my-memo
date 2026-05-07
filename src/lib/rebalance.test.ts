@@ -250,6 +250,128 @@ describe('planBuysWithFixedFractionalBudget — mixed monthly plan', () => {
     );
   });
 
+  it('aggressive maximizes simulated profit instead of category tilt', () => {
+    const assets: RebalanceAsset[] = [
+      {
+        ticker: 'KRW-BTC',
+        targetPct: 20,
+        currentShares: 0,
+        price: 100_000_000,
+        category: '암호화폐',
+      },
+      {
+        ticker: 'LOW_PROFIT_STOCK',
+        targetPct: 40,
+        currentShares: 0,
+        price: 10_000,
+        category: '주식',
+        priceHistory: { '2026-01-01': 100, '2026-05-01': 90 },
+      },
+      {
+        ticker: 'HIGH_PROFIT_BOND',
+        targetPct: 40,
+        currentShares: 0,
+        price: 10_000,
+        category: '채권',
+        priceHistory: { '2026-01-01': 100, '2026-05-01': 140 },
+      },
+    ];
+
+    const result = planBuysWithFixedFractionalBudget(assets, 100_000, {
+      strategy: 'aggressive',
+    });
+    const byTicker = new Map(result.buys.map((b) => [b.ticker, b]));
+
+    expect(byTicker.get('KRW-BTC')?.estimatedCost).toBeCloseTo(20_000, 0);
+    expect(byTicker.get('HIGH_PROFIT_BOND')).toMatchObject({
+      sharesToBuy: 8,
+      estimatedCost: 80_000,
+    });
+    expect(byTicker.get('LOW_PROFIT_STOCK')).toBeUndefined();
+    expect(result.remainingCash).toBe(0);
+  });
+
+  it('aggressive optimizes total simulated profit under the whole budget', () => {
+    const assets: RebalanceAsset[] = [
+      {
+        ticker: 'KRW-BTC',
+        targetPct: 20,
+        currentShares: 0,
+        price: 10_000,
+        category: '암호화폐',
+      },
+      {
+        ticker: 'HIGH_ABSOLUTE_PROFIT',
+        targetPct: 40,
+        currentShares: 0,
+        price: 60,
+        category: '주식',
+        priceHistory: { '2026-01-01': 100, '2026-05-01': 110 },
+      },
+      {
+        ticker: 'BETTER_BUDGET_PROFIT',
+        targetPct: 40,
+        currentShares: 0,
+        price: 40,
+        category: '채권',
+        priceHistory: { '2026-01-01': 100, '2026-05-01': 109 },
+      },
+    ];
+
+    const result = planBuysWithFixedFractionalBudget(assets, 100, {
+      strategy: 'aggressive',
+    });
+    const byTicker = new Map(result.buys.map((b) => [b.ticker, b]));
+
+    expect(byTicker.get('BETTER_BUDGET_PROFIT')).toMatchObject({
+      sharesToBuy: 2,
+      estimatedCost: 80,
+    });
+    expect(byTicker.get('HIGH_ABSOLUTE_PROFIT')).toBeUndefined();
+    expect(result.remainingCash).toBe(0);
+  });
+
+  it('conservative minimizes simulated MDD instead of category tilt', () => {
+    const assets: RebalanceAsset[] = [
+      {
+        ticker: 'KRW-BTC',
+        targetPct: 20,
+        currentShares: 0,
+        price: 100_000_000,
+        category: '암호화폐',
+      },
+      {
+        ticker: 'LOW_MDD_STOCK',
+        targetPct: 40,
+        currentShares: 0,
+        price: 10_000,
+        category: '주식',
+        priceHistory: { '2026-01-01': 100, '2026-03-01': 101, '2026-05-01': 102 },
+      },
+      {
+        ticker: 'HIGH_MDD_BOND',
+        targetPct: 40,
+        currentShares: 0,
+        price: 10_000,
+        category: '채권',
+        priceHistory: { '2026-01-01': 100, '2026-03-01': 60, '2026-05-01': 120 },
+      },
+    ];
+
+    const result = planBuysWithFixedFractionalBudget(assets, 100_000, {
+      strategy: 'conservative',
+    });
+    const byTicker = new Map(result.buys.map((b) => [b.ticker, b]));
+
+    expect(byTicker.get('KRW-BTC')?.estimatedCost).toBeCloseTo(20_000, 0);
+    expect(byTicker.get('LOW_MDD_STOCK')).toMatchObject({
+      sharesToBuy: 8,
+      estimatedCost: 80_000,
+    });
+    expect(byTicker.get('HIGH_MDD_BOND')).toBeUndefined();
+    expect(result.remainingCash).toBe(0);
+  });
+
   it('spends leftover cash for every mixed strategy without exceeding the budget', () => {
     const assets = suppliedMixedAssets();
     const nonCryptoPrices = assets

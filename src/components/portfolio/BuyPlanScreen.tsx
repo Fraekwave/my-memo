@@ -4,6 +4,7 @@ import { ArrowLeft, RefreshCw, Minus, Plus } from 'lucide-react';
 import { PortfolioWithAssets } from '@/hooks/usePortfolios';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAssetPrices } from '@/hooks/useAssetPrices';
+import { useHistoricalPrices } from '@/hooks/useHistoricalPrices';
 import { computeHoldings } from '@/lib/pnl';
 import {
   planBuysWithFixedFractionalBudget,
@@ -52,6 +53,12 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
+function isoDateDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
 export function BuyPlanScreen({
   userId,
   portfolio,
@@ -73,8 +80,14 @@ export function BuyPlanScreen({
     String(portfolio.portfolio.monthly_budget ?? 0),
   );
 
-  // Strategy — user picks how the algorithm breaks ties.
+  // Strategy — balanced follows target allocation, while non-balanced modes
+  // use one-year historical prices as simulation inputs.
   const [strategy, setStrategy] = useState<Strategy>('balanced');
+  const simulationFromDate = useMemo(
+    () => (strategy === 'balanced' ? null : isoDateDaysAgo(365)),
+    [strategy],
+  );
+  const { prices: historicalPrices } = useHistoricalPrices(tickers, simulationFromDate);
 
   // Inline manual-entry state: ticker → draft string
   const [manualDrafts, setManualDrafts] = useState<Record<string, string>>({});
@@ -95,7 +108,8 @@ export function BuyPlanScreen({
    * Mixed portfolio rule:
    * - fractional/crypto assets keep their fixed target slice of each monthly
    *   contribution (e.g. BTC 20% of 500,000 KRW = 100,000 KRW).
-   * - the remaining cash is planned only among non-crypto assets.
+   * - the remaining cash is planned among non-crypto assets according to the
+   *   selected objective.
    */
   const initialPlan = useMemo(() => {
     if (!allPricesReady) return null;
@@ -106,10 +120,11 @@ export function BuyPlanScreen({
       currentShares: holdings[a.ticker] ?? 0,
       price: prices[a.ticker] ?? 0,
       category: a.category,
+      priceHistory: historicalPrices[a.ticker],
     }));
 
     return planBuysWithFixedFractionalBudget(assets, cashToInvest, { strategy });
-  }, [allPricesReady, portfolio.assets, holdings, prices, cashToInvest, strategy]);
+  }, [allPricesReady, portfolio.assets, holdings, prices, historicalPrices, cashToInvest, strategy]);
 
   // User-adjustable share count per ticker.
   const [adjustedShares, setAdjustedShares] = useState<Record<string, number>>({});
