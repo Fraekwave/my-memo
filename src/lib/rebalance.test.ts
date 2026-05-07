@@ -172,6 +172,40 @@ describe('planBuysWithFixedFractionalBudget — mixed monthly plan', () => {
       expect(nonCryptoCost).toBe(400_000);
     }
   });
+
+  it('matches the supplied 2026-05-07 mixed ETF plan table', () => {
+    const result = planBuysWithFixedFractionalBudget(
+      [
+        {
+          ticker: 'KRW-BTC',
+          targetPct: 20,
+          currentShares: 0,
+          price: 100_000_000,
+          category: '암호화폐',
+        },
+        { ticker: '360200', targetPct: 12.5, currentShares: 0, price: 26_565, category: '주식' },
+        { ticker: '379810', targetPct: 12.5, currentShares: 0, price: 27_210, category: '주식' },
+        { ticker: '283580', targetPct: 10, currentShares: 0, price: 16_725, category: '주식' },
+        { ticker: '294400', targetPct: 10, currentShares: 0, price: 148_295, category: '주식' },
+        { ticker: '365780', targetPct: 10, currentShares: 0, price: 83_770, category: '채권' },
+        { ticker: '308620', targetPct: 5, currentShares: 0, price: 12_285, category: '채권' },
+        { ticker: '411060', targetPct: 20, currentShares: 0, price: 30_110, category: '금' },
+      ],
+      500_000,
+    );
+
+    const byTicker = new Map(result.buys.map((b) => [b.ticker, b]));
+
+    expect(byTicker.get('KRW-BTC')?.estimatedCost).toBeCloseTo(100_000, 0);
+    expect(byTicker.get('360200')).toMatchObject({ sharesToBuy: 2, estimatedCost: 53_130 });
+    expect(byTicker.get('379810')).toMatchObject({ sharesToBuy: 2, estimatedCost: 54_420 });
+    expect(byTicker.get('283580')).toMatchObject({ sharesToBuy: 3, estimatedCost: 50_175 });
+    expect(byTicker.get('294400')).toBeUndefined();
+    expect(byTicker.get('365780')).toMatchObject({ sharesToBuy: 1, estimatedCost: 83_770 });
+    expect(byTicker.get('308620')).toMatchObject({ sharesToBuy: 2, estimatedCost: 24_570 });
+    expect(byTicker.get('411060')).toMatchObject({ sharesToBuy: 3, estimatedCost: 90_330 });
+    expect(result.remainingCash).toBeCloseTo(43_605, 0);
+  });
 });
 
 describe('drift-minimization (KIWOOM overshoot scenario)', () => {

@@ -151,9 +151,9 @@ export function planBuys(
  *
  * Crypto is intentionally treated as a fixed slice of each new contribution:
  * if BTC target is 20% and cash is 500,000 KRW, 100,000 KRW is reserved for
- * BTC before any strategy logic runs. The remaining cash is planned only among
- * non-crypto assets, using their target percentages normalized within that
- * non-crypto group.
+ * BTC. The remaining cash is planned only among non-crypto assets by row-level
+ * target amount. Whole-share rows are rounded independently and leftover cash
+ * from unbuyable/rounded-down assets is not redistributed into other rows.
  */
 export function planBuysWithFixedFractionalBudget(
   assets: RebalanceAsset[],
@@ -161,7 +161,6 @@ export function planBuysWithFixedFractionalBudget(
   options: FixedFractionalBudgetOptions = {},
 ): RebalanceResult {
   const {
-    strategy = 'balanced',
     fractionalPrecision = 8,
     fractionalCategory = '암호화폐',
   } = options;
@@ -199,9 +198,7 @@ export function planBuysWithFixedFractionalBudget(
 
   const integerResult =
     integerAssets.length > 0
-      ? planBuys(normalizeTargets(integerAssets, integerPctSum), integerCash, {
-          strategy,
-        })
+      ? planIntegerBuysByTargetAmount(integerAssets, integerCash, integerPctSum)
       : emptyResult(0);
 
   const boughtByTicker = new Map<string, number>();
@@ -222,6 +219,62 @@ export function planBuysWithFixedFractionalBudget(
     bought,
     fractionalResult.remainingCash + integerResult.remainingCash,
   );
+}
+
+function planIntegerBuysByTargetAmount(
+  assets: RebalanceAsset[],
+  cashToInvest: number,
+  pctSum: number,
+): RebalanceResult {
+  const rows = assets.map((a) => {
+    const targetCash = pctSum > 0 ? (cashToInvest * a.targetPct) / pctSum : 0;
+    const shares = a.price > 0 ? Math.round(targetCash / a.price) : 0;
+    return {
+      asset: a,
+      targetCash,
+      shares: Math.max(0, shares),
+    };
+  });
+
+  let totalCost = rows.reduce((sum, row) => sum + row.shares * row.asset.price, 0);
+
+  // Rounding each row to the nearest share can rarely exceed the available
+  // group cash. If that happens, trim the rows that overshot their own target
+  // by the most; never redistribute the freed cash.
+  while (totalCost > cashToInvest) {
+    let trimIdx = -1;
+    let biggestOverTarget = -Infinity;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.shares <= 0) continue;
+      const cost = row.shares * row.asset.price;
+      const overTarget = cost - row.targetCash;
+      if (
+        overTarget > biggestOverTarget ||
+        (overTarget === biggestOverTarget &&
+          trimIdx >= 0 &&
+          row.asset.price > rows[trimIdx].asset.price)
+      ) {
+        biggestOverTarget = overTarget;
+        trimIdx = i;
+      }
+    }
+
+    if (trimIdx === -1) break;
+    rows[trimIdx].shares -= 1;
+    totalCost -= rows[trimIdx].asset.price;
+  }
+
+  const state = assets.map((a) => ({
+    ticker: a.ticker,
+    targetPct: a.targetPct,
+    shares: a.currentShares,
+    price: a.price,
+  }));
+  const bought = rows.map((row) => row.shares);
+
+  return buildResult(state, bought, cashToInvest - totalCost);
 }
 
 // ─────────────────────────────────────────────────────────────────
