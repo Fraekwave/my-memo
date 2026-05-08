@@ -17,9 +17,10 @@
 // Caching: writes each successful fetch to `price_snapshots` table
 // (ticker, trade_date) for today. Cache is served only when fresh per the
 // staleness rule below:
-//   - Korean ETFs during market hours (Mon-Fri 09:00-15:30 KST): 2-min TTL
-//   - Korean ETFs outside market hours: cache for the rest of the day
-//     (last close is immutable until next market open)
+//   - Korean ETFs from market open until close-price publication: 2-min TTL
+//   - Korean ETFs after close-price publication: serve cache only if it was
+//     fetched after that publication window, preventing pre-market rows from
+//     being reused as the closing price
 //   - Crypto (KRW-*): 2-min TTL (24/7 market, always tradable)
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -147,33 +148,59 @@ Deno.serve(async (req) => {
 // ─────────────────────────────────────────────────────────────
 
 const TTL_MS = 2 * 60 * 1000; // 2 minutes
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const KRX_MARKET_OPEN_MINUTES = 9 * 60;
+const KRX_FINAL_CLOSE_PRICE_MINUTES = 16 * 60 + 30;
 
 function isStale(ticker: string, fetchedAt: string | null, now: Date): boolean {
   if (!fetchedAt) return true;
-  const ageMs = now.getTime() - Date.parse(fetchedAt);
+  const fetchedMs = Date.parse(fetchedAt);
+  const ageMs = now.getTime() - fetchedMs;
   if (!Number.isFinite(ageMs) || ageMs < 0) return true;
 
   // Crypto trades 24/7 — always honor TTL.
   if (/^KRW-/.test(ticker)) return ageMs > TTL_MS;
 
-  // Korean ETF/stock: during market hours honor TTL; outside market
-  // hours the last close is immutable until next open, so treat as fresh.
   if (/^\d{6}$/.test(ticker)) {
-    if (isKoreanMarketOpen(now)) return ageMs > TTL_MS;
-    return false;
+    return isKoreanSecurityStale(fetchedMs, ageMs, now);
   }
 
   // Unknown ticker type — default to TTL to be safe.
   return ageMs > TTL_MS;
 }
 
-function isKoreanMarketOpen(now: Date): boolean {
-  // Korean market hours: Mon-Fri 09:00-15:30 KST
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const day = kst.getUTCDay(); // 0=Sun, 6=Sat
-  if (day === 0 || day === 6) return false;
-  const minutes = kst.getUTCHours() * 60 + kst.getUTCMinutes();
-  return minutes >= 9 * 60 && minutes <= 15 * 60 + 30;
+function isKoreanSecurityStale(fetchedMs: number, ageMs: number, now: Date): boolean {
+  const nowKst = getKstParts(now);
+  const isWeekday = nowKst.day !== 0 && nowKst.day !== 6;
+
+  // Quotes can change from market open until Naver's close-price publication.
+  if (
+    isWeekday &&
+    nowKst.minutes >= KRX_MARKET_OPEN_MINUTES &&
+    nowKst.minutes < KRX_FINAL_CLOSE_PRICE_MINUTES
+  ) {
+    return ageMs > TTL_MS;
+  }
+
+  // After final close publication, reject pre-publication rows from today.
+  if (isWeekday && nowKst.minutes >= KRX_FINAL_CLOSE_PRICE_MINUTES) {
+    const fetchedKst = getKstParts(new Date(fetchedMs));
+    return (
+      fetchedKst.date !== nowKst.date ||
+      fetchedKst.minutes < KRX_FINAL_CLOSE_PRICE_MINUTES
+    );
+  }
+
+  return false;
+}
+
+function getKstParts(date: Date): { date: string; day: number; minutes: number } {
+  const kst = new Date(date.getTime() + KST_OFFSET_MS);
+  return {
+    date: kst.toISOString().slice(0, 10),
+    day: kst.getUTCDay(),
+    minutes: kst.getUTCHours() * 60 + kst.getUTCMinutes(),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────

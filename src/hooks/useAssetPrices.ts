@@ -13,6 +13,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import {
+  CURRENT_PRICE_TTL_MS,
+  isCurrentPriceCacheFresh,
+} from '@/lib/priceFreshness';
 
 export type PriceSourceTag = 'naver' | 'krx' | 'upbit' | 'cache' | 'manual';
 
@@ -41,34 +45,12 @@ const moduleCache = new Map<
   { price: number; source: PriceSourceTag; fetchedAt: number; serverFetchedAt: number | null }
 >();
 
-// Client-side TTL must match the edge function's staleness rule (2 min).
-// Otherwise refresh() skips the fetch, the server keeps serving stale cache,
-// and prices appear frozen during market hours.
-const STALE_MS_MARKET_OPEN = 2 * 60 * 1000;
-const STALE_MS_MARKET_CLOSED = 12 * 60 * 60 * 1000; // 12 h outside
-const AUTO_REFRESH_MS = 2 * 60 * 1000;
-
-function isMarketOpen(now: Date = new Date()): boolean {
-  // Korean market hours: Mon-Fri 09:00-15:30 KST
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const day = kst.getUTCDay(); // 0=Sun, 6=Sat
-  if (day === 0 || day === 6) return false;
-  const minutes = kst.getUTCHours() * 60 + kst.getUTCMinutes();
-  return minutes >= 9 * 60 && minutes <= 15 * 60 + 30;
-}
+const AUTO_REFRESH_MS = CURRENT_PRICE_TTL_MS;
 
 function todayKstDate(): string {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
-}
-
-function staleThresholdForTicker(ticker: string): number {
-  if (/^KRW-/.test(ticker)) return STALE_MS_MARKET_OPEN;
-  if (/^\d{6}$/.test(ticker)) {
-    return isMarketOpen() ? STALE_MS_MARKET_OPEN : STALE_MS_MARKET_CLOSED;
-  }
-  return STALE_MS_MARKET_OPEN;
 }
 
 export function useAssetPrices(tickers: string[]) {
@@ -109,7 +91,7 @@ export function useAssetPrices(tickers: string[]) {
       if (force) return true;
       const hit = moduleCache.get(t);
       if (!hit) return true;
-      return now - hit.fetchedAt > staleThresholdForTicker(t);
+      return !isCurrentPriceCacheFresh(t, hit, new Date(now));
     });
 
     // If everything is fresh in cache, just hydrate from cache
