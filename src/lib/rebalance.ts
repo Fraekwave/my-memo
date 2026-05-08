@@ -71,6 +71,22 @@ export interface FixedFractionalBudgetOptions {
   fractionalCategory?: string;
 }
 
+export interface BuyOnlyRebalanceCashOptions {
+  /** Minimum cash to suggest even when the portfolio is already balanced. */
+  minimumCash?: number;
+  /** Round the suggestion up to this KRW increment. Default: no rounding. */
+  roundUpTo?: number;
+}
+
+export interface AnnualRebalanceOptions {
+  /** Strategy modifier used only as a tie-breaker for integer-share rows. */
+  strategy?: Strategy;
+  /** Decimal precision for fractional shares. Default 8 (BTC standard). */
+  fractionalPrecision?: number;
+  /** Category treated as fractional. Default '암호화폐'. */
+  fractionalCategory?: string;
+}
+
 // Categories that benefit growth-oriented strategies
 const GROWTH_CATEGORIES = new Set(['주식', '암호화폐', '리츠']);
 // Categories that benefit safety-oriented strategies
@@ -246,10 +262,319 @@ export function planBuysWithFixedFractionalBudget(
   );
 }
 
+/**
+ * Estimate the one-time buy-only cash needed to bring overweight rows back to
+ * target weight without selling. If the portfolio is already at target, the
+ * caller can still provide a minimum contribution amount.
+ */
+export function estimateBuyOnlyRebalanceCash(
+  assets: RebalanceAsset[],
+  options: BuyOnlyRebalanceCashOptions = {},
+): number {
+  const { minimumCash = 0, roundUpTo = 0 } = options;
+  const currentTotal = assets.reduce(
+    (sum, a) => sum + a.currentShares * a.price,
+    0,
+  );
+
+  if (currentTotal <= 0) {
+    return roundCashUp(Math.max(0, minimumCash), roundUpTo);
+  }
+
+  let requiredFutureTotal = currentTotal;
+  for (const asset of assets) {
+    const currentValue = asset.currentShares * asset.price;
+    const targetFraction = asset.targetPct / 100;
+    if (currentValue <= 0 || targetFraction <= 0) continue;
+    requiredFutureTotal = Math.max(
+      requiredFutureTotal,
+      currentValue / targetFraction,
+    );
+  }
+
+  const rebalanceCash = Math.max(0, requiredFutureTotal - currentTotal);
+  return roundCashUp(Math.max(rebalanceCash, minimumCash), roundUpTo);
+}
+
+/**
+ * Annual buy-only rebalance planner.
+ *
+ * Monthly buying intentionally follows contribution targets. Annual
+ * rebalancing instead starts from current drift against the original target
+ * allocation and directs the larger one-time budget toward underweight rows.
+ * Fractional rows (crypto by default) can absorb exact KRW gaps; ETF-like rows
+ * stay integer-only.
+ */
+export function planAnnualRebalanceBuys(
+  assets: RebalanceAsset[],
+  cashToInvest: number,
+  options: AnnualRebalanceOptions = {},
+): RebalanceResult {
+  const {
+    strategy = 'balanced',
+    fractionalPrecision = 8,
+    fractionalCategory = '암호화폐',
+  } = options;
+
+  const state = assets.map((a) => ({
+    ticker: a.ticker,
+    targetPct: a.targetPct,
+    shares: a.currentShares,
+    price: a.price,
+  }));
+  const bought: number[] = new Array(state.length).fill(0);
+  if (cashToInvest <= 0 || assets.length === 0) {
+    return buildResult(state, bought, cashToInvest);
+  }
+
+  const gaps = computeTargetValueGaps(assets, cashToInvest);
+  const positiveGapSum = assets.reduce(
+    (sum, a) => sum + Math.max(0, gaps[a.ticker] ?? 0),
+    0,
+  );
+  if (positiveGapSum <= 0) {
+    return buildResult(state, bought, cashToInvest);
+  }
+
+  const rows: AnnualRebalanceRow[] = assets.map((asset, idx) => ({
+    idx,
+    asset,
+    targetCash:
+      (Math.max(0, gaps[asset.ticker] ?? 0) / positiveGapSum) * cashToInvest,
+  }));
+  const integerRows = rows.filter((row) => row.asset.category !== fractionalCategory);
+  const fractionalRows = rows.filter((row) => row.asset.category === fractionalCategory);
+
+  let cash = cashToInvest;
+
+  if (integerRows.length > 0) {
+    const integerBudget = Math.min(
+      cash,
+      integerRows.reduce((sum, row) => sum + row.targetCash, 0),
+    );
+    const integerShares = planIntegerSharesTowardCashTargets(
+      integerRows,
+      integerBudget,
+      strategy,
+    );
+
+    for (let i = 0; i < integerRows.length; i++) {
+      const row = integerRows[i];
+      bought[row.idx] = integerShares[i];
+      cash -= integerShares[i] * row.asset.price;
+    }
+  }
+
+  if (fractionalRows.length > 0) {
+    cash = allocateFractionalRebalanceCash(
+      fractionalRows,
+      bought,
+      gaps,
+      cash,
+      fractionalPrecision,
+    );
+  }
+
+  cash = spendIntegerRebalanceLeftover(integerRows, bought, gaps, cash, strategy);
+
+  if (fractionalRows.length > 0) {
+    cash = allocateFractionalRebalanceCash(
+      fractionalRows,
+      bought,
+      gaps,
+      cash,
+      fractionalPrecision,
+    );
+  }
+
+  return buildResult(state, bought, cash);
+}
+
 interface IntegerPlanRow {
   asset: RebalanceAsset;
   targetCash: number;
   shares: number;
+}
+
+interface AnnualRebalanceRow {
+  idx: number;
+  asset: RebalanceAsset;
+  targetCash: number;
+}
+
+function planIntegerSharesTowardCashTargets(
+  rows: AnnualRebalanceRow[],
+  cashBudget: number,
+  strategy: Strategy,
+): number[] {
+  const planned = rows.map((row) => ({
+    ...row,
+    shares:
+      row.asset.price > 0
+        ? Math.max(0, Math.round(row.targetCash / row.asset.price))
+        : 0,
+  }));
+
+  let totalCost = planned.reduce(
+    (sum, row) => sum + row.shares * row.asset.price,
+    0,
+  );
+
+  while (totalCost > cashBudget) {
+    let trimIdx = -1;
+    let biggestOverTarget = -Infinity;
+
+    for (let i = 0; i < planned.length; i++) {
+      const row = planned[i];
+      if (row.shares <= 0) continue;
+      const cost = row.shares * row.asset.price;
+      const overTarget = cost - row.targetCash;
+      if (
+        overTarget > biggestOverTarget ||
+        (overTarget === biggestOverTarget &&
+          trimIdx >= 0 &&
+          row.asset.price > planned[trimIdx].asset.price)
+      ) {
+        trimIdx = i;
+        biggestOverTarget = overTarget;
+      }
+    }
+
+    if (trimIdx === -1) break;
+    planned[trimIdx].shares -= 1;
+    totalCost -= planned[trimIdx].asset.price;
+  }
+
+  for (let iter = 0; iter < 10_000; iter++) {
+    const remaining = cashBudget - totalCost;
+    let bestIdx = -1;
+    let bestPostGap = Infinity;
+    let bestPreference = Infinity;
+    let bestPrice = -Infinity;
+
+    for (let i = 0; i < planned.length; i++) {
+      const row = planned[i];
+      const price = row.asset.price;
+      if (price <= 0 || price > remaining) continue;
+
+      const currentCost = row.shares * price;
+      const currentGap = Math.abs(currentCost - row.targetCash);
+      const postGap = Math.abs(currentCost + price - row.targetCash);
+      if (postGap >= currentGap) continue;
+
+      const preference = strategyPreference(row.asset.category, strategy);
+      if (
+        postGap < bestPostGap - 0.01 ||
+        (Math.abs(postGap - bestPostGap) <= 0.01 &&
+          (preference < bestPreference ||
+            (preference === bestPreference && price > bestPrice)))
+      ) {
+        bestIdx = i;
+        bestPostGap = postGap;
+        bestPreference = preference;
+        bestPrice = price;
+      }
+    }
+
+    if (bestIdx === -1) break;
+    planned[bestIdx].shares += 1;
+    totalCost += planned[bestIdx].asset.price;
+  }
+
+  return planned.map((row) => row.shares);
+}
+
+function allocateFractionalRebalanceCash(
+  rows: AnnualRebalanceRow[],
+  bought: number[],
+  gaps: Record<string, number>,
+  availableCash: number,
+  precision: number,
+): number {
+  let cash = availableCash;
+
+  for (let iter = 0; iter < 4; iter++) {
+    const gapRows = rows
+      .map((row) => {
+        const boughtValue = bought[row.idx] * row.asset.price;
+        return {
+          row,
+          remainingGap: Math.max(0, (gaps[row.asset.ticker] ?? 0) - boughtValue),
+        };
+      })
+      .filter((entry) => entry.remainingGap > 0 && entry.row.asset.price > 0);
+
+    const gapSum = gapRows.reduce((sum, entry) => sum + entry.remainingGap, 0);
+    if (cash <= 0 || gapSum <= 0) break;
+
+    const cashAtStart = cash;
+    let spentThisPass = 0;
+    for (const { row, remainingGap } of gapRows) {
+      const allocation = Math.min(
+        (remainingGap / gapSum) * cashAtStart,
+        remainingGap,
+        cash,
+      );
+      const shares = floorTo(allocation / row.asset.price, precision);
+      const cost = shares * row.asset.price;
+      if (shares <= 0 || cost <= 0) continue;
+
+      bought[row.idx] += shares;
+      cash -= cost;
+      spentThisPass += cost;
+    }
+
+    if (spentThisPass <= 0) break;
+  }
+
+  return cash;
+}
+
+function spendIntegerRebalanceLeftover(
+  rows: AnnualRebalanceRow[],
+  bought: number[],
+  gaps: Record<string, number>,
+  availableCash: number,
+  strategy: Strategy,
+): number {
+  let cash = availableCash;
+
+  for (let iter = 0; iter < 10_000; iter++) {
+    let best: AnnualRebalanceRow | null = null;
+    let bestPostGap = Infinity;
+    let bestPreference = Infinity;
+    let bestPrice = -Infinity;
+
+    for (const row of rows) {
+      const price = row.asset.price;
+      if (price <= 0 || price > cash) continue;
+
+      const targetCash = Math.max(0, gaps[row.asset.ticker] ?? 0);
+      const currentCost = bought[row.idx] * price;
+      const currentGap = Math.abs(currentCost - targetCash);
+      const postGap = Math.abs(currentCost + price - targetCash);
+      if (postGap >= currentGap) continue;
+
+      const preference = strategyPreference(row.asset.category, strategy);
+      if (
+        postGap < bestPostGap - 0.01 ||
+        (Math.abs(postGap - bestPostGap) <= 0.01 &&
+          (preference < bestPreference ||
+            (preference === bestPreference && price > bestPrice)))
+      ) {
+        best = row;
+        bestPostGap = postGap;
+        bestPreference = preference;
+        bestPrice = price;
+      }
+    }
+
+    if (!best) break;
+    bought[best.idx] += 1;
+    cash -= best.asset.price;
+  }
+
+  return cash;
 }
 
 interface SimulationData {
@@ -931,6 +1256,11 @@ function floorTo(value: number, decimals: number): number {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function roundCashUp(value: number, increment: number): number {
+  if (increment <= 0) return round2(value);
+  return Math.ceil(value / increment) * increment;
 }
 
 /**

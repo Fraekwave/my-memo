@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeTargetValueGaps,
+  estimateBuyOnlyRebalanceCash,
+  planAnnualRebalanceBuys,
   planBuys,
   planBuysWithFixedFractionalBudget,
   scaleTargetPctToPlanningBase,
@@ -391,6 +393,73 @@ describe('planBuysWithFixedFractionalBudget — mixed monthly plan', () => {
       expect(result.remainingCash).toBeGreaterThanOrEqual(0);
       expect(result.remainingCash).toBeLessThan(cheapestNonCrypto);
     }
+  });
+});
+
+describe('annual buy-only rebalance plan', () => {
+  it('estimates the cash needed to bring an overweight row back to target', () => {
+    const cash = estimateBuyOnlyRebalanceCash([
+      { ticker: 'A', targetPct: 50, currentShares: 8, price: 10_000 },
+      { ticker: 'B', targetPct: 50, currentShares: 2, price: 10_000 },
+    ]);
+
+    expect(cash).toBe(60_000);
+  });
+
+  it('uses the minimum contribution when the portfolio is already balanced', () => {
+    const cash = estimateBuyOnlyRebalanceCash(
+      [
+        { ticker: 'A', targetPct: 50, currentShares: 5, price: 10_000 },
+        { ticker: 'B', targetPct: 50, currentShares: 5, price: 10_000 },
+      ],
+      { minimumCash: 500_000, roundUpTo: 10_000 },
+    );
+
+    expect(cash).toBe(500_000);
+  });
+
+  it('directs annual cash to the underweight integer asset', () => {
+    const assets: RebalanceAsset[] = [
+      { ticker: 'A', targetPct: 50, currentShares: 8, price: 10_000 },
+      { ticker: 'B', targetPct: 50, currentShares: 2, price: 10_000 },
+    ];
+    const cash = estimateBuyOnlyRebalanceCash(assets);
+    const result = planAnnualRebalanceBuys(assets, cash);
+
+    expect(result.buys).toEqual([
+      { ticker: 'B', sharesToBuy: 6, estimatedCost: 60_000 },
+    ]);
+    expect(result.remainingCash).toBe(0);
+    expect(result.projectedWeights.A).toBeCloseTo(50, 1);
+    expect(result.projectedWeights.B).toBeCloseTo(50, 1);
+  });
+
+  it('uses fractional crypto to restore a mixed annual rebalance gap', () => {
+    const assets: RebalanceAsset[] = [
+      {
+        ticker: 'KRW-BTC',
+        targetPct: 50,
+        currentShares: 0,
+        price: 100_000_000,
+        category: '암호화폐',
+      },
+      {
+        ticker: 'STOCK',
+        targetPct: 50,
+        currentShares: 8,
+        price: 10_000,
+        category: '주식',
+      },
+    ];
+    const cash = estimateBuyOnlyRebalanceCash(assets);
+    const result = planAnnualRebalanceBuys(assets, cash);
+
+    expect(cash).toBe(80_000);
+    expect(result.buys).toEqual([
+      { ticker: 'KRW-BTC', sharesToBuy: 0.0008, estimatedCost: 80_000 },
+    ]);
+    expect(result.projectedWeights['KRW-BTC']).toBeCloseTo(50, 1);
+    expect(result.projectedWeights.STOCK).toBeCloseTo(50, 1);
   });
 });
 

@@ -7,6 +7,8 @@ import { useAssetPrices } from '@/hooks/useAssetPrices';
 import { useHistoricalPrices } from '@/hooks/useHistoricalPrices';
 import { computeHoldings } from '@/lib/pnl';
 import {
+  estimateBuyOnlyRebalanceCash,
+  planAnnualRebalanceBuys,
   planBuysWithFixedFractionalBudget,
   type BuyRecommendation,
   type RebalanceAsset,
@@ -23,6 +25,8 @@ interface BuyPlanScreenProps {
   onRecordBuys: (prefill: BuyRecommendation[]) => void;
 }
 
+type BuyPlanMode = 'monthly' | 'annualRebalance';
+
 /** Parse a comma-formatted KRW string to a number ("1,234,567" → 1234567). */
 function parseKrwInput(s: string): number {
   const cleaned = s.replace(/[^\d]/g, '');
@@ -34,6 +38,7 @@ function parseKrwInput(s: string): number {
 // ± step sizes
 const ETF_STEP = 1;              // 1 share
 const CRYPTO_STEP = 0.00001;     // 0.000010 BTC
+const REBALANCE_SUGGESTION_ROUNDING = 10_000;
 
 /** Does this asset use fractional shares? (crypto only) */
 const isFractional = (a: PortfolioAsset) => a.category === '암호화폐';
@@ -67,6 +72,7 @@ export function BuyPlanScreen({
 }: BuyPlanScreenProps) {
   const { t } = useTranslation();
   const { transactions } = useTransactions(userId, portfolio.portfolio.id);
+  const monthlyBudget = portfolio.portfolio.monthly_budget ?? 0;
 
   const tickers = useMemo(
     () => portfolio.assets.map((a) => a.ticker),
@@ -75,10 +81,11 @@ export function BuyPlanScreen({
 
   const { prices, failures, isLoading, lastFetchedAt, refresh, setManualPrice } = useAssetPrices(tickers);
 
+  const [planMode, setPlanMode] = useState<BuyPlanMode>('monthly');
+  const [cashWasEdited, setCashWasEdited] = useState(false);
+
   // Cash input — default = monthly budget, user can override.
-  const [cashInput, setCashInput] = useState(
-    String(portfolio.portfolio.monthly_budget ?? 0),
-  );
+  const [cashInput, setCashInput] = useState(String(monthlyBudget));
 
   // Strategy — balanced follows target allocation, while non-balanced modes
   // use one-year historical prices as simulation inputs.
@@ -103,18 +110,10 @@ export function BuyPlanScreen({
   const holdings = useMemo(() => computeHoldings(transactions), [transactions]);
   const allPricesReady = failures.length === 0 && tickers.every((x) => prices[x] != null);
   const cashToInvest = useMemo(() => parseKrwInput(cashInput), [cashInput]);
-
-  /**
-   * Mixed portfolio rule:
-   * - fractional/crypto assets keep their fixed target slice of each monthly
-   *   contribution (e.g. BTC 20% of 500,000 KRW = 100,000 KRW).
-   * - the remaining cash is planned among non-crypto assets according to the
-   *   selected objective.
-   */
-  const initialPlan = useMemo(() => {
+  const planningAssets = useMemo<RebalanceAsset[] | null>(() => {
     if (!allPricesReady) return null;
 
-    const assets: RebalanceAsset[] = portfolio.assets.map((a) => ({
+    return portfolio.assets.map((a) => ({
       ticker: a.ticker,
       targetPct: Number(a.target_pct),
       currentShares: holdings[a.ticker] ?? 0,
@@ -122,9 +121,52 @@ export function BuyPlanScreen({
       category: a.category,
       priceHistory: historicalPrices[a.ticker],
     }));
+  }, [allPricesReady, portfolio.assets, holdings, prices, historicalPrices]);
 
-    return planBuysWithFixedFractionalBudget(assets, cashToInvest, { strategy });
-  }, [allPricesReady, portfolio.assets, holdings, prices, historicalPrices, cashToInvest, strategy]);
+  const suggestedAnnualRebalanceCash = useMemo(() => {
+    if (!planningAssets) return null;
+    return estimateBuyOnlyRebalanceCash(planningAssets, {
+      minimumCash: monthlyBudget,
+      roundUpTo: REBALANCE_SUGGESTION_ROUNDING,
+    });
+  }, [planningAssets, monthlyBudget]);
+
+  const handlePlanModeChange = useCallback(
+    (mode: BuyPlanMode) => {
+      setPlanMode(mode);
+      setCashWasEdited(false);
+      const nextCash =
+        mode === 'annualRebalance'
+          ? suggestedAnnualRebalanceCash ?? monthlyBudget
+          : monthlyBudget;
+      setCashInput(String(nextCash));
+    },
+    [monthlyBudget, suggestedAnnualRebalanceCash],
+  );
+
+  useEffect(() => {
+    if (
+      planMode !== 'annualRebalance' ||
+      cashWasEdited ||
+      suggestedAnnualRebalanceCash == null
+    ) {
+      return;
+    }
+    setCashInput(String(suggestedAnnualRebalanceCash));
+  }, [planMode, cashWasEdited, suggestedAnnualRebalanceCash]);
+
+  /**
+   * Monthly mode follows contribution targets. Annual mode uses current drift
+   * against the target allocation so the larger one-time buy pulls weights
+   * back toward the original plan.
+   */
+  const initialPlan = useMemo(() => {
+    if (!planningAssets) return null;
+    if (planMode === 'annualRebalance') {
+      return planAnnualRebalanceBuys(planningAssets, cashToInvest, { strategy });
+    }
+    return planBuysWithFixedFractionalBudget(planningAssets, cashToInvest, { strategy });
+  }, [planningAssets, planMode, cashToInvest, strategy]);
 
   // User-adjustable share count per ticker.
   const [adjustedShares, setAdjustedShares] = useState<Record<string, number>>({});
@@ -202,8 +244,24 @@ export function BuyPlanScreen({
         totalProjectedValue > 0 ? (r.projectedValue / totalProjectedValue) * 100 : 0,
     }));
 
+    const currentDrift = rows.reduce(
+      (sum, row) => sum + Math.abs(row.currentPct - row.targetPct),
+      0,
+    );
+    const projectedDrift = rows.reduce(
+      (sum, row) => sum + Math.abs(row.accumPct - row.targetPct),
+      0,
+    );
     const remaining = cashToInvest - totalCost;
-    return { rows, totalCost, remaining, totalCurrentValue, totalProjectedValue };
+    return {
+      rows,
+      totalCost,
+      remaining,
+      totalCurrentValue,
+      totalProjectedValue,
+      currentDrift,
+      projectedDrift,
+    };
   }, [initialPlan, portfolio.assets, adjustedShares, prices, holdings, cashToInvest]);
 
   const saveManualPrices = useCallback(async () => {
@@ -254,15 +312,38 @@ export function BuyPlanScreen({
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
         <div>
           <h2 className="text-xl font-semibold text-black mb-1">
-            {t('portfolio.buyPlanTitle')}
+            {planMode === 'annualRebalance'
+              ? t('portfolio.rebalancePlanTitle')
+              : t('portfolio.buyPlanTitle')}
           </h2>
           <p className="text-sm text-stone-500">{portfolio.portfolio.name}</p>
+        </div>
+
+        <div className="flex items-center gap-1 bg-stone-100 rounded-full p-0.5">
+          {(['monthly', 'annualRebalance'] as BuyPlanMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => handlePlanModeChange(mode)}
+              className={`flex-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                planMode === mode
+                  ? 'bg-amber-700 text-white shadow-sm'
+                  : 'text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              {mode === 'monthly'
+                ? t('portfolio.buyPlanModeMonthly')
+                : t('portfolio.buyPlanModeAnnual')}
+            </button>
+          ))}
         </div>
 
         {/* Cash input (comma-formatted) */}
         <div className="rounded-xl bg-amber-50/50 border border-amber-100/60 p-4">
           <label className="block text-base uppercase tracking-widest text-amber-600 font-semibold mb-1">
-            {t('portfolio.buyPlanCash')}
+            {planMode === 'annualRebalance'
+              ? t('portfolio.rebalancePlanCash')
+              : t('portfolio.buyPlanCash')}
           </label>
           <div className="flex items-baseline gap-2">
             <input
@@ -271,15 +352,30 @@ export function BuyPlanScreen({
               value={
                 cashInput === '' ? '' : parseKrwInput(cashInput).toLocaleString('ko-KR')
               }
-              onChange={(e) =>
+              onChange={(e) => {
+                setCashWasEdited(true);
                 setCashInput(
                   e.target.value === '' ? '' : String(parseKrwInput(e.target.value)),
-                )
-              }
+                );
+              }}
               className="flex-1 min-w-0 text-2xl font-semibold text-black placeholder-stone-300 bg-transparent outline-none tabular-nums"
             />
             <span className="text-lg text-stone-500">원</span>
           </div>
+          {planMode === 'annualRebalance' && suggestedAnnualRebalanceCash != null && (
+            <button
+              type="button"
+              onClick={() => {
+                setCashWasEdited(false);
+                setCashInput(String(suggestedAnnualRebalanceCash));
+              }}
+              className="mt-2 text-xs text-amber-700 hover:text-amber-900 transition-colors"
+            >
+              {t('portfolio.rebalanceSuggestedCash', {
+                amount: suggestedAnnualRebalanceCash.toLocaleString('ko-KR'),
+              })}
+            </button>
+          )}
         </div>
 
         {/* Price failures — inline manual entry */}
@@ -486,6 +582,19 @@ export function BuyPlanScreen({
                   {formatKrw(summary.remaining)}
                 </span>
               </div>
+              {planMode === 'annualRebalance' && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-stone-500">
+                    {t('portfolio.rebalanceDriftLabel')}
+                  </span>
+                  <span className="text-stone-600 tabular-nums">
+                    {t('portfolio.rebalanceDriftValue', {
+                      current: summary.currentDrift.toFixed(1),
+                      projected: summary.projectedDrift.toFixed(1),
+                    })}
+                  </span>
+                </div>
+              )}
             </div>
 
             <button
