@@ -163,7 +163,7 @@ export function BuyPlanScreen({
   const initialPlan = useMemo(() => {
     if (!planningAssets) return null;
     if (planMode === 'annualRebalance') {
-      return planAnnualRebalanceBuys(planningAssets, cashToInvest, { strategy });
+      return planAnnualRebalanceBuys(planningAssets, cashToInvest);
     }
     return planBuysWithFixedFractionalBudget(planningAssets, cashToInvest, { strategy });
   }, [planningAssets, planMode, cashToInvest, strategy]);
@@ -445,42 +445,44 @@ export function BuyPlanScreen({
         {summary && (
           <div className="space-y-3">
             {/* Strategy picker */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-stone-500 font-semibold mb-1.5">
-                {t('portfolio.buyPlanStrategy')}
-              </label>
-              <div className="flex items-center gap-1 bg-stone-100 rounded-full p-0.5">
-                {(['balanced', 'aggressive', 'conservative'] as Strategy[]).map((s) => {
-                  const label =
-                    s === 'balanced'
-                      ? t('portfolio.strategyBalanced')
-                      : s === 'aggressive'
-                        ? t('portfolio.strategyAggressive')
-                        : t('portfolio.strategyConservative');
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setStrategy(s)}
-                      className={`flex-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                        strategy === s
-                          ? 'bg-amber-700 text-white shadow-sm'
-                          : 'text-stone-500 hover:text-stone-700'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
+            {planMode === 'monthly' && (
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-stone-500 font-semibold mb-1.5">
+                  {t('portfolio.buyPlanStrategy')}
+                </label>
+                <div className="flex items-center gap-1 bg-stone-100 rounded-full p-0.5">
+                  {(['balanced', 'aggressive', 'conservative'] as Strategy[]).map((s) => {
+                    const label =
+                      s === 'balanced'
+                        ? t('portfolio.strategyBalanced')
+                        : s === 'aggressive'
+                          ? t('portfolio.strategyAggressive')
+                          : t('portfolio.strategyConservative');
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setStrategy(s)}
+                        className={`flex-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                          strategy === s
+                            ? 'bg-amber-700 text-white shadow-sm'
+                            : 'text-stone-500 hover:text-stone-700'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-stone-400 mt-1 text-center">
+                  {strategy === 'balanced'
+                    ? t('portfolio.strategyBalancedHint')
+                    : strategy === 'aggressive'
+                      ? t('portfolio.strategyAggressiveHint')
+                      : t('portfolio.strategyConservativeHint')}
+                </p>
               </div>
-              <p className="text-xs text-stone-400 mt-1 text-center">
-                {strategy === 'balanced'
-                  ? t('portfolio.strategyBalancedHint')
-                  : strategy === 'aggressive'
-                    ? t('portfolio.strategyAggressiveHint')
-                    : t('portfolio.strategyConservativeHint')}
-              </p>
-            </div>
+            )}
 
             <div className="flex items-center justify-between">
               <p className="text-xs text-stone-500">
