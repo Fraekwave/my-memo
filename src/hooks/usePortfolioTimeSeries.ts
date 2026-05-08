@@ -28,6 +28,7 @@ export interface UsePortfolioTimeSeriesResult {
 
 export function usePortfolioTimeSeries(
   transactions: TxInput[],
+  finalPrices?: Record<string, number>,
 ): UsePortfolioTimeSeriesResult {
   // 1. Derive the ticker set + earliest date
   const tickers = useMemo(
@@ -55,8 +56,9 @@ export function usePortfolioTimeSeries(
     () =>
       buildPortfolioTimeSeries(transactions, prices, {
         maxPoints: MAX_CHART_POINTS,
+        finalPrices,
       }),
-    [transactions, prices],
+    [transactions, prices, finalPrices],
   );
 
   return {

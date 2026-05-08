@@ -46,6 +46,7 @@ const moduleCache = new Map<
 // and prices appear frozen during market hours.
 const STALE_MS_MARKET_OPEN = 2 * 60 * 1000;
 const STALE_MS_MARKET_CLOSED = 12 * 60 * 60 * 1000; // 12 h outside
+const AUTO_REFRESH_MS = 2 * 60 * 1000;
 
 function isMarketOpen(now: Date = new Date()): boolean {
   // Korean market hours: Mon-Fri 09:00-15:30 KST
@@ -60,6 +61,14 @@ function todayKstDate(): string {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
+}
+
+function staleThresholdForTicker(ticker: string): number {
+  if (/^KRW-/.test(ticker)) return STALE_MS_MARKET_OPEN;
+  if (/^\d{6}$/.test(ticker)) {
+    return isMarketOpen() ? STALE_MS_MARKET_OPEN : STALE_MS_MARKET_CLOSED;
+  }
+  return STALE_MS_MARKET_OPEN;
 }
 
 export function useAssetPrices(tickers: string[]) {
@@ -96,12 +105,11 @@ export function useAssetPrices(tickers: string[]) {
 
     // Filter to tickers that need a refresh
     const now = Date.now();
-    const staleThreshold = isMarketOpen() ? STALE_MS_MARKET_OPEN : STALE_MS_MARKET_CLOSED;
     const needFetch = tickers.filter((t) => {
       if (force) return true;
       const hit = moduleCache.get(t);
       if (!hit) return true;
-      return now - hit.fetchedAt > staleThreshold;
+      return now - hit.fetchedAt > staleThresholdForTicker(t);
     });
 
     // If everything is fresh in cache, just hydrate from cache
@@ -133,7 +141,7 @@ export function useAssetPrices(tickers: string[]) {
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke<FetchResponse>(
         'fetch-asset-prices',
-        { body: { tickers: needFetch } },
+        { body: { tickers: needFetch, force } },
       );
 
       if (invokeErr) throw invokeErr;
@@ -184,6 +192,14 @@ export function useAssetPrices(tickers: string[]) {
     refresh(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickersKey]);
+
+  useEffect(() => {
+    if (tickers.length === 0) return;
+    const id = window.setInterval(() => {
+      void refresh(false);
+    }, AUTO_REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [refresh, tickers.length]);
 
   /**
    * Save a manually-entered price. Writes to `price_snapshots` with

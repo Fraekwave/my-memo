@@ -61,7 +61,7 @@ describe('buildPortfolioTimeSeries', () => {
     expect(r.points[r.points.length - 1].portfolioValue).toBe(1200);
   });
 
-  it('two buys on different dates, average cost basis maths', () => {
+  it('two buys on different dates, lot-by-lot accumulated cost', () => {
     const r = buildPortfolioTimeSeries(
       [
         { ticker: 'A', trade_date: '2025-01-01', shares: 5, price: 100 }, // cost 500
@@ -86,6 +86,27 @@ describe('buildPortfolioTimeSeries', () => {
     expect(last.cumCost).toBe(1100);
     expect(last.portfolioValue).toBe(1300);
     expect(last.returnPct).toBeCloseTo(18.18, 1);
+  });
+
+  it('uses latest current prices only for the final valuation point', () => {
+    const r = buildPortfolioTimeSeries(
+      [
+        { ticker: 'A', trade_date: '2025-01-01', shares: 5, price: 100 },
+        { ticker: 'A', trade_date: '2025-01-03', shares: 5, price: 120 },
+      ],
+      { A: { '2025-01-01': 100, '2025-01-03': 120, '2025-01-05': 130 } },
+      { today: '2025-01-05', finalPrices: { A: 140 } },
+    );
+
+    const jan3 = r.points.find((p) => p.date === '2025-01-03')!;
+    expect(jan3.portfolioValue).toBe(1200);
+    expect(jan3.returnPct).toBeCloseTo(9.09, 1);
+
+    const last = r.points[r.points.length - 1];
+    expect(last.portfolioValue).toBe(1400);
+    expect(last.cumCost).toBe(1100);
+    expect(last.returnPct).toBeCloseTo(27.27, 1);
+    expect(r.finalReturnPct).toBeCloseTo(27.27, 1);
   });
 
   it('multi-asset mixed ETF + crypto', () => {

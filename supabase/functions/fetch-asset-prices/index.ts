@@ -1,6 +1,6 @@
 // fetch-asset-prices — MamaVault Portfolio mode v3.0
 //
-// Input:  { tickers: string[] }           (6-digit Korean codes or "KRW-BTC" etc.)
+// Input:  { tickers: string[], force?: boolean } (6-digit Korean codes or "KRW-BTC" etc.)
 // Output: {
 //   prices:    { [ticker]: number },
 //   failures:  string[],
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Missing server configuration' }, 500);
   }
 
-  let body: { tickers?: string[] } = {};
+  let body: { tickers?: string[]; force?: boolean } = {};
   try {
     body = await req.json();
   } catch {
@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
   const tickers = Array.isArray(body.tickers)
     ? body.tickers.filter((t) => typeof t === 'string' && t.length > 0)
     : [];
+  const force = body.force === true;
 
   if (tickers.length === 0) {
     return json({ prices: {}, failures: [], sources: {}, fetchedAt: {} }, 200);
@@ -101,8 +102,8 @@ Deno.serve(async (req) => {
   for (const ticker of tickers) {
     const hit = cachedMap.get(ticker);
     // Serve from cache only if row exists AND is fresh per staleness rule.
-    // Manual entries are always trusted (user explicitly typed the price).
-    if (hit && (hit.source === 'manual' || !isStale(ticker, hit.fetchedAt, now))) {
+    // A forced refresh bypasses cache/manual rows and tries upstream first.
+    if (!force && hit && (hit.source === 'manual' || !isStale(ticker, hit.fetchedAt, now))) {
       prices[ticker] = hit.price;
       sources[ticker] = 'cache';
       if (hit.fetchedAt) fetchedAtMap[ticker] = hit.fetchedAt;

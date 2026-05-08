@@ -1,13 +1,15 @@
 /**
- * Compute a portfolio's cumulative return time series (수익률 추이).
+ * Compute a portfolio's lot-by-lot accumulated return time series (수익률 추이).
  *
  * For each day from the first transaction to today:
  *   sharesHeld[ticker]  = Σ transaction.shares where trade_date <= d
  *   portfolioValue[d]   = Σ sharesHeld[ticker] × price[ticker][d]
- *   cumCost[d]          = Σ transaction.shares × transaction.price where trade_date <= d
+ *   cumCost[d]          = Σ each purchase lot's shares × purchase price where trade_date <= d
  *   returnPct[d]        = (portfolioValue[d] − cumCost[d]) / cumCost[d] × 100
  *
  * Missing daily prices are forward-filled with the last-known value.
+ * `finalPrices`, when provided, overrides only the final date's valuation so
+ * charts can use daily history while matching the latest current-price screen.
  *
  * Pure function. No I/O. Fully unit-testable.
  */
@@ -36,6 +38,8 @@ export interface TimeSeriesResult {
 export interface BuildOptions {
   /** Today's date (ISO). Defaults to KST today. */
   today?: string;
+  /** Latest market prices used only for the final point. */
+  finalPrices?: Record<string, number>;
   /** Cap the number of points to avoid huge renders. If set, keeps
    *  evenly-spaced samples plus the first/last point. */
   maxPoints?: number;
@@ -100,7 +104,11 @@ export function buildPortfolioTimeSeries(
     // Compute portfolio value at this day's prices
     let value = 0;
     for (const [ticker, shares] of Object.entries(sharesHeld)) {
-      const price = forwardFilled[ticker]?.[iso] ?? 0;
+      const finalPrice =
+        iso === endDate && options.finalPrices?.[ticker] != null
+          ? options.finalPrices[ticker]
+          : null;
+      const price = finalPrice ?? forwardFilled[ticker]?.[iso] ?? 0;
       value += shares * price;
     }
 

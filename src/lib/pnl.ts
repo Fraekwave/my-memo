@@ -1,7 +1,8 @@
 /**
  * P&L (profit & loss) computations for a portfolio.
  *
- * Uses average cost basis: costBasis = Σ (shares × price at purchase).
+ * Uses lot-by-lot accumulated cost: costBasis = Σ each purchase lot's
+ * shares × purchase price.
  * All math is pure and fully unit-testable.
  */
 

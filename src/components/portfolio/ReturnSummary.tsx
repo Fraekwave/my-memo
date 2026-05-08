@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PortfolioWithAssets } from '@/hooks/usePortfolios';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useAssetPrices } from '@/hooks/useAssetPrices';
 import { usePortfolioTimeSeries } from '@/hooks/usePortfolioTimeSeries';
 import {
   ReturnChart,
@@ -59,13 +60,22 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
         .sort((a, b) => a.trade_date.localeCompare(b.trade_date)),
     [transactions],
   );
+  const currentTickers = useMemo(
+    () => sortedAssets.map((a) => a.ticker),
+    [sortedAssets],
+  );
+  const {
+    prices: currentPrices,
+    isLoading: currentLoading,
+    lastFetchedAt: currentFetchedAt,
+  } = useAssetPrices(currentTickers);
 
   const {
     series: totalSeries,
     isLoading: histLoading,
     refreshedAt,
     pricesByTicker,
-  } = usePortfolioTimeSeries(txInputs);
+  } = usePortfolioTimeSeries(txInputs, currentPrices);
 
   // What-if state: which assets are EXCLUDED from the simulation.
   // Default = empty set (no exclusions, simulation matches reality).
@@ -85,11 +95,13 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
     for (const a of sortedAssets) {
       const onlyThis = txInputs.filter((tx) => tx.ticker === a.ticker);
       if (onlyThis.length === 0) continue;
-      const result = buildPortfolioTimeSeries(onlyThis, pricesByTicker);
+      const result = buildPortfolioTimeSeries(onlyThis, pricesByTicker, {
+        finalPrices: currentPrices,
+      });
       out.set(a.ticker, result.finalReturnPct);
     }
     return out;
-  }, [txInputs, pricesByTicker, sortedAssets]);
+  }, [txInputs, pricesByTicker, currentPrices, sortedAssets]);
 
   // Simulated (= total minus excluded assets) recomputed when toggles change.
   // Skipped entirely when nothing is excluded.
@@ -97,8 +109,11 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
     if (excludedAssets.size === 0) return null;
     const remaining = txInputs.filter((tx) => !excludedAssets.has(tx.ticker));
     if (remaining.length === 0) return null; // every asset excluded — degenerate
-    return buildPortfolioTimeSeries(remaining, pricesByTicker, { maxPoints: 365 });
-  }, [excludedAssets, txInputs, pricesByTicker]);
+    return buildPortfolioTimeSeries(remaining, pricesByTicker, {
+      maxPoints: 365,
+      finalPrices: currentPrices,
+    });
+  }, [excludedAssets, txInputs, pricesByTicker, currentPrices]);
 
   // Human-readable list of excluded names for the simulated line label.
   const excludedNamesLabel = useMemo(() => {
@@ -149,7 +164,7 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
 
   const isEmpty = !txLoading && transactions.length === 0;
   const hasChart = chartSeries.length > 0 && (chartSeries[0]?.points.length ?? 0) > 1;
-  const isRefreshing = txLoading || histLoading;
+  const isRefreshing = txLoading || histLoading || currentLoading;
 
   // Headline number = baseline final return. The simulated number is shown
   // separately below the toggles so the user always sees both.
@@ -184,9 +199,9 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
         </div>
       </div>
 
-      {refreshedAt != null && !isEmpty && (
+      {(currentFetchedAt ?? refreshedAt) != null && !isEmpty && (
         <div className="mb-2">
-          <PriceFreshnessLabel lastFetchedAt={refreshedAt} />
+          <PriceFreshnessLabel lastFetchedAt={currentFetchedAt ?? refreshedAt} />
         </div>
       )}
 
