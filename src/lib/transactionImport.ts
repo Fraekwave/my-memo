@@ -411,3 +411,48 @@ export function generateCsvTemplate(
   );
   return [header, ...rows].join('\n') + '\n';
 }
+
+export interface TransactionCsvExportRow {
+  trade_date: string;
+  ticker: string;
+  shares: number | string;
+  price: number | string;
+  note?: string | null;
+}
+
+/**
+ * Export existing transactions in the same CSV shape accepted by parseCsv().
+ * Rows are oldest-first so another account can import a readable history.
+ */
+export function generateTransactionCsv(
+  transactions: TransactionCsvExportRow[],
+  assets: { ticker: string; name: string }[],
+): string {
+  const nameByTicker = new Map(assets.map((asset) => [asset.ticker, asset.name]));
+  const header = ['날짜', '종목코드', '종목명', '수량', '단가', '메모'];
+  const rows = [...transactions]
+    .sort((a, b) => {
+      const byDate = a.trade_date.localeCompare(b.trade_date);
+      return byDate !== 0 ? byDate : a.ticker.localeCompare(b.ticker);
+    })
+    .map((tx) => [
+      tx.trade_date,
+      tx.ticker,
+      nameByTicker.get(tx.ticker) ?? tx.ticker,
+      formatCsvNumber(tx.shares),
+      formatCsvNumber(tx.price),
+      tx.note ?? '',
+    ]);
+
+  return [header, ...rows].map((row) => row.map(escapeCsvCell).join(',')).join('\n') + '\n';
+}
+
+function formatCsvNumber(value: number | string): string {
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : '';
+}
+
+function escapeCsvCell(value: string): string {
+  if (!/[",\r\n]/.test(value)) return value;
+  return `"${value.replace(/"/g, '""')}"`;
+}

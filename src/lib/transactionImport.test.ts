@@ -6,6 +6,7 @@ import {
   splitCsvLine,
   validate,
   generateCsvTemplate,
+  generateTransactionCsv,
   dupKey,
   dupKeyForTx,
 } from './transactionImport';
@@ -325,5 +326,55 @@ describe('generateCsvTemplate', () => {
     // (since shares/price = 0) but structurally parseable.
     const result = parseCsv(tpl);
     expect(result.errors.filter((e) => e.rowIndex === 0)).toHaveLength(0);
+  });
+});
+
+describe('generateTransactionCsv', () => {
+  it('exports transactions in an import-compatible shape', () => {
+    const csv = generateTransactionCsv(
+      [
+        {
+          trade_date: '2026-03-06',
+          ticker: 'KRW-BTC',
+          shares: 0.00096265,
+          price: 103_880_000,
+          note: 'annual rebalance',
+        },
+        {
+          trade_date: '2025-01-06',
+          ticker: '360200',
+          shares: 2,
+          price: 27_130,
+          note: 'first buy, with comma',
+        },
+      ],
+      [
+        { ticker: '360200', name: 'ACE 미국S&P500' },
+        { ticker: 'KRW-BTC', name: '비트코인' },
+      ],
+    );
+
+    expect(csv.split('\n')[0]).toBe('날짜,종목코드,종목명,수량,단가,메모');
+    expect(csv).toContain('"first buy, with comma"');
+
+    const parsed = parseCsv(csv);
+    expect(parsed.errors).toHaveLength(0);
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0]).toMatchObject({
+      trade_date: '2025-01-06',
+      ticker: '360200',
+      name: 'ACE 미국S&P500',
+      shares: 2,
+      price: 27_130,
+      note: 'first buy, with comma',
+    });
+    expect(parsed.rows[1]).toMatchObject({
+      trade_date: '2026-03-06',
+      ticker: 'KRW-BTC',
+      name: '비트코인',
+      shares: 0.00096265,
+      price: 103_880_000,
+      note: 'annual rebalance',
+    });
   });
 });

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { PortfolioWithAssets } from '@/hooks/usePortfolios';
+import { useTransactions } from '@/hooks/useTransactions';
+import { downloadTransactionCsv } from '@/lib/transactionExport';
 import { ReturnSummary } from './ReturnSummary';
 
 interface PortfolioSummaryProps {
@@ -109,7 +111,7 @@ export function PortfolioSummary({
                 </div>
 
                 {/* Secondary action links */}
-                <div className="flex items-center gap-3 text-sm">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <button
                     type="button"
                     onClick={() => onHistory(id)}
@@ -133,6 +135,8 @@ export function PortfolioSummary({
                   >
                     {t('portfolio.menuImport')}
                   </button>
+                  <span className="text-stone-300">·</span>
+                  <PortfolioCsvExportButton userId={userId} portfolio={p} />
                   <span className="text-stone-300">·</span>
                   {isDeleting ? (
                     <button
@@ -161,5 +165,39 @@ export function PortfolioSummary({
         </div>
       )}
     </div>
+  );
+}
+
+function PortfolioCsvExportButton({
+  userId,
+  portfolio,
+}: {
+  userId: string | null;
+  portfolio: PortfolioWithAssets;
+}) {
+  const { t } = useTranslation();
+  const { transactions, isLoading } = useTransactions(userId, portfolio.portfolio.id);
+  const disabled = isLoading || transactions.length === 0;
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => {
+        if (disabled) return;
+        downloadTransactionCsv({
+          portfolioName: portfolio.portfolio.name,
+          transactions,
+          assets: portfolio.assets,
+        });
+      }}
+      className={`transition-colors ${
+        disabled
+          ? 'text-stone-300 cursor-not-allowed'
+          : 'text-stone-500 hover:text-stone-700'
+      }`}
+    >
+      {t('portfolio.menuExport')}
+    </button>
   );
 }
