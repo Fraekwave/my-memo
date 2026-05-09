@@ -185,31 +185,6 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
     [totalSeries.points],
   );
 
-  const noLossMakersSeries = useMemo(() => {
-    const lossTickers = new Set<string>();
-    for (const [ticker, pct] of assetFinalPct) {
-      if (pct < 0) lossTickers.add(ticker);
-    }
-    if (lossTickers.size === 0) return null;
-    const remaining = txInputs.filter((tx) => !lossTickers.has(tx.ticker));
-    if (remaining.length === 0) return null;
-    return buildPortfolioTimeSeries(remaining, pricesByTicker, {
-      maxPoints: MAX_CHART_POINTS,
-      finalPrices: currentPrices,
-    });
-  }, [assetFinalPct, txInputs, pricesByTicker, currentPrices]);
-
-  const chartDomainPoints = useMemo(() => {
-    const points = [
-      ...(noLossMakersSeries?.points ?? []),
-      ...(simulatedSeries?.points ?? []),
-    ];
-    return points.map((point) => ({
-      date: point.date,
-      returnPct: point.returnPct,
-    }));
-  }, [noLossMakersSeries, simulatedSeries]);
-
   // Build chart series: baseline always, simulated only when something is excluded.
   const chartSeries: ChartSeries[] = useMemo(() => {
     const list: ChartSeries[] = [];
@@ -225,7 +200,6 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
       // Stay full opacity even with overlays — it's the visual anchor; thicker
       // stroke + darker color already separate it from the simulated line.
       opacity: 1,
-      includeInDomain: true,
     });
 
     if (benchmarkReference.kind !== 'none' && benchmarkPoints.length > 1) {
@@ -235,7 +209,6 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
         color: BENCHMARK_COLOR,
         points: benchmarkPoints,
         opacity: 0.95,
-        includeInDomain: true,
       });
     }
 
@@ -248,7 +221,6 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
           date: p.date,
           returnPct: p.returnPct,
         })),
-        includeInDomain: false,
       });
     }
 
@@ -358,7 +330,7 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
         </div>
       ) : hasChart ? (
         <div className={isRefreshing ? 'opacity-70 transition-opacity' : ''}>
-          <ReturnChart series={chartSeries} domainPoints={chartDomainPoints} height={180} />
+          <ReturnChart series={chartSeries} height={180} />
         </div>
       ) : isRefreshing ? (
         <div className="text-center py-12 text-sm text-stone-400">

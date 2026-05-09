@@ -24,18 +24,10 @@ export interface ChartSeries {
   isPrimary?: boolean;
   /** Optional 0..1 stroke opacity. Defaults to 1 for primary, 0.85 for others. */
   opacity?: number;
-  /**
-   * Whether this line should influence the Y-axis range. Simulation overlays
-   * opt out so toggling pills does not visually lift or sink the actual line.
-   * Defaults to true.
-   */
-  includeInDomain?: boolean;
 }
 
 interface ReturnChartProps {
   series: ChartSeries[];
-  /** Extra invisible points that reserve Y-axis space without rendering a line. */
-  domainPoints?: ChartPoint[];
   /** Height of the plot area in px. Width is 100% of container. */
   height?: number;
 }
@@ -47,7 +39,7 @@ const GRID = 'var(--chart-grid)';
 const AXIS_TEXT = 'var(--chart-axis-text)';
 const ZERO_LINE = 'var(--chart-zero-line)';
 
-export function ReturnChart({ series, domainPoints = [], height = 200 }: ReturnChartProps) {
+export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
@@ -74,24 +66,15 @@ export function ReturnChart({ series, domainPoints = [], height = 200 }: ReturnC
   const plot = useMemo(() => {
     if (!primary) return null;
 
-    // Y-axis range fits ALL visible series so no line clips at the edges.
-    // The reference (primary) line may visually shift slightly when overlays
-    // change the range — to keep the user's eye anchored on it, the renderer
-    // below always draws the primary line full-opacity and thicker than overlays.
+    // Y-axis range fits the currently visible series only. Hidden simulations
+    // must not reserve vertical space, otherwise the real P&L line becomes tiny.
     let minVal = 0;
     let maxVal = 0;
-    const domainSeries = series.some((s) => s.includeInDomain !== false && s.points.length > 0)
-      ? series.filter((s) => s.includeInDomain !== false)
-      : series;
-    for (const s of domainSeries) {
+    for (const s of series) {
       for (const p of s.points) {
         if (p.returnPct < minVal) minVal = p.returnPct;
         if (p.returnPct > maxVal) maxVal = p.returnPct;
       }
-    }
-    for (const p of domainPoints) {
-      if (p.returnPct < minVal) minVal = p.returnPct;
-      if (p.returnPct > maxVal) maxVal = p.returnPct;
     }
     const padRange = Math.max((maxVal - minVal) * 0.1, 1);
     const yMin = minVal - padRange;
@@ -153,7 +136,7 @@ export function ReturnChart({ series, domainPoints = [], height = 200 }: ReturnC
     }
 
     return { renderedSeries, yTicks, xTicks, yMin, yMax, plotH };
-  }, [series, domainPoints, primary, VB_HEIGHT]);
+  }, [series, primary, VB_HEIGHT]);
 
   if (!plot || !primary) {
     return (

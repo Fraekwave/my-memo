@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Info, Plus, Trash2, X } from 'lucide-react';
 import { PortfolioWithAssets, PortfolioInput, AssetInput } from '@/hooks/usePortfolios';
 import { AssetCategory, PortfolioKind } from '@/lib/types';
 import { resolveTickerName, prewarmTickerNameResolver } from '@/lib/tickerName';
@@ -122,6 +122,7 @@ export function PortfolioEditor({
 
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showBenchmarkDetails, setShowBenchmarkDetails] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const totalPct = useMemo(
@@ -144,6 +145,47 @@ export function PortfolioEditor({
     }
     return true;
   }, [name, monthlyBudget, benchmarkMode, customBenchmarkTicker, assets, totalPctOk]);
+
+  const selectedBenchmarkReference = useMemo(
+    () => resolveBenchmarkReference(toBenchmarkReferenceValue(benchmarkMode, customBenchmarkTicker)),
+    [benchmarkMode, customBenchmarkTicker],
+  );
+
+  const benchmarkDetailRows = useMemo(() => {
+    if (selectedBenchmarkReference.kind === 'none') return [];
+    if (selectedBenchmarkReference.kind === 'custom') {
+      return [
+        {
+          ticker: selectedBenchmarkReference.ticker,
+          name: selectedBenchmarkReference.label,
+          category: '',
+          targetPct: 100,
+        },
+      ];
+    }
+    return selectedBenchmarkReference.components.map((component) => ({
+      ticker: component.ticker,
+      name: component.name,
+      category: component.category,
+      targetPct: component.target_pct,
+    }));
+  }, [selectedBenchmarkReference]);
+
+  const benchmarkDetailSource = useMemo(() => {
+    if (selectedBenchmarkReference.kind !== 'preset') return null;
+    return selectedBenchmarkReference.preset.source;
+  }, [selectedBenchmarkReference]);
+
+  const benchmarkOfficialLatestDate = useMemo(() => {
+    if (selectedBenchmarkReference.kind !== 'preset') return null;
+    const points = selectedBenchmarkReference.officialPoints;
+    return points?.[points.length - 1]?.date ?? null;
+  }, [selectedBenchmarkReference]);
+
+  const benchmarkDetailsLabel =
+    selectedBenchmarkReference.kind === 'none'
+      ? t('portfolio.benchmarkNone')
+      : selectedBenchmarkReference.label;
 
   // Tracks rows currently waiting on a name lookup so we can show
   // "검색 중..." in the name field. Set of asset row indexes.
@@ -389,9 +431,21 @@ export function PortfolioEditor({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <label className="block text-base uppercase tracking-widest text-amber-600 font-semibold mb-1">
-                {t('portfolio.fieldBenchmark')}
-              </label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className="block text-base uppercase tracking-widest text-amber-600 font-semibold">
+                  {t('portfolio.fieldBenchmark')}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowBenchmarkDetails(true)}
+                  className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-white/70 px-2 py-0.5 text-xs font-medium text-amber-700 hover:border-amber-300 hover:bg-white transition-colors"
+                  aria-label={t('portfolio.benchmarkDetailsTitle')}
+                  title={t('portfolio.benchmarkDetailsTitle')}
+                >
+                  <Info className="w-3.5 h-3.5" strokeWidth={1.8} />
+                  <span>{t('portfolio.benchmarkDetailsBtn')}</span>
+                </button>
+              </div>
               <select
                 value={benchmarkMode}
                 onChange={(e) => setBenchmarkMode(e.target.value as BenchmarkMode)}
@@ -414,7 +468,6 @@ export function PortfolioEditor({
                   className="mt-2 w-full text-base text-black placeholder-stone-300 bg-transparent outline-none"
                 />
               )}
-              <p className="text-xs text-stone-400 mt-0.5">{t('portfolio.fieldBenchmarkHint')}</p>
             </div>
           </div>
         </div>
@@ -585,6 +638,91 @@ export function PortfolioEditor({
           )}
         </div>
       )}
+
+      {showBenchmarkDetails && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+          onClick={() => setShowBenchmarkDetails(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="benchmark-details-title"
+            className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 id="benchmark-details-title" className="text-base font-semibold text-black">
+                  {t('portfolio.benchmarkDetailsTitle')}
+                </h3>
+                <p className="mt-0.5 truncate text-sm text-stone-500">{benchmarkDetailsLabel}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBenchmarkDetails(false)}
+                className="flex-shrink-0 rounded-lg p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition-colors"
+                aria-label={t('common.close')}
+              >
+                <X className="w-4 h-4" strokeWidth={1.8} />
+              </button>
+            </div>
+
+            {benchmarkDetailRows.length > 0 ? (
+              <div className="mt-4 divide-y divide-stone-100 rounded-xl border border-stone-100">
+                {benchmarkDetailRows.map((row) => (
+                  <div
+                    key={`${row.ticker}-${row.targetPct}`}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-semibold tabular-nums text-stone-900">
+                          {row.ticker}
+                        </span>
+                        {row.category && (
+                          <span className="text-xs text-stone-400">{row.category}</span>
+                        )}
+                      </div>
+                      <div className="truncate text-sm text-stone-500">{row.name}</div>
+                    </div>
+                    <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-amber-700">
+                      {formatBenchmarkWeight(row.targetPct)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-xl border border-stone-100 bg-stone-50 px-3 py-3 text-sm leading-relaxed text-stone-500">
+                {benchmarkOfficialLatestDate
+                  ? t('portfolio.benchmarkDetailsOfficial', {
+                      date: formatDateLong(benchmarkOfficialLatestDate),
+                    })
+                  : t('portfolio.benchmarkDetailsEmpty')}
+              </p>
+            )}
+
+            {benchmarkDetailSource && (
+              <p className="mt-3 text-xs leading-relaxed text-stone-400">
+                <span className="font-medium text-stone-500">
+                  {t('portfolio.benchmarkDetailsSource')}
+                </span>
+                {' · '}
+                {benchmarkDetailSource}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function formatBenchmarkWeight(value: number): string {
+  return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}%`;
+}
+
+function formatDateLong(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[1]}.${m[2]}.${m[3]}` : iso;
 }
