@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { usePortfolios, PortfolioInput, AssetInput, PortfolioWithAssets } from '@/hooks/usePortfolios';
 import { PortfolioSummary } from './PortfolioSummary';
 import { PortfolioEditor } from './PortfolioEditor';
+import { PortfolioCsvImportCenter } from './PortfolioCsvImportCenter';
 import { BuyPlanScreen } from './BuyPlanScreen';
 import { TransactionImportWizard } from './TransactionImportWizard';
 import { MonthlyRecordBatchForm } from './MonthlyRecordBatchForm';
@@ -12,6 +13,7 @@ import type { BuyRecommendation } from '@/lib/rebalance';
 type View =
   | { kind: 'summary' }
   | { kind: 'editor'; portfolioId?: number }
+  | { kind: 'csv-import' }
   | { kind: 'buyplan'; portfolioId: number }
   | { kind: 'import'; portfolioId: number }
   | { kind: 'record'; portfolioId: number; prefill?: BuyRecommendation[] }
@@ -83,6 +85,24 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
           }
           onDelete={view.portfolioId != null ? () => handleDelete(view.portfolioId!) : undefined}
           onBack={() => setView({ kind: 'summary' })}
+        />
+      </div>
+    );
+  }
+
+  // CSV import center
+  if (view.kind === 'csv-import') {
+    return (
+      <div
+        className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
+        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
+      >
+        <PortfolioCsvImportCenter
+          userId={userId}
+          portfolios={portfolios}
+          createPortfolio={createPortfolio}
+          onBack={() => setView({ kind: 'summary' })}
+          onTransactionImport={(portfolioId) => setView({ kind: 'import', portfolioId })}
         />
       </div>
     );
@@ -194,6 +214,7 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
         portfolios={portfolios}
         isLoading={isLoading}
         onNew={() => setView({ kind: 'editor' })}
+        onCsvImport={() => setView({ kind: 'csv-import' })}
         onEdit={(id) => setView({ kind: 'editor', portfolioId: id })}
         onBuyPlan={(id) => setView({ kind: 'buyplan', portfolioId: id })}
         onPnl={(id) => setView({ kind: 'pnl', portfolioId: id })}

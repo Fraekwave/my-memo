@@ -447,12 +447,12 @@ export function generateTransactionCsv(
   return [header, ...rows].map((row) => row.map(escapeCsvCell).join(',')).join('\n') + '\n';
 }
 
-function formatCsvNumber(value: number | string): string {
+export function formatCsvNumber(value: number | string): string {
   const n = Number(value);
   return Number.isFinite(n) ? String(n) : '';
 }
 
-function escapeCsvCell(value: string): string {
+export function escapeCsvCell(value: string): string {
   if (!/[",\r\n]/.test(value)) return value;
   return `"${value.replace(/"/g, '""')}"`;
 }

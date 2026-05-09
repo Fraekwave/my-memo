@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { PortfolioWithAssets } from '@/hooks/usePortfolios';
 import { useTransactions } from '@/hooks/useTransactions';
-import { downloadTransactionCsv } from '@/lib/transactionExport';
+import {
+  downloadFullPortfolioCsv,
+  downloadPortfolioCsv,
+  downloadTransactionCsv,
+} from '@/lib/transactionExport';
 import { ReturnSummary } from './ReturnSummary';
 
 interface PortfolioSummaryProps {
@@ -11,6 +15,7 @@ interface PortfolioSummaryProps {
   portfolios: PortfolioWithAssets[];
   isLoading: boolean;
   onNew: () => void;
+  onCsvImport: () => void;
   onEdit: (portfolioId: number) => void;
   onBuyPlan: (portfolioId: number) => void;
   onPnl: (portfolioId: number) => void;
@@ -25,6 +30,7 @@ export function PortfolioSummary({
   portfolios,
   isLoading,
   onNew,
+  onCsvImport,
   onEdit,
   onBuyPlan,
   onPnl,
@@ -46,14 +52,24 @@ export function PortfolioSummary({
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={onNew}
-        className="w-full flex items-center justify-center gap-2 px-4 py-4 mb-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
-      >
-        <Plus className="w-4 h-4" strokeWidth={2} />
-        <span className="text-base font-semibold">{t('portfolio.newPortfolio')}</span>
-      </button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+        <button
+          type="button"
+          onClick={onNew}
+          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
+        >
+          <Plus className="w-4 h-4" strokeWidth={2} />
+          <span className="text-base font-semibold">{t('portfolio.newPortfolio')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onCsvImport}
+          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 transition-colors"
+        >
+          <Upload className="w-4 h-4" strokeWidth={2} />
+          <span className="text-base font-semibold">{t('portfolio.importCenterTitle')}</span>
+        </button>
+      </div>
 
       {portfolios.length === 0 ? (
         <div className="text-center py-16">
@@ -136,7 +152,7 @@ export function PortfolioSummary({
                     {t('portfolio.menuImport')}
                   </button>
                   <span className="text-stone-300">·</span>
-                  <PortfolioCsvExportButton userId={userId} portfolio={p} />
+                  <PortfolioCsvExportLinks userId={userId} portfolio={p} />
                   <span className="text-stone-300">·</span>
                   {isDeleting ? (
                     <button
@@ -168,7 +184,7 @@ export function PortfolioSummary({
   );
 }
 
-function PortfolioCsvExportButton({
+function PortfolioCsvExportLinks({
   userId,
   portfolio,
 }: {
@@ -177,27 +193,51 @@ function PortfolioCsvExportButton({
 }) {
   const { t } = useTranslation();
   const { transactions, isLoading } = useTransactions(userId, portfolio.portfolio.id);
-  const disabled = isLoading || transactions.length === 0;
+  const transactionDisabled = isLoading || transactions.length === 0;
+  const fullDisabled = isLoading;
 
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => {
-        if (disabled) return;
-        downloadTransactionCsv({
-          portfolioName: portfolio.portfolio.name,
-          transactions,
-          assets: portfolio.assets,
-        });
-      }}
-      className={`transition-colors ${
-        disabled
-          ? 'text-stone-300 cursor-not-allowed'
-          : 'text-stone-500 hover:text-stone-700'
-      }`}
-    >
-      {t('portfolio.menuExport')}
-    </button>
+    <>
+      <button
+        type="button"
+        disabled={transactionDisabled}
+        onClick={() => {
+          if (transactionDisabled) return;
+          downloadTransactionCsv({
+            portfolioName: portfolio.portfolio.name,
+            transactions,
+            assets: portfolio.assets,
+          });
+        }}
+        className={`transition-colors ${
+          transactionDisabled
+            ? 'text-stone-300 cursor-not-allowed'
+            : 'text-stone-500 hover:text-stone-700'
+        }`}
+      >
+        {t('portfolio.menuExportTransactions')}
+      </button>
+      <span className="text-stone-300">·</span>
+      <button
+        type="button"
+        onClick={() => downloadPortfolioCsv({ portfolio })}
+        className="text-stone-500 hover:text-stone-700 transition-colors"
+      >
+        {t('portfolio.menuExportPortfolio')}
+      </button>
+      <span className="text-stone-300">·</span>
+      <button
+        type="button"
+        disabled={fullDisabled}
+        onClick={() => downloadFullPortfolioCsv({ portfolio, transactions })}
+        className={`transition-colors ${
+          fullDisabled
+            ? 'text-stone-300 cursor-not-allowed'
+            : 'text-stone-500 hover:text-stone-700'
+        }`}
+      >
+        {t('portfolio.menuExportFull')}
+      </button>
+    </>
   );
 }
