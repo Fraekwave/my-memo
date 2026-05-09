@@ -8,7 +8,8 @@ export type BenchmarkPresetId =
   | 'kr-60-40'
   | 'global-60-40'
   | 'growth-defense-60-20-20'
-  | 'nps-target-2026';
+  | 'nps-target-2026'
+  | 'nps-official-performance';
 
 export interface BenchmarkComponent {
   ticker: string;
@@ -23,12 +24,45 @@ export interface BenchmarkPreset {
   description: string;
   source: string;
   components: BenchmarkComponent[];
+  officialPoints?: OfficialBenchmarkPoint[];
 }
 
 export type BenchmarkReference =
   | { kind: 'none' }
   | { kind: 'custom'; ticker: string; label: string; components: BenchmarkComponent[] }
-  | { kind: 'preset'; preset: BenchmarkPreset; label: string; components: BenchmarkComponent[] };
+  | {
+      kind: 'preset';
+      preset: BenchmarkPreset;
+      label: string;
+      components: BenchmarkComponent[];
+      officialPoints?: OfficialBenchmarkPoint[];
+    };
+
+export interface OfficialBenchmarkPoint {
+  date: string;
+  indexValue: number;
+}
+
+export const NPS_OFFICIAL_SOURCE =
+  '국민연금기금운용본부 월간공시 자산군별 포트폴리오 운용 현황 및 수익률';
+
+const NPS_OFFICIAL_MONTHLY_YTD = [
+  { date: '2024-12-31', year: 2024, ytdReturnPct: 15.002305719515466 },
+  { date: '2025-01-31', year: 2025, ytdReturnPct: 0.853830578393012 },
+  { date: '2025-02-28', year: 2025, ytdReturnPct: 1.0199909170042469 },
+  { date: '2025-03-31', year: 2025, ytdReturnPct: 0.8720362078497412 },
+  { date: '2025-04-30', year: 2025, ytdReturnPct: 0.9167397894847369 },
+  { date: '2025-05-31', year: 2025, ytdReturnPct: 1.5572794908615653 },
+  { date: '2025-06-30', year: 2025, ytdReturnPct: 4.0773877018068445 },
+  { date: '2025-07-31', year: 2025, ytdReturnPct: 6.88325708797231 },
+  { date: '2025-08-31', year: 2025, ytdReturnPct: 8.2194300565969165 },
+  { date: '2025-09-30', year: 2025, ytdReturnPct: 11.312587086412377 },
+  { date: '2025-10-31', year: 2025, ytdReturnPct: 16.625059486847224 },
+  { date: '2025-11-30', year: 2025, ytdReturnPct: 17.341446712686256 },
+  { date: '2025-12-31', year: 2025, ytdReturnPct: 18.821828072040379 },
+  { date: '2026-01-31', year: 2026, ytdReturnPct: 5.558883356906812 },
+  { date: '2026-02-28', year: 2026, ytdReturnPct: 10.258730611904825 },
+] as const;
 
 export const BENCHMARK_PRESETS: readonly BenchmarkPreset[] = [
   {
@@ -73,8 +107,16 @@ export const BENCHMARK_PRESETS: readonly BenchmarkPreset[] = [
     ],
   },
   {
+    id: 'nps-official-performance',
+    name: '국민연금 공식성과',
+    description: '국민연금기금 월간 공시 운용성과',
+    source: NPS_OFFICIAL_SOURCE,
+    components: [],
+    officialPoints: buildNpsOfficialIndexPoints(),
+  },
+  {
     id: 'nps-target-2026',
-    name: '국민연금 목표배분',
+    name: '국민연금 목표배분 ETF',
     description: '2026 목표배분 ETF 프록시',
     source: 'NPS 2026 target allocation proxy',
     components: [
@@ -106,6 +148,7 @@ export function resolveBenchmarkReference(value: string | null | undefined): Ben
         preset,
         label: preset.name,
         components: preset.components,
+        officialPoints: preset.officialPoints,
       };
     }
   }
@@ -134,6 +177,38 @@ export interface BuildBenchmarkSeriesOptions {
   startDate: string;
   endDate: string;
   maxPoints?: number;
+}
+
+export function buildOfficialBenchmarkReturnSeries(
+  officialPoints: OfficialBenchmarkPoint[],
+  options: BuildBenchmarkSeriesOptions,
+): BenchmarkReturnPoint[] {
+  if (!options.startDate || !options.endDate || officialPoints.length === 0) return [];
+
+  const sorted = [...officialPoints].sort((a, b) => a.date.localeCompare(b.date));
+  const previous = [...sorted].reverse().find((point) => point.date <= options.startDate);
+  const firstAfterStart = sorted.find((point) => point.date >= options.startDate);
+  const base = previous ?? firstAfterStart;
+  if (!base || !isPositive(base.indexValue)) return [];
+
+  const points: BenchmarkReturnPoint[] = [
+    {
+      date: options.startDate,
+      returnPct: 0,
+    },
+  ];
+
+  for (const point of sorted) {
+    if (point.date < options.startDate || point.date > options.endDate) continue;
+    if (!isPositive(point.indexValue)) continue;
+    if (point.date === options.startDate) continue;
+    points.push({
+      date: point.date,
+      returnPct: round2((point.indexValue / base.indexValue - 1) * 100),
+    });
+  }
+
+  return options.maxPoints ? downsample(points, options.maxPoints) : points;
 }
 
 export function buildBenchmarkReturnSeries(
@@ -210,4 +285,34 @@ function downsample(points: BenchmarkReturnPoint[], maxPoints: number): Benchmar
     out.push(points[Math.min(idx, points.length - 1)]);
   }
   return out;
+}
+
+function buildNpsOfficialIndexPoints(): OfficialBenchmarkPoint[] {
+  const points: OfficialBenchmarkPoint[] = [];
+  let completedYearBase = 100;
+  let activeYear: number = NPS_OFFICIAL_MONTHLY_YTD[0]?.year ?? 2024;
+
+  for (const point of NPS_OFFICIAL_MONTHLY_YTD) {
+    if (point.year !== activeYear) {
+      const previousYearEnd = points[points.length - 1];
+      if (previousYearEnd) completedYearBase = previousYearEnd.indexValue;
+      activeYear = point.year;
+    }
+
+    const indexValue = completedYearBase * (1 + point.ytdReturnPct / 100);
+    points.push({
+      date: point.date,
+      indexValue: round4(indexValue),
+    });
+  }
+
+  const base = points[0]?.indexValue ?? 100;
+  return points.map((point) => ({
+    date: point.date,
+    indexValue: round4((point.indexValue / base) * 100),
+  }));
+}
+
+function round4(value: number): number {
+  return Math.round(value * 10_000) / 10_000;
 }

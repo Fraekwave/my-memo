@@ -20,6 +20,7 @@ import {
 import { PriceFreshnessLabel } from './PriceFreshnessLabel';
 import { buildPortfolioTimeSeries, type TxInput } from '@/lib/portfolioTimeSeries';
 import {
+  buildOfficialBenchmarkReturnSeries,
   buildBenchmarkReturnSeries,
   resolveBenchmarkReference,
 } from '@/lib/benchmarkPortfolios';
@@ -101,6 +102,15 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
     if (benchmarkReference.kind === 'none' || !benchmarkFromDate || !totalSeries.endDate) {
       return [];
     }
+    const officialPoints =
+      benchmarkReference.kind === 'preset' ? benchmarkReference.officialPoints : undefined;
+    if (officialPoints) {
+      return buildOfficialBenchmarkReturnSeries(officialPoints, {
+        startDate: benchmarkFromDate,
+        endDate: totalSeries.endDate,
+        maxPoints: MAX_CHART_POINTS,
+      });
+    }
     return buildBenchmarkReturnSeries(benchmarkReference.components, benchmarkPrices, {
       startDate: benchmarkFromDate,
       endDate: totalSeries.endDate,
@@ -121,18 +131,27 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
   const resetExclusions = () => setExcludedAssets(new Set());
 
   // Per-asset final return % — informative even when not excluded ("BTC has done +52% so far").
-  const assetFinalPct = useMemo(() => {
-    const out = new Map<string, number>();
+  const assetSeriesByTicker = useMemo(() => {
+    const out = new Map<string, ReturnType<typeof buildPortfolioTimeSeries>>();
     for (const a of sortedAssets) {
       const onlyThis = txInputs.filter((tx) => tx.ticker === a.ticker);
       if (onlyThis.length === 0) continue;
       const result = buildPortfolioTimeSeries(onlyThis, pricesByTicker, {
+        maxPoints: MAX_CHART_POINTS,
         finalPrices: currentPrices,
       });
-      out.set(a.ticker, result.finalReturnPct);
+      out.set(a.ticker, result);
     }
     return out;
   }, [txInputs, pricesByTicker, currentPrices, sortedAssets]);
+
+  const assetFinalPct = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const [ticker, result] of assetSeriesByTicker) {
+      out.set(ticker, result.finalReturnPct);
+    }
+    return out;
+  }, [assetSeriesByTicker]);
 
   // Simulated (= total minus excluded assets) recomputed when toggles change.
   // Skipped entirely when nothing is excluded.
@@ -157,13 +176,43 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
     return `${names.slice(0, 2).join(', ')} 외 ${names.length - 2}`;
   }, [excludedAssets, sortedAssets]);
 
+  const baselinePoints = useMemo(
+    () =>
+      totalSeries.points.map((p) => ({
+        date: p.date,
+        returnPct: p.returnPct,
+      })),
+    [totalSeries.points],
+  );
+
+  const noLossMakersSeries = useMemo(() => {
+    const lossTickers = new Set<string>();
+    for (const [ticker, pct] of assetFinalPct) {
+      if (pct < 0) lossTickers.add(ticker);
+    }
+    if (lossTickers.size === 0) return null;
+    const remaining = txInputs.filter((tx) => !lossTickers.has(tx.ticker));
+    if (remaining.length === 0) return null;
+    return buildPortfolioTimeSeries(remaining, pricesByTicker, {
+      maxPoints: MAX_CHART_POINTS,
+      finalPrices: currentPrices,
+    });
+  }, [assetFinalPct, txInputs, pricesByTicker, currentPrices]);
+
+  const chartDomainPoints = useMemo(() => {
+    const points = [
+      ...(noLossMakersSeries?.points ?? []),
+      ...(simulatedSeries?.points ?? []),
+    ];
+    return points.map((point) => ({
+      date: point.date,
+      returnPct: point.returnPct,
+    }));
+  }, [noLossMakersSeries, simulatedSeries]);
+
   // Build chart series: baseline always, simulated only when something is excluded.
   const chartSeries: ChartSeries[] = useMemo(() => {
     const list: ChartSeries[] = [];
-    const baselinePoints = totalSeries.points.map((p) => ({
-      date: p.date,
-      returnPct: p.returnPct,
-    }));
     if (baselinePoints.length === 0) return list;
 
     list.push({
@@ -204,7 +253,30 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
     }
 
     return list;
-  }, [totalSeries.points, benchmarkReference, benchmarkPoints, simulatedSeries, excludedNamesLabel, t]);
+  }, [baselinePoints, benchmarkReference, benchmarkPoints, simulatedSeries, excludedNamesLabel, t]);
+
+  const benchmarkSummary = useMemo(() => {
+    if (benchmarkReference.kind === 'none') return null;
+    if (benchmarkReference.components.length === 0) {
+      const officialPoints =
+        benchmarkReference.kind === 'preset' ? benchmarkReference.officialPoints : undefined;
+      return officialPoints
+        ? t('portfolio.benchmarkOfficialSummary', {
+            date: formatDateLong(
+              officialPoints[officialPoints.length - 1]?.date ?? '',
+            ),
+          })
+        : null;
+    }
+    return benchmarkReference.components
+      .map((component) => `${component.ticker} ${formatWeight(component.target_pct)}`)
+      .join(' · ');
+  }, [benchmarkReference, t]);
+
+  const benchmarkSourceLabel = useMemo(() => {
+    if (benchmarkReference.kind !== 'preset') return null;
+    return benchmarkReference.preset.source;
+  }, [benchmarkReference]);
 
   const isEmpty = !txLoading && transactions.length === 0;
   const hasChart = chartSeries.length > 0 && (chartSeries[0]?.points.length ?? 0) > 1;
@@ -253,16 +325,29 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
       )}
 
       {hasChart && chartSeries.length > 0 && (
-        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
-          {chartSeries.map((series) => (
-            <span key={series.id} className="inline-flex items-center gap-1.5 min-w-0">
-              <span
-                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: series.color }}
-              />
-              <span className="truncate max-w-[140px]">{series.label}</span>
-            </span>
-          ))}
+        <div className="mb-2 space-y-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
+            {chartSeries.map((series) => (
+              <span key={series.id} className="inline-flex items-center gap-1.5 min-w-0">
+                <span
+                  className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: series.color }}
+                />
+                <span className="truncate max-w-[140px]">{series.label}</span>
+              </span>
+            ))}
+          </div>
+          {benchmarkSummary && (
+            <details className="text-xs text-stone-400">
+              <summary className="cursor-pointer list-none text-stone-500">
+                {t('portfolio.benchmarkHoldings')}
+              </summary>
+              <p className="mt-1 leading-relaxed">{benchmarkSummary}</p>
+              {benchmarkSourceLabel && (
+                <p className="mt-0.5 leading-relaxed">{benchmarkSourceLabel}</p>
+              )}
+            </details>
+          )}
         </div>
       )}
 
@@ -273,7 +358,7 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
         </div>
       ) : hasChart ? (
         <div className={isRefreshing ? 'opacity-70 transition-opacity' : ''}>
-          <ReturnChart series={chartSeries} height={180} />
+          <ReturnChart series={chartSeries} domainPoints={chartDomainPoints} height={180} />
         </div>
       ) : isRefreshing ? (
         <div className="text-center py-12 text-sm text-stone-400">
@@ -387,4 +472,8 @@ function formatSignedPct(v: number): string {
 function formatDateLong(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   return m ? `${m[1]}.${m[2]}.${m[3]}` : iso;
+}
+
+function formatWeight(value: number): string {
+  return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}%`;
 }

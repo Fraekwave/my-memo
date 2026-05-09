@@ -213,6 +213,8 @@
     "benchmarkNone": "Ninguno",
     "benchmarkCustom": "Código personalizado",
     "benchmarkCustomPlaceholder": "Ej: 069500",
+    "benchmarkHoldings": "Composición del benchmark",
+    "benchmarkOfficialSummary": "Rendimiento mensual oficial hasta {{date}}",
     "assetsTitle": "Composición de activos",
     "assetsHint": "El total debe ser 100%",
     "addAsset": "Añadir activo",

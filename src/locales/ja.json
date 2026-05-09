@@ -213,6 +213,8 @@
     "benchmarkNone": "選択しない",
     "benchmarkCustom": "直接入力",
     "benchmarkCustomPlaceholder": "例: 069500",
+    "benchmarkHoldings": "ベンチマーク構成",
+    "benchmarkOfficialSummary": "公式月次運用成績 {{date}} まで",
     "assetsTitle": "資産構成",
     "assetsHint": "合計は100%にしてください",
     "addAsset": "資産追加",

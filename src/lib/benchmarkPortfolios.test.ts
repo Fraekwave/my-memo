@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildOfficialBenchmarkReturnSeries,
   buildBenchmarkReturnSeries,
   makeBenchmarkPresetRef,
   resolveBenchmarkReference,
@@ -28,6 +29,19 @@ describe('benchmark portfolio references', () => {
         target_pct: 100,
       },
     ]);
+  });
+
+  it('labels the NPS target as an ETF proxy and exposes official NPS separately', () => {
+    const proxy = resolveBenchmarkReference(makeBenchmarkPresetRef('nps-target-2026'));
+    const official = resolveBenchmarkReference(makeBenchmarkPresetRef('nps-official-performance'));
+
+    expect(proxy.kind).toBe('preset');
+    expect(official.kind).toBe('preset');
+    if (proxy.kind !== 'preset' || official.kind !== 'preset') return;
+    expect(proxy.label).toContain('ETF');
+    expect(proxy.components.length).toBeGreaterThan(0);
+    expect(official.components).toHaveLength(0);
+    expect(official.officialPoints?.length).toBeGreaterThan(0);
   });
 });
 
@@ -58,5 +72,24 @@ describe('buildBenchmarkReturnSeries', () => {
     );
 
     expect(points).toEqual([]);
+  });
+});
+
+describe('buildOfficialBenchmarkReturnSeries', () => {
+  it('normalizes sparse official monthly index points to the portfolio start date', () => {
+    const points = buildOfficialBenchmarkReturnSeries(
+      [
+        { date: '2024-12-31', indexValue: 100 },
+        { date: '2025-01-31', indexValue: 101 },
+        { date: '2025-02-28', indexValue: 103 },
+      ],
+      { startDate: '2025-01-06', endDate: '2025-02-28' },
+    );
+
+    expect(points).toEqual([
+      { date: '2025-01-06', returnPct: 0 },
+      { date: '2025-01-31', returnPct: 1 },
+      { date: '2025-02-28', returnPct: 3 },
+    ]);
   });
 });

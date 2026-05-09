@@ -213,6 +213,8 @@
     "benchmarkNone": "Keine",
     "benchmarkCustom": "Eigener Ticker",
     "benchmarkCustomPlaceholder": "z.B. 069500",
+    "benchmarkHoldings": "Benchmark-Bestandteile",
+    "benchmarkOfficialSummary": "Offizielle Monatsperformance bis {{date}}",
     "assetsTitle": "Vermögensaufteilung",
     "assetsHint": "Summe muss 100% ergeben",
     "addAsset": "Vermögenswert hinzufügen",

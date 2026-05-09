@@ -238,6 +238,8 @@
     "benchmarkNone": "선택 안 함",
     "benchmarkCustom": "직접 입력",
     "benchmarkCustomPlaceholder": "예: 069500",
+    "benchmarkHoldings": "벤치마크 구성",
+    "benchmarkOfficialSummary": "공식 월간 운용성과 · {{date}} 공시까지",
     "assetsTitle": "자산 구성",
     "assetsHint": "비중의 합계가 100%여야 해요",
     "addAsset": "자산 추가",

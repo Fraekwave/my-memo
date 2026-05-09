@@ -213,6 +213,8 @@
     "benchmarkNone": "None",
     "benchmarkCustom": "Custom ticker",
     "benchmarkCustomPlaceholder": "e.g. 069500",
+    "benchmarkHoldings": "Benchmark holdings",
+    "benchmarkOfficialSummary": "Official monthly performance through {{date}}",
     "assetsTitle": "Asset Allocation",
     "assetsHint": "Total must equal 100%",
     "addAsset": "Add Asset",

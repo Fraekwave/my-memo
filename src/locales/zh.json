@@ -213,6 +213,8 @@
     "benchmarkNone": "不选择",
     "benchmarkCustom": "自定义代码",
     "benchmarkCustomPlaceholder": "例：069500",
+    "benchmarkHoldings": "基准构成",
+    "benchmarkOfficialSummary": "官方月度业绩截至 {{date}}",
     "assetsTitle": "资产配置",
     "assetsHint": "总比例须等于100%",
     "addAsset": "添加资产",

@@ -34,6 +34,8 @@ export interface ChartSeries {
 
 interface ReturnChartProps {
   series: ChartSeries[];
+  /** Extra invisible points that reserve Y-axis space without rendering a line. */
+  domainPoints?: ChartPoint[];
   /** Height of the plot area in px. Width is 100% of container. */
   height?: number;
 }
@@ -45,7 +47,7 @@ const GRID = 'var(--chart-grid)';
 const AXIS_TEXT = 'var(--chart-axis-text)';
 const ZERO_LINE = 'var(--chart-zero-line)';
 
-export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
+export function ReturnChart({ series, domainPoints = [], height = 200 }: ReturnChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
@@ -87,6 +89,10 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
         if (p.returnPct > maxVal) maxVal = p.returnPct;
       }
     }
+    for (const p of domainPoints) {
+      if (p.returnPct < minVal) minVal = p.returnPct;
+      if (p.returnPct > maxVal) maxVal = p.returnPct;
+    }
     const padRange = Math.max((maxVal - minVal) * 0.1, 1);
     const yMin = minVal - padRange;
     const yMax = maxVal + padRange;
@@ -94,25 +100,29 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
     const plotW = VB_WIDTH - PADDING_LEFT - PADDING_RIGHT;
     const plotH = VB_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
 
-    const xOf = (i: number, total: number) =>
+    const xOfIndex = (i: number, total: number) =>
       PADDING_LEFT + (i / Math.max(1, total - 1)) * plotW;
+    const startTime = dateToTime(primary.points[0]?.date);
+    const endTime = dateToTime(primary.points[primary.points.length - 1]?.date);
+    const canUseTimeScale = Number.isFinite(startTime) && Number.isFinite(endTime) && endTime > startTime;
+    const xOfDate = (date: string, fallbackIndex: number, fallbackTotal: number) => {
+      const time = dateToTime(date);
+      if (canUseTimeScale && Number.isFinite(time)) {
+        return PADDING_LEFT + ((time - startTime) / (endTime - startTime)) * plotW;
+      }
+      return xOfIndex(fallbackIndex, fallbackTotal);
+    };
     const yOf = (v: number) =>
       PADDING_TOP + (1 - (v - yMin) / (yMax - yMin)) * plotH;
 
-    // Build per-series path data, sized by the primary axis (lines align in time).
-    // We map each series's points to the primary's index by date, falling back
-    // to the series's own index if dates don't align (still useful visually).
-    const primaryDateToIdx = new Map<string, number>();
-    primary.points.forEach((p, i) => primaryDateToIdx.set(p.date, i));
-
+    // Build per-series path data on a shared date scale. This keeps sparse
+    // monthly benchmarks aligned with daily portfolio series.
     const renderedSeries = series
       .filter((s) => s.points.length > 0)
       .map((s) => {
         const pathPoints = s.points.map((p, i) => {
-          const idx = primaryDateToIdx.get(p.date);
-          const xIdx = idx != null ? idx : i;
           return {
-            x: xOf(xIdx, primary.points.length),
+            x: xOfDate(p.date, i, s.points.length),
             y: yOf(p.returnPct),
           };
         });
@@ -135,11 +145,15 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
     for (let i = 0; i < ticksN; i++) {
       const idx = Math.round((i / Math.max(1, ticksN - 1)) * (primary.points.length - 1));
       const iso = primary.points[idx].date;
-      xTicks.push({ idx, x: xOf(idx, primary.points.length), label: formatDateShort(iso) });
+      xTicks.push({
+        idx,
+        x: xOfDate(iso, idx, primary.points.length),
+        label: formatDateShort(iso),
+      });
     }
 
     return { renderedSeries, yTicks, xTicks, yMin, yMax, plotH };
-  }, [series, primary, VB_HEIGHT]);
+  }, [series, domainPoints, primary, VB_HEIGHT]);
 
   if (!plot || !primary) {
     return (
@@ -343,6 +357,12 @@ function formatDateShort(iso: string): string {
   if (!match) return iso;
   const yy = match[1].slice(2);
   return `${yy}.${match[2]}.${match[3]}`;
+}
+
+function dateToTime(iso: string | undefined): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '');
+  if (!match) return Number.NaN;
+  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
 // Stable color palette for asset lines (cycled if more assets than colors).
