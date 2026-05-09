@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Download } from 'lucide-react';
 import { PortfolioWithAssets } from '@/hooks/usePortfolios';
 import { useTransactions } from '@/hooks/useTransactions';
-import { downloadTransactionCsv } from '@/lib/transactionExport';
+import { downloadFullPortfolioCsv } from '@/lib/transactionExport';
 import { formatKrw, formatShares } from '@/lib/formatNumber';
 
 interface TransactionHistoryProps {
@@ -17,13 +17,12 @@ export function TransactionHistory({ userId, portfolio, onBack }: TransactionHis
   const { transactions, isLoading } = useTransactions(userId, portfolio.portfolio.id);
 
   const handleExport = useCallback(() => {
-    if (transactions.length === 0) return;
-    downloadTransactionCsv({
-      portfolioName: portfolio.portfolio.name,
+    if (isLoading) return;
+    downloadFullPortfolioCsv({
+      portfolio,
       transactions,
-      assets: portfolio.assets,
     });
-  }, [portfolio, transactions]);
+  }, [isLoading, portfolio, transactions]);
 
   const nameOf = useCallback(
     (ticker: string) => portfolio.assets.find((a) => a.ticker === ticker)?.name ?? ticker,
@@ -69,7 +68,7 @@ export function TransactionHistory({ userId, portfolio, onBack }: TransactionHis
         <button
           type="button"
           onClick={handleExport}
-          disabled={isLoading || transactions.length === 0}
+          disabled={isLoading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <Download className="w-4 h-4" strokeWidth={1.5} />

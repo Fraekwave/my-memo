@@ -1,33 +1,6 @@
-import { generateTransactionCsv } from './transactionImport';
 import { generatePortfolioTransferCsv } from './portfolioTransferCsv';
 import type { PortfolioWithAssets } from '@/hooks/usePortfolios';
-import type { PortfolioAsset, Transaction } from './types';
-
-export function downloadTransactionCsv({
-  portfolioName,
-  transactions,
-  assets,
-}: {
-  portfolioName: string;
-  transactions: Transaction[];
-  assets: PortfolioAsset[];
-}) {
-  downloadCsvFile({
-    csv: generateTransactionCsv(transactions, assets),
-    filename: `${safeFilename(portfolioName)}-transactions-${todayKst()}.csv`,
-  });
-}
-
-export function downloadPortfolioCsv({
-  portfolio,
-}: {
-  portfolio: PortfolioWithAssets;
-}) {
-  downloadCsvFile({
-    csv: generatePortfolioTransferCsv(portfolio, 'portfolio'),
-    filename: `${safeFilename(portfolio.portfolio.name)}-portfolio-${todayKst()}.csv`,
-  });
-}
+import type { Transaction } from './types';
 
 export function downloadFullPortfolioCsv({
   portfolio,
@@ -37,7 +10,7 @@ export function downloadFullPortfolioCsv({
   transactions: Transaction[];
 }) {
   downloadCsvFile({
-    csv: generatePortfolioTransferCsv(portfolio, 'full', transactions),
+    csv: generatePortfolioTransferCsv(portfolio, transactions),
     filename: `${safeFilename(portfolio.portfolio.name)}-full-${todayKst()}.csv`,
   });
 }

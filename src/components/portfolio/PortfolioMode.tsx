@@ -4,7 +4,6 @@ import { PortfolioSummary } from './PortfolioSummary';
 import { PortfolioEditor } from './PortfolioEditor';
 import { PortfolioCsvImportCenter } from './PortfolioCsvImportCenter';
 import { BuyPlanScreen } from './BuyPlanScreen';
-import { TransactionImportWizard } from './TransactionImportWizard';
 import { MonthlyRecordBatchForm } from './MonthlyRecordBatchForm';
 import { PnlDashboard } from './PnlDashboard';
 import { TransactionHistory } from './TransactionHistory';
@@ -15,7 +14,6 @@ type View =
   | { kind: 'editor'; portfolioId?: number }
   | { kind: 'csv-import' }
   | { kind: 'buyplan'; portfolioId: number }
-  | { kind: 'import'; portfolioId: number }
   | { kind: 'record'; portfolioId: number; prefill?: BuyRecommendation[] }
   | { kind: 'pnl'; portfolioId: number }
   | { kind: 'history'; portfolioId: number };
@@ -102,7 +100,6 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
           portfolios={portfolios}
           createPortfolio={createPortfolio}
           onBack={() => setView({ kind: 'summary' })}
-          onTransactionImport={(portfolioId) => setView({ kind: 'import', portfolioId })}
         />
       </div>
     );
@@ -124,24 +121,6 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
           onRecordBuys={(prefill) =>
             setView({ kind: 'record', portfolioId: view.portfolioId, prefill })
           }
-        />
-      </div>
-    );
-  }
-
-  // CSV import view
-  if (view.kind === 'import') {
-    const selected = findPortfolio(view.portfolioId);
-    if (!selected) return null;
-    return (
-      <div
-        className="bg-white rounded-3xl shadow-lg shadow-stone-200/50 border border-stone-200 min-h-[500px]"
-        style={{ backgroundImage: 'var(--surface-card-grad)', backgroundColor: 'var(--surface-card)' }}
-      >
-        <TransactionImportWizard
-          userId={userId}
-          portfolio={selected}
-          onBack={() => setView({ kind: 'summary' })}
         />
       </div>
     );
@@ -219,7 +198,6 @@ export function PortfolioMode({ userId }: PortfolioModeProps) {
         onBuyPlan={(id) => setView({ kind: 'buyplan', portfolioId: id })}
         onPnl={(id) => setView({ kind: 'pnl', portfolioId: id })}
         onHistory={(id) => setView({ kind: 'history', portfolioId: id })}
-        onImport={(id) => setView({ kind: 'import', portfolioId: id })}
         onRecord={(id) => setView({ kind: 'record', portfolioId: id })}
         onDelete={handleDelete}
       />

@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, CheckCircle2, Download, Upload } from 'lucide-react';
 import type { AssetInput, PortfolioInput, PortfolioWithAssets } from '@/hooks/usePortfolios';
-import type { TransactionInput } from '@/hooks/useTransactions';
+import { useTransactions, type TransactionInput } from '@/hooks/useTransactions';
 import { supabase } from '@/lib/supabase';
 import {
   generatePortfolioTransferTemplate,
@@ -19,7 +19,6 @@ interface PortfolioCsvImportCenterProps {
     assets: AssetInput[],
   ) => Promise<PortfolioWithAssets | null>;
   onBack: () => void;
-  onTransactionImport: (portfolioId: number) => void;
 }
 
 type ImportCenterMode = 'choose' | PortfolioTransferMode;
@@ -30,27 +29,31 @@ export function PortfolioCsvImportCenter({
   portfolios,
   createPortfolio,
   onBack,
-  onTransactionImport,
 }: PortfolioCsvImportCenterProps) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<ImportCenterMode>('choose');
   const [transactionPortfolioId, setTransactionPortfolioId] = useState<number | null>(
     portfolios[0]?.portfolio.id ?? null,
   );
+  const selectedPortfolioId = transactionPortfolioId ?? portfolios[0]?.portfolio.id ?? null;
 
   if (mode !== 'choose') {
+    const targetPortfolio =
+      mode === 'transactions' && selectedPortfolioId != null
+        ? portfolios.find((portfolio) => portfolio.portfolio.id === selectedPortfolioId) ?? null
+        : null;
+
     return (
       <PortfolioTransferImportForm
         userId={userId}
         mode={mode}
+        targetPortfolio={targetPortfolio}
         createPortfolio={createPortfolio}
         onBack={() => setMode('choose')}
         onDone={onBack}
       />
     );
   }
-
-  const selectedPortfolioId = transactionPortfolioId ?? portfolios[0]?.portfolio.id ?? null;
 
   return (
     <div className="flex flex-col h-full">
@@ -119,7 +122,7 @@ export function PortfolioCsvImportCenter({
                 type="button"
                 disabled={selectedPortfolioId == null}
                 onClick={() => {
-                  if (selectedPortfolioId != null) onTransactionImport(selectedPortfolioId);
+                  if (selectedPortfolioId != null) setMode('transactions');
                 }}
                 className="w-full px-4 py-3 rounded-xl bg-amber-700 text-white hover:bg-amber-800 transition-colors text-base font-medium"
               >
@@ -168,12 +171,14 @@ function ImportChoiceCard({
 function PortfolioTransferImportForm({
   userId,
   mode,
+  targetPortfolio,
   createPortfolio,
   onBack,
   onDone,
 }: {
   userId: string | null;
   mode: PortfolioTransferMode;
+  targetPortfolio: PortfolioWithAssets | null;
   createPortfolio: (
     input: PortfolioInput,
     assets: AssetInput[],
@@ -191,11 +196,17 @@ function PortfolioTransferImportForm({
   const [result, setResult] = useState<{ portfolioName: string; transactions: number } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { bulkInsert: bulkInsertIntoTarget } = useTransactions(
+    userId,
+    targetPortfolio?.portfolio.id ?? null,
+  );
 
   const title =
     mode === 'full'
       ? t('portfolio.transferImportTitleFull')
-      : t('portfolio.transferImportTitlePortfolio');
+      : mode === 'portfolio'
+        ? t('portfolio.transferImportTitlePortfolio')
+        : t('portfolio.transferImportTitleTransactions');
 
   const handleFilePick = useCallback((file: File) => {
     const reader = new FileReader();
@@ -206,17 +217,17 @@ function PortfolioTransferImportForm({
   }, []);
 
   const handleDownloadTemplate = useCallback(() => {
-    const csv = generatePortfolioTransferTemplate(mode);
+    const csv = generatePortfolioTransferTemplate();
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = mode === 'full' ? 'inadone-full-template.csv' : 'inadone-portfolio-template.csv';
+    a.download = 'inadone-full-template.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [mode]);
+  }, []);
 
   const handleParse = useCallback(() => {
     const parsed = parsePortfolioTransferCsv(csvText, mode);
@@ -226,36 +237,83 @@ function PortfolioTransferImportForm({
       setDraft(null);
       return;
     }
+    if (mode === 'transactions') {
+      if (!targetPortfolio) {
+        setErrors([t('portfolio.importTransactionsNeedsPortfolio')]);
+        setWarnings([]);
+        setDraft(null);
+        return;
+      }
+      const targetTickers = new Set(targetPortfolio.assets.map((asset) => asset.ticker));
+      const unknownTickers = Array.from(
+        new Set(
+          parsed.draft.transactions
+            .map((transaction) => transaction.ticker)
+            .filter((ticker) => !targetTickers.has(ticker)),
+        ),
+      );
+      if (unknownTickers.length > 0) {
+        setErrors([
+          t('portfolio.transferImportTickerMismatch', {
+            tickers: unknownTickers.join(', '),
+          }),
+        ]);
+        setWarnings([]);
+        setDraft(null);
+        return;
+      }
+    }
     setErrors([]);
     setWarnings(parsed.warnings);
     setDraft(parsed.draft);
     setStep('review');
-  }, [csvText, mode]);
+  }, [csvText, mode, targetPortfolio, t]);
 
   const handleConfirm = useCallback(async () => {
     if (!userId || !draft || isSaving) return;
     setIsSaving(true);
+    const transactionsToImport = mode === 'portfolio' ? [] : draft.transactions;
     setProgress(
-      draft.transactions.length > 0
-        ? { done: 0, total: draft.transactions.length }
+      transactionsToImport.length > 0
+        ? { done: 0, total: transactionsToImport.length }
         : null,
     );
 
-    const created = await createPortfolio(draft.portfolio, draft.assets);
-    if (!created) {
-      setErrors([t('portfolio.transferImportCreateFailed')]);
-      setIsSaving(false);
-      return;
+    let portfolioId: number;
+    let portfolioName: string;
+    if (mode === 'transactions') {
+      if (!targetPortfolio) {
+        setErrors([t('portfolio.importTransactionsNeedsPortfolio')]);
+        setIsSaving(false);
+        return;
+      }
+      portfolioId = targetPortfolio.portfolio.id;
+      portfolioName = targetPortfolio.portfolio.name;
+    } else {
+      const created = await createPortfolio(draft.portfolio, draft.assets);
+      if (!created) {
+        setErrors([t('portfolio.transferImportCreateFailed')]);
+        setIsSaving(false);
+        return;
+      }
+      portfolioId = created.portfolio.id;
+      portfolioName = created.portfolio.name;
     }
 
     let inserted = 0;
-    if (draft.transactions.length > 0) {
-      const insertResult = await insertTransactionsForPortfolio({
-        userId,
-        portfolioId: created.portfolio.id,
-        transactions: draft.transactions,
-        onProgress: (done, total) => setProgress({ done, total }),
-      });
+    if (transactionsToImport.length > 0) {
+      const insertResult =
+        mode === 'transactions'
+          ? await bulkInsertIntoTarget(
+              transactionsToImport,
+              (done, total) => setProgress({ done, total }),
+            )
+          : await insertTransactionsForPortfolio({
+              userId,
+              portfolioId,
+              transactions: transactionsToImport,
+              onProgress: (done, total) => setProgress({ done, total }),
+            });
       inserted = insertResult.inserted;
       if (insertResult.failed > 0) {
         setWarnings((prev) => [
@@ -265,10 +323,10 @@ function PortfolioTransferImportForm({
       }
     }
 
-    setResult({ portfolioName: created.portfolio.name, transactions: inserted });
+    setResult({ portfolioName, transactions: inserted });
     setStep('done');
     setIsSaving(false);
-  }, [userId, draft, isSaving, createPortfolio, t]);
+  }, [userId, draft, isSaving, mode, targetPortfolio, createPortfolio, bulkInsertIntoTarget, t]);
 
   return (
     <div className="flex flex-col h-full">
@@ -326,7 +384,7 @@ function PortfolioTransferImportForm({
             <textarea
               value={csvText}
               onChange={(event) => setCsvText(event.target.value)}
-              placeholder={generatePortfolioTransferTemplate(mode)}
+              placeholder={generatePortfolioTransferTemplate()}
               rows={12}
               className="w-full px-3 py-2 rounded-lg border border-stone-200 bg-white text-sm font-mono text-black placeholder-stone-300 outline-none focus:border-amber-400 resize-y"
             />
@@ -355,7 +413,7 @@ function PortfolioTransferImportForm({
               <p className="text-sm text-stone-600">
                 {t('portfolio.transferImportSummary', {
                   assets: draft.assets.length,
-                  transactions: draft.transactions.length,
+                  transactions: mode === 'portfolio' ? 0 : draft.transactions.length,
                 })}
               </p>
             </div>

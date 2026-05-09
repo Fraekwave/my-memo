@@ -7,7 +7,7 @@ import {
   splitCsvLine,
 } from './transactionImport';
 
-export type PortfolioTransferMode = 'portfolio' | 'full';
+export type PortfolioTransferMode = 'portfolio' | 'transactions' | 'full';
 
 export interface PortfolioTransferDraft {
   mode: PortfolioTransferMode;
@@ -101,7 +101,6 @@ const TYPE_ALIASES: Record<string, 'asset' | 'transaction'> = {
 
 export function generatePortfolioTransferCsv(
   portfolioWithAssets: PortfolioWithAssets,
-  mode: PortfolioTransferMode,
   transactions: Transaction[] = [],
 ): string {
   const { portfolio, assets } = portfolioWithAssets;
@@ -125,40 +124,38 @@ export function generatePortfolioTransferCsv(
       '',
     ]);
 
-  if (mode === 'full') {
-    const transactionRows = transactions
-      .slice()
-      .sort((a, b) => {
-        const byDate = a.trade_date.localeCompare(b.trade_date);
-        return byDate !== 0 ? byDate : a.ticker.localeCompare(b.ticker);
-      })
-      .map((tx) => {
-        const asset = assetByTicker.get(tx.ticker);
-        return [
-          'transaction',
-          portfolio.name,
-          portfolio.kind,
-          formatCsvNumber(portfolio.monthly_budget),
-          portfolio.benchmark_ticker ?? '',
-          tx.ticker,
-          asset?.name ?? tx.ticker,
-          asset?.category ?? '',
-          '',
-          tx.trade_date,
-          formatCsvNumber(tx.shares),
-          formatCsvNumber(tx.price),
-          tx.note ?? '',
-        ];
-      });
-    rows.push(...transactionRows);
-  }
+  const transactionRows = transactions
+    .slice()
+    .sort((a, b) => {
+      const byDate = a.trade_date.localeCompare(b.trade_date);
+      return byDate !== 0 ? byDate : a.ticker.localeCompare(b.ticker);
+    })
+    .map((tx) => {
+      const asset = assetByTicker.get(tx.ticker);
+      return [
+        'transaction',
+        portfolio.name,
+        portfolio.kind,
+        formatCsvNumber(portfolio.monthly_budget),
+        portfolio.benchmark_ticker ?? '',
+        tx.ticker,
+        asset?.name ?? tx.ticker,
+        asset?.category ?? '',
+        '',
+        tx.trade_date,
+        formatCsvNumber(tx.shares),
+        formatCsvNumber(tx.price),
+        tx.note ?? '',
+      ];
+    });
+  rows.push(...transactionRows);
 
   return [TRANSFER_HEADER, ...rows]
     .map((row) => row.map(escapeCsvCell).join(','))
     .join('\n') + '\n';
 }
 
-export function generatePortfolioTransferTemplate(mode: PortfolioTransferMode): string {
+export function generatePortfolioTransferTemplate(): string {
   const rows = [
     [
       'asset',
@@ -192,23 +189,21 @@ export function generatePortfolioTransferTemplate(mode: PortfolioTransferMode): 
     ],
   ];
 
-  if (mode === 'full') {
-    rows.push([
-      'transaction',
-      '장기투자',
-      'etf',
-      '500000',
-      '069500',
-      '069500',
-      'KODEX 200',
-      '주식',
-      '',
-      '2026-01-15',
-      '3',
-      '33250',
-      '',
-    ]);
-  }
+  rows.push([
+    'transaction',
+    '장기투자',
+    'etf',
+    '500000',
+    '069500',
+    '069500',
+    'KODEX 200',
+    '주식',
+    '',
+    '2026-01-15',
+    '3',
+    '33250',
+    '',
+  ]);
 
   return [TRANSFER_HEADER, ...rows]
     .map((row) => row.map(escapeCsvCell).join(','))
@@ -335,8 +330,8 @@ export function parsePortfolioTransferCsv(
 
   if (!portfolioName) errors.push('포트폴리오 이름을 찾을 수 없어요');
   if (assets.length === 0) errors.push('asset 행이 최소 1개 필요해요');
-  if (expectedMode === 'portfolio' && transactions.length > 0) {
-    errors.push('포트폴리오만 가져오기는 transaction 행을 포함할 수 없어요');
+  if (expectedMode === 'transactions' && transactions.length === 0) {
+    errors.push('가져올 거래내역이 없어요');
   }
 
   const targetSum = assets.reduce((sum, asset) => sum + asset.target_pct, 0);
@@ -355,6 +350,12 @@ export function parsePortfolioTransferCsv(
   const finalKind = kind ?? deriveKindFromAssets(assets);
   if (expectedMode === 'full' && transactions.length === 0) {
     warnings.push('거래 행이 없어 포트폴리오 구성만 가져옵니다');
+  }
+  if (expectedMode === 'portfolio' && transactions.length > 0) {
+    warnings.push('거래 행은 가져오지 않고 포트폴리오 구성만 가져옵니다');
+  }
+  if (expectedMode === 'transactions') {
+    warnings.push('포트폴리오 구성은 만들지 않고 거래내역만 가져옵니다');
   }
 
   return {

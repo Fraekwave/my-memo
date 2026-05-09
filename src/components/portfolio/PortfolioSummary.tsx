@@ -3,11 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Upload } from 'lucide-react';
 import { PortfolioWithAssets } from '@/hooks/usePortfolios';
 import { useTransactions } from '@/hooks/useTransactions';
-import {
-  downloadFullPortfolioCsv,
-  downloadPortfolioCsv,
-  downloadTransactionCsv,
-} from '@/lib/transactionExport';
+import { downloadFullPortfolioCsv } from '@/lib/transactionExport';
 import { ReturnSummary } from './ReturnSummary';
 
 interface PortfolioSummaryProps {
@@ -20,7 +16,6 @@ interface PortfolioSummaryProps {
   onBuyPlan: (portfolioId: number) => void;
   onPnl: (portfolioId: number) => void;
   onHistory: (portfolioId: number) => void;
-  onImport: (portfolioId: number) => void;
   onRecord: (portfolioId: number) => void;
   onDelete: (portfolioId: number) => Promise<void> | void;
 }
@@ -35,7 +30,6 @@ export function PortfolioSummary({
   onBuyPlan,
   onPnl,
   onHistory,
-  onImport,
   onRecord,
   onDelete,
 }: PortfolioSummaryProps) {
@@ -144,15 +138,7 @@ export function PortfolioSummary({
                     {t('portfolio.menuRecord')}
                   </button>
                   <span className="text-stone-300">·</span>
-                  <button
-                    type="button"
-                    onClick={() => onImport(id)}
-                    className="text-stone-500 hover:text-stone-700 transition-colors"
-                  >
-                    {t('portfolio.menuImport')}
-                  </button>
-                  <span className="text-stone-300">·</span>
-                  <PortfolioCsvExportLinks userId={userId} portfolio={p} />
+                  <PortfolioCsvExportButton userId={userId} portfolio={p} />
                   <span className="text-stone-300">·</span>
                   {isDeleting ? (
                     <button
@@ -184,7 +170,7 @@ export function PortfolioSummary({
   );
 }
 
-function PortfolioCsvExportLinks({
+function PortfolioCsvExportButton({
   userId,
   portfolio,
 }: {
@@ -193,51 +179,23 @@ function PortfolioCsvExportLinks({
 }) {
   const { t } = useTranslation();
   const { transactions, isLoading } = useTransactions(userId, portfolio.portfolio.id);
-  const transactionDisabled = isLoading || transactions.length === 0;
-  const fullDisabled = isLoading;
+  const disabled = isLoading;
 
   return (
-    <>
-      <button
-        type="button"
-        disabled={transactionDisabled}
-        onClick={() => {
-          if (transactionDisabled) return;
-          downloadTransactionCsv({
-            portfolioName: portfolio.portfolio.name,
-            transactions,
-            assets: portfolio.assets,
-          });
-        }}
-        className={`transition-colors ${
-          transactionDisabled
-            ? 'text-stone-300 cursor-not-allowed'
-            : 'text-stone-500 hover:text-stone-700'
-        }`}
-      >
-        {t('portfolio.menuExportTransactions')}
-      </button>
-      <span className="text-stone-300">·</span>
-      <button
-        type="button"
-        onClick={() => downloadPortfolioCsv({ portfolio })}
-        className="text-stone-500 hover:text-stone-700 transition-colors"
-      >
-        {t('portfolio.menuExportPortfolio')}
-      </button>
-      <span className="text-stone-300">·</span>
-      <button
-        type="button"
-        disabled={fullDisabled}
-        onClick={() => downloadFullPortfolioCsv({ portfolio, transactions })}
-        className={`transition-colors ${
-          fullDisabled
-            ? 'text-stone-300 cursor-not-allowed'
-            : 'text-stone-500 hover:text-stone-700'
-        }`}
-      >
-        {t('portfolio.menuExportFull')}
-      </button>
-    </>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => {
+        if (disabled) return;
+        downloadFullPortfolioCsv({ portfolio, transactions });
+      }}
+      className={`transition-colors ${
+        disabled
+          ? 'text-stone-300 cursor-not-allowed'
+          : 'text-stone-500 hover:text-stone-700'
+      }`}
+    >
+      {t('portfolio.menuExport')}
+    </button>
   );
 }

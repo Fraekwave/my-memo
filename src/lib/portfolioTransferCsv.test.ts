@@ -42,9 +42,9 @@ const portfolio: PortfolioWithAssets = {
 };
 
 describe('portfolio transfer CSV', () => {
-  it('exports and parses a portfolio-only CSV', () => {
-    const csv = generatePortfolioTransferCsv(portfolio, 'portfolio');
-    const parsed = parsePortfolioTransferCsv(csv, 'portfolio');
+  it('exports and parses one full CSV shape', () => {
+    const csv = generatePortfolioTransferCsv(portfolio);
+    const parsed = parsePortfolioTransferCsv(csv, 'full');
 
     expect(csv.split('\n')[0]).toBe(
       'type,portfolio_name,kind,monthly_budget,benchmark_ticker,ticker,name,category,target_pct,trade_date,shares,price,note',
@@ -62,7 +62,7 @@ describe('portfolio transfer CSV', () => {
   });
 
   it('exports and parses a full CSV with transaction history', () => {
-    const csv = generatePortfolioTransferCsv(portfolio, 'full', [
+    const csv = generatePortfolioTransferCsv(portfolio, [
       {
         id: 10,
         portfolio_id: 1,
@@ -106,6 +106,51 @@ describe('portfolio transfer CSV', () => {
         note: 'annual rebalance',
       },
     ]);
+  });
+
+  it('lets the recipient choose portfolio-only while reading the full CSV', () => {
+    const csv = generatePortfolioTransferCsv(portfolio, [
+      {
+        id: 11,
+        portfolio_id: 1,
+        ticker: '069500',
+        trade_date: '2026-01-06',
+        shares: 3,
+        price: 33_250,
+        note: '',
+        created_at: '2026-01-06T00:00:00Z',
+      },
+    ]);
+    const parsed = parsePortfolioTransferCsv(csv, 'portfolio');
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.draft.mode).toBe('portfolio');
+    expect(parsed.draft.assets).toHaveLength(2);
+    expect(parsed.draft.transactions).toHaveLength(1);
+    expect(parsed.warnings).toContain('거래 행은 가져오지 않고 포트폴리오 구성만 가져옵니다');
+  });
+
+  it('lets the recipient choose transactions-only while reading the full CSV', () => {
+    const csv = generatePortfolioTransferCsv(portfolio, [
+      {
+        id: 11,
+        portfolio_id: 1,
+        ticker: '069500',
+        trade_date: '2026-01-06',
+        shares: 3,
+        price: 33_250,
+        note: '',
+        created_at: '2026-01-06T00:00:00Z',
+      },
+    ]);
+    const parsed = parsePortfolioTransferCsv(csv, 'transactions');
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.draft.mode).toBe('transactions');
+    expect(parsed.draft.transactions).toHaveLength(1);
+    expect(parsed.warnings).toContain('포트폴리오 구성은 만들지 않고 거래내역만 가져옵니다');
   });
 
   it('rejects transaction rows that do not match imported assets', () => {
