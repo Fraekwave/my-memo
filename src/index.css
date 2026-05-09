@@ -96,6 +96,7 @@ html[data-theme="dark"] {
 :root,
 html[data-theme="light"] {
   --chart-total: #059669;       /* emerald-600 — reference line on light bg */
+  --chart-benchmark: #9ca3af;   /* gray-400 — benchmark comparison line */
   --chart-simulated: #b45309;   /* amber-700 — simulated line accent */
   --chart-grid: #e7e5e4;        /* stone-200 — dashed grid lines */
   --chart-axis-text: #78716c;   /* stone-500 — % and date tick labels */
@@ -103,6 +104,7 @@ html[data-theme="light"] {
 }
 html[data-theme="dark"] {
   --chart-total: #34d399;       /* emerald-400 — bright green on dark bg */
+  --chart-benchmark: #a8a29e;   /* stone-400 — benchmark comparison line */
   --chart-simulated: #fb923c;   /* orange-400 — brighter for dark contrast */
   --chart-grid: #44403c;        /* stone-700 */
   --chart-axis-text: #a8a29e;   /* stone-400 */

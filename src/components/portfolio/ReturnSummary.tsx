@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import type { PortfolioWithAssets } from '@/hooks/usePortfolios';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAssetPrices } from '@/hooks/useAssetPrices';
+import { useHistoricalPrices } from '@/hooks/useHistoricalPrices';
 import { usePortfolioTimeSeries } from '@/hooks/usePortfolioTimeSeries';
 import {
   ReturnChart,
@@ -18,10 +19,16 @@ import {
 } from './ReturnChart';
 import { PriceFreshnessLabel } from './PriceFreshnessLabel';
 import { buildPortfolioTimeSeries, type TxInput } from '@/lib/portfolioTimeSeries';
+import {
+  buildBenchmarkReturnSeries,
+  resolveBenchmarkReference,
+} from '@/lib/benchmarkPortfolios';
 
 // Simulated (what-if) line color. Theme-aware: amber-700 in light, brighter
 // orange-400 in dark, both clearly distinct from the white/black reference line.
 const SIMULATED_COLOR = 'var(--chart-simulated)';
+const BENCHMARK_COLOR = 'var(--chart-benchmark)';
+const MAX_CHART_POINTS = 365;
 
 interface ReturnSummaryProps {
   userId: string | null;
@@ -76,6 +83,30 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
     refreshedAt,
     pricesByTicker,
   } = usePortfolioTimeSeries(txInputs, currentPrices);
+
+  const benchmarkReference = useMemo(
+    () => resolveBenchmarkReference(portfolio.portfolio.benchmark_ticker),
+    [portfolio.portfolio.benchmark_ticker],
+  );
+  const benchmarkTickers = useMemo(() => {
+    if (benchmarkReference.kind === 'none') return [];
+    return Array.from(new Set(benchmarkReference.components.map((component) => component.ticker)));
+  }, [benchmarkReference]);
+  const benchmarkFromDate = totalSeries.startDate || null;
+  const {
+    prices: benchmarkPrices,
+  } = useHistoricalPrices(benchmarkTickers, benchmarkFromDate);
+
+  const benchmarkPoints = useMemo(() => {
+    if (benchmarkReference.kind === 'none' || !benchmarkFromDate || !totalSeries.endDate) {
+      return [];
+    }
+    return buildBenchmarkReturnSeries(benchmarkReference.components, benchmarkPrices, {
+      startDate: benchmarkFromDate,
+      endDate: totalSeries.endDate,
+      maxPoints: MAX_CHART_POINTS,
+    });
+  }, [benchmarkReference, benchmarkPrices, benchmarkFromDate, totalSeries.endDate]);
 
   // What-if state: which assets are EXCLUDED from the simulation.
   // Default = empty set (no exclusions, simulation matches reality).
@@ -145,7 +176,19 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
       // Stay full opacity even with overlays — it's the visual anchor; thicker
       // stroke + darker color already separate it from the simulated line.
       opacity: 1,
+      includeInDomain: true,
     });
+
+    if (benchmarkReference.kind !== 'none' && benchmarkPoints.length > 1) {
+      list.push({
+        id: 'benchmark',
+        label: benchmarkReference.label,
+        color: BENCHMARK_COLOR,
+        points: benchmarkPoints,
+        opacity: 0.95,
+        includeInDomain: true,
+      });
+    }
 
     if (simulatedSeries) {
       list.push({
@@ -156,14 +199,18 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
           date: p.date,
           returnPct: p.returnPct,
         })),
+        includeInDomain: false,
       });
     }
 
     return list;
-  }, [totalSeries.points, simulatedSeries, excludedNamesLabel, t]);
+  }, [totalSeries.points, benchmarkReference, benchmarkPoints, simulatedSeries, excludedNamesLabel, t]);
 
   const isEmpty = !txLoading && transactions.length === 0;
   const hasChart = chartSeries.length > 0 && (chartSeries[0]?.points.length ?? 0) > 1;
+  // Benchmark loading is intentionally non-blocking: the actual portfolio
+  // line should paint at normal speed, then the gray comparison line joins
+  // when its cached/fetched prices are ready.
   const isRefreshing = txLoading || histLoading || currentLoading;
 
   // Headline number = baseline final return. The simulated number is shown
@@ -202,6 +249,20 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
       {(currentFetchedAt ?? refreshedAt) != null && !isEmpty && (
         <div className="mb-2">
           <PriceFreshnessLabel lastFetchedAt={currentFetchedAt ?? refreshedAt} />
+        </div>
+      )}
+
+      {hasChart && chartSeries.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
+          {chartSeries.map((series) => (
+            <span key={series.id} className="inline-flex items-center gap-1.5 min-w-0">
+              <span
+                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: series.color }}
+              />
+              <span className="truncate max-w-[140px]">{series.label}</span>
+            </span>
+          ))}
         </div>
       )}
 

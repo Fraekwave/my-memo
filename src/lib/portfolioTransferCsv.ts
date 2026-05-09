@@ -31,7 +31,7 @@ const TRANSFER_HEADER = [
   'portfolio_name',
   'kind',
   'monthly_budget',
-  'benchmark_ticker',
+  'benchmark_reference',
   'ticker',
   'name',
   'category',
@@ -47,7 +47,13 @@ const HEADER_ALIASES: Record<string, string[]> = {
   portfolio_name: ['portfolio_name', 'portfolio', '포트폴리오명', '포트폴리오'],
   kind: ['kind', '종류'],
   monthly_budget: ['monthly_budget', 'budget', '월예산', '월 예산'],
-  benchmark_ticker: ['benchmark_ticker', 'benchmark', '벤치마크', '벤치마크종목코드'],
+  benchmark_ticker: [
+    'benchmark_reference',
+    'benchmark_ticker',
+    'benchmark',
+    '벤치마크',
+    '벤치마크종목코드',
+  ],
   ticker: ['ticker', 'symbol', '종목코드', '코드'],
   name: ['name', '종목명', '이름'],
   category: ['category', '분류', '카테고리'],
@@ -111,7 +117,7 @@ export function generatePortfolioTransferCsv(
     .map((asset) => [
       'asset',
       portfolio.name,
-      portfolio.kind,
+      kindForAsset(asset.ticker, asset.category),
       formatCsvNumber(portfolio.monthly_budget),
       portfolio.benchmark_ticker ?? '',
       asset.ticker,
@@ -135,7 +141,7 @@ export function generatePortfolioTransferCsv(
       return [
         'transaction',
         portfolio.name,
-        portfolio.kind,
+        kindForAsset(tx.ticker, asset?.category),
         formatCsvNumber(portfolio.monthly_budget),
         portfolio.benchmark_ticker ?? '',
         tx.ticker,
@@ -175,7 +181,7 @@ export function generatePortfolioTransferTemplate(): string {
     [
       'asset',
       '장기투자',
-      'etf',
+      'crypto',
       '500000',
       '069500',
       'KRW-BTC',
@@ -347,7 +353,7 @@ export function parsePortfolioTransferCsv(
 
   if (errors.length > 0) return { ok: false, errors };
 
-  const finalKind = kind ?? deriveKindFromAssets(assets);
+  const finalKind = assets.length > 0 ? deriveKindFromAssets(assets) : kind ?? 'etf';
   if (expectedMode === 'full' && transactions.length === 0) {
     warnings.push('거래 행이 없어 포트폴리오 구성만 가져옵니다');
   }
@@ -416,6 +422,13 @@ function deriveKindFromAssets(assets: AssetInput[]): PortfolioKind {
   return assets.length > 0 && assets.every((asset) => asset.category === '암호화폐')
     ? 'crypto'
     : 'etf';
+}
+
+function kindForAsset(
+  ticker: string,
+  category: AssetCategory | '' | undefined,
+): PortfolioKind {
+  return category === '암호화폐' || /^KRW-[A-Z0-9]+$/.test(ticker) ? 'crypto' : 'etf';
 }
 
 function parseCsvNumber(value: string): number | null {

@@ -47,8 +47,9 @@ describe('portfolio transfer CSV', () => {
     const parsed = parsePortfolioTransferCsv(csv, 'full');
 
     expect(csv.split('\n')[0]).toBe(
-      'type,portfolio_name,kind,monthly_budget,benchmark_ticker,ticker,name,category,target_pct,trade_date,shares,price,note',
+      'type,portfolio_name,kind,monthly_budget,benchmark_reference,ticker,name,category,target_pct,trade_date,shares,price,note',
     );
+    expect(csv).toContain('asset,Daughter Transfer,crypto,500000,069500,KRW-BTC');
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.draft.portfolio).toMatchObject({

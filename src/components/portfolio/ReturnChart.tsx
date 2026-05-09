@@ -24,6 +24,12 @@ export interface ChartSeries {
   isPrimary?: boolean;
   /** Optional 0..1 stroke opacity. Defaults to 1 for primary, 0.85 for others. */
   opacity?: number;
+  /**
+   * Whether this line should influence the Y-axis range. Simulation overlays
+   * opt out so toggling pills does not visually lift or sink the actual line.
+   * Defaults to true.
+   */
+  includeInDomain?: boolean;
 }
 
 interface ReturnChartProps {
@@ -72,7 +78,10 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
     // below always draws the primary line full-opacity and thicker than overlays.
     let minVal = 0;
     let maxVal = 0;
-    for (const s of series) {
+    const domainSeries = series.some((s) => s.includeInDomain !== false && s.points.length > 0)
+      ? series.filter((s) => s.includeInDomain !== false)
+      : series;
+    for (const s of domainSeries) {
       for (const p of s.points) {
         if (p.returnPct < minVal) minVal = p.returnPct;
         if (p.returnPct > maxVal) maxVal = p.returnPct;

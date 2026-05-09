@@ -4,6 +4,12 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { PortfolioWithAssets, PortfolioInput, AssetInput } from '@/hooks/usePortfolios';
 import { AssetCategory, PortfolioKind } from '@/lib/types';
 import { resolveTickerName, prewarmTickerNameResolver } from '@/lib/tickerName';
+import {
+  BENCHMARK_PRESETS,
+  makeBenchmarkPresetRef,
+  resolveBenchmarkReference,
+  type BenchmarkPresetId,
+} from '@/lib/benchmarkPortfolios';
 
 interface PortfolioEditorProps {
   existing: PortfolioWithAssets | null;
@@ -33,6 +39,8 @@ interface DraftAsset {
   target_pct: number;
 }
 
+type BenchmarkMode = 'none' | 'custom' | BenchmarkPresetId;
+
 /**
  * Derive the portfolio kind from its asset categories.
  * All crypto → 'crypto' (fractional shares). Otherwise → 'etf' (integer shares).
@@ -48,6 +56,25 @@ function parseKrwInput(s: string): number {
   if (!cleaned) return 0;
   const n = parseInt(cleaned, 10);
   return Number.isFinite(n) ? n : 0;
+}
+
+function getInitialBenchmarkState(value: string | null | undefined): {
+  mode: BenchmarkMode;
+  customTicker: string;
+} {
+  const ref = resolveBenchmarkReference(value);
+  if (ref.kind === 'none') return { mode: 'none', customTicker: '' };
+  if (ref.kind === 'preset') return { mode: ref.preset.id, customTicker: '' };
+  return { mode: 'custom', customTicker: ref.ticker };
+}
+
+function toBenchmarkReferenceValue(
+  mode: BenchmarkMode,
+  customTicker: string,
+): string | null {
+  if (mode === 'none') return null;
+  if (mode === 'custom') return customTicker.trim() || null;
+  return makeBenchmarkPresetRef(mode);
 }
 
 export function PortfolioEditor({
@@ -67,9 +94,12 @@ export function PortfolioEditor({
       ? String(existing.portfolio.monthly_budget)
       : '',
   );
-  const [benchmarkTicker, setBenchmarkTicker] = useState(
-    existing?.portfolio.benchmark_ticker ?? '',
+  const initialBenchmark = useMemo(
+    () => getInitialBenchmarkState(existing?.portfolio.benchmark_ticker),
+    [existing?.portfolio.benchmark_ticker],
   );
+  const [benchmarkMode, setBenchmarkMode] = useState<BenchmarkMode>(initialBenchmark.mode);
+  const [customBenchmarkTicker, setCustomBenchmarkTicker] = useState(initialBenchmark.customTicker);
 
   const initialAssets: DraftAsset[] = useMemo(() => {
     if (existing && existing.assets.length > 0) {
@@ -104,6 +134,7 @@ export function PortfolioEditor({
     if (!name.trim()) return false;
     const budget = parseKrwInput(monthlyBudget);
     if (budget < 0) return false;
+    if (benchmarkMode === 'custom' && !customBenchmarkTicker.trim()) return false;
     if (assets.length === 0) return false;
     if (!totalPctOk) return false;
     for (const a of assets) {
@@ -112,7 +143,7 @@ export function PortfolioEditor({
       if (a.target_pct < 0) return false;
     }
     return true;
-  }, [name, monthlyBudget, assets, totalPctOk]);
+  }, [name, monthlyBudget, benchmarkMode, customBenchmarkTicker, assets, totalPctOk]);
 
   // Tracks rows currently waiting on a name lookup so we can show
   // "검색 중..." in the name field. Set of asset row indexes.
@@ -245,7 +276,7 @@ export function PortfolioEditor({
       name: name.trim(),
       kind: deriveKind(assets),
       monthly_budget: parseKrwInput(monthlyBudget),
-      benchmark_ticker: benchmarkTicker.trim() || null,
+      benchmark_ticker: toBenchmarkReferenceValue(benchmarkMode, customBenchmarkTicker),
     };
     const assetInputs: AssetInput[] = assets.map((a, i) => ({
       ticker: a.ticker.trim(),
@@ -272,7 +303,8 @@ export function PortfolioEditor({
     isEdit,
     name,
     monthlyBudget,
-    benchmarkTicker,
+    benchmarkMode,
+    customBenchmarkTicker,
     assets,
     onCreate,
     onUpdate,
@@ -360,13 +392,28 @@ export function PortfolioEditor({
               <label className="block text-base uppercase tracking-widest text-amber-600 font-semibold mb-1">
                 {t('portfolio.fieldBenchmark')}
               </label>
-              <input
-                type="text"
-                value={benchmarkTicker}
-                onChange={(e) => setBenchmarkTicker(e.target.value)}
-                placeholder="069500"
-                className="w-full text-base text-black placeholder-stone-300 bg-transparent outline-none"
-              />
+              <select
+                value={benchmarkMode}
+                onChange={(e) => setBenchmarkMode(e.target.value as BenchmarkMode)}
+                className="w-full text-base text-black bg-transparent outline-none"
+              >
+                <option value="none">{t('portfolio.benchmarkNone')}</option>
+                {BENCHMARK_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.name}
+                  </option>
+                ))}
+                <option value="custom">{t('portfolio.benchmarkCustom')}</option>
+              </select>
+              {benchmarkMode === 'custom' && (
+                <input
+                  type="text"
+                  value={customBenchmarkTicker}
+                  onChange={(e) => setCustomBenchmarkTicker(e.target.value.trim())}
+                  placeholder={t('portfolio.benchmarkCustomPlaceholder')}
+                  className="mt-2 w-full text-base text-black placeholder-stone-300 bg-transparent outline-none"
+                />
+              )}
               <p className="text-xs text-stone-400 mt-0.5">{t('portfolio.fieldBenchmarkHint')}</p>
             </div>
           </div>
