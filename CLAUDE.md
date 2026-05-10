@@ -128,6 +128,146 @@ Before considering the task complete, confirm:
 
 If something could not be verified, say that clearly.
 
+## 10. Beads Task Memory
+
+This project uses Beads (`bd`) as the single source of truth for task tracking, project memory, and dependency-aware planning.
+
+Do not use chat-only memory or Markdown TODO files as durable project memory. Store durable task state in Beads.
+
+---
+
+# Required Workflow
+
+At the start of every coding session:
+
+```bash
+bd ready --json
+```
+
+Then:
+
+1. Pick the bead that matches the user's request.
+2. Inspect it:
+
+   ```bash
+   bd show <id> --json
+   ```
+
+3. Claim it before coding:
+
+   ```bash
+   bd update <id> --claim --json
+   ```
+
+4. If no suitable bead exists, create one:
+
+   ```bash
+   bd create "<title>" \
+     -t task \
+     -p 2 \
+     --description "<context, scope, and expected outcome>" \
+     --acceptance "<completion criteria>" \
+     --json
+   ```
+
+---
+
+# Initial Graph Creation
+
+If the Beads graph is empty or incomplete, create a small initial graph before implementation.
+
+Inspect:
+
+```bash
+bd list --status open --json
+bd ready --json
+git status --short
+git log --oneline -20
+```
+
+Review README, docs, build/test config, source structure, TODO/FIXME comments, and current user goals.
+
+Create:
+
+- 1 to 3 `epic` beads for major workstreams.
+- 5 to 20 actionable child beads.
+- Use `task`, `feature`, `bug`, or `chore` as appropriate.
+- Use `--parent <epic-id>` for epic children.
+- Use `bd dep add <blocked-id> <blocker-id>` for hard dependencies.
+- Use `--deps discovered-from:<current-id>` for work discovered during another task.
+
+After creating or changing the graph:
+
+```bash
+bd dep cycles
+bd ready --json
+bd blocked --json
+bd sync
+```
+
+---
+
+# Relationship Rules
+
+Use relationships consistently:
+
+- `parent-child`: epic and subtask structure.
+- `blocks`: hard dependency; affects `bd ready`.
+- `discovered-from`: new work found while doing another bead.
+- `related`: soft relationship only.
+
+When discovering new work:
+
+```bash
+bd create "<title>" \
+  -t task \
+  -p 2 \
+  --description "<what was found, where, why it matters>" \
+  --acceptance "<how to know it is complete>" \
+  --deps discovered-from:<current-bead-id> \
+  --json
+```
+
+---
+
+# Before Finishing
+
+Before saying the work is complete:
+
+1. Run relevant checks for this project.
+2. Close completed beads.
+3. Show remaining ready/blocked work.
+4. Sync Beads.
+
+```bash
+bd close <id> --reason "<what changed and checks run>" --json
+bd ready --json
+bd blocked --json
+bd sync
+```
+
+If the work is not complete, do not close the bead. Update the graph instead.
+
+---
+
+# Reporting to the User
+
+When reporting progress, include:
+
+- Active bead id and title.
+- What changed.
+- Checks run.
+- Whether the bead was closed.
+- Any new beads discovered.
+
+---
+
+# Principle
+
+Chat context is temporary. Beads is the durable project memory.
+
+Claude should read the graph, work against a bead, update the graph when new information appears, and close/sync beads when work is complete.
+
 ---
 
 ## Project-Specific Notes

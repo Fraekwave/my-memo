@@ -33,6 +33,13 @@ dist-ssr
 # Vercel
 .vercel
 
+# Local agent/tool state
+.claude/worktrees/
+.codex/
+
+# Supabase CLI local project cache
+supabase/.temp/
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
