@@ -6,7 +6,7 @@ import { ArrowLeft, Copy, Eye, Edit3 } from 'lucide-react';
 import { SermonNote } from '@/lib/types';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useBible } from '@/hooks/useBible';
-import { detectBibleRefBeforeCursor, parseBareRef } from '@/lib/bibleParser';
+import { bibleRefKey, detectBibleRefBeforeCursor, parseBareRef } from '@/lib/bibleParser';
 import { formatSermonNote } from '@/lib/formatSermonNote';
 import { SermonHeader } from './SermonHeader';
 
@@ -65,10 +65,11 @@ export function SermonNoteEditor({ note, onUpdate, onBack }: SermonNoteEditorPro
   // Header bible_ref commit: only on Enter or blur
   const commitBibleRef = useCallback(async (v: string) => {
     const ref = parseBareRef(v);
-    if (ref && v !== lastInsertedRef.current) {
+    const refKey = ref ? bibleRefKey(ref) : '';
+    if (ref && refKey !== lastInsertedRef.current) {
       const insertText = await formatInsertText(ref);
       if (insertText) {
-        lastInsertedRef.current = v;
+        lastInsertedRef.current = refKey;
         setContent(prev => insertText.trimStart() + '\n' + prev);
         triggerSave();
       }
