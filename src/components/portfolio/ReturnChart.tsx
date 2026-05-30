@@ -611,12 +611,7 @@ function formatWindowPct(value: number): string {
 }
 
 function getTooltipPositionStyle(xRatio: number): React.CSSProperties {
-  if (xRatio > 0.66) return { right: 4 };
-  if (xRatio < 0.34) return { left: 4 };
-  return {
-    left: `${xRatio * 100}%`,
-    transform: 'translateX(-50%)',
-  };
+  return xRatio >= 0.5 ? { left: 4 } : { right: 4 };
 }
 
 function getWindowPointerPct(clientX: number, element: HTMLElement | null): number {
