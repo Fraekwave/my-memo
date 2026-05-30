@@ -613,7 +613,7 @@ function getTooltipPositionStyle(xRatio: number): React.CSSProperties {
   const availableSidePct = xRatio >= 0.5 ? xRatio * 100 : (1 - xRatio) * 100;
   return {
     left: `${xRatio * 100}%`,
-    maxWidth: `min(calc(100% - 32px), calc(${availableSidePct.toFixed(2)}% - 20px))`,
+    width: `min(240px, calc(100% - 32px), calc(${availableSidePct.toFixed(2)}% - 20px))`,
     transform:
       xRatio >= 0.5
         ? 'translateX(calc(-100% - 16px))'
