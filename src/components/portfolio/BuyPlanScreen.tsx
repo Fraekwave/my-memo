@@ -49,6 +49,24 @@ function formatFractional(shares: number, decimals = 6): string {
   return shares.toFixed(decimals);
 }
 
+function sanitizeShareInput(value: string, fractional: boolean): string {
+  if (!fractional) return value.replace(/[^\d]/g, '');
+
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const firstDot = cleaned.indexOf('.');
+  if (firstDot === -1) return cleaned;
+
+  return `${cleaned.slice(0, firstDot + 1)}${cleaned
+    .slice(firstDot + 1)
+    .replace(/\./g, '')}`;
+}
+
+function parseShareInput(value: string): number {
+  if (value === '' || value === '.') return 0;
+  const next = Number(value);
+  return Number.isFinite(next) ? next : 0;
+}
+
 /**
  * Round a fractional share count to a given step so floating-point math
  * doesn't produce values like 0.4921870000001.
@@ -56,6 +74,17 @@ function formatFractional(shares: number, decimals = 6): string {
 function roundToStep(value: number, step: number): number {
   if (step <= 0) return value;
   return Math.round(value / step) * step;
+}
+
+function normalizeShareCount(asset: PortfolioAsset, shares: number): number {
+  if (!Number.isFinite(shares) || shares < 0) return 0;
+  return isFractional(asset)
+    ? roundToStep(shares, CRYPTO_STEP)
+    : Math.round(shares);
+}
+
+function formatSharesForInput(shares: number, fractional: boolean): string {
+  return fractional ? formatFractional(shares, 6) : String(Math.round(shares));
 }
 
 function isoDateDaysAgo(days: number): string {
@@ -170,6 +199,7 @@ export function BuyPlanScreen({
 
   // User-adjustable share count per ticker.
   const [adjustedShares, setAdjustedShares] = useState<Record<string, number>>({});
+  const [shareDrafts, setShareDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!initialPlan) return;
@@ -179,7 +209,36 @@ export function BuyPlanScreen({
       map[a.ticker] = match ? match.sharesToBuy : 0;
     }
     setAdjustedShares(map);
+    setShareDrafts({});
   }, [initialPlan, portfolio.assets]);
+
+  const clearShareDraft = useCallback((ticker: string) => {
+    setShareDrafts((prev) => {
+      if (prev[ticker] == null) return prev;
+      const next = { ...prev };
+      delete next[ticker];
+      return next;
+    });
+  }, []);
+
+  const setSharesFromInput = useCallback((asset: PortfolioAsset, value: string) => {
+    const draft = sanitizeShareInput(value, isFractional(asset));
+    const nextShares = normalizeShareCount(asset, parseShareInput(draft));
+
+    setShareDrafts((prev) => ({ ...prev, [asset.ticker]: draft }));
+    setAdjustedShares((prev) => ({ ...prev, [asset.ticker]: nextShares }));
+  }, []);
+
+  const commitShareInput = useCallback(
+    (asset: PortfolioAsset) => {
+      setAdjustedShares((prev) => ({
+        ...prev,
+        [asset.ticker]: normalizeShareCount(asset, prev[asset.ticker] ?? 0),
+      }));
+      clearShareDraft(asset.ticker);
+    },
+    [clearShareDraft],
+  );
 
   // Adjust one ticker's share count.
   const adjustShares = useCallback(
@@ -193,8 +252,9 @@ export function BuyPlanScreen({
         else next = Math.round(next);
         return { ...prev, [asset.ticker]: next };
       });
+      clearShareDraft(asset.ticker);
     },
-    [],
+    [clearShareDraft],
   );
 
   const nameOf = useCallback(
@@ -486,7 +546,7 @@ export function BuyPlanScreen({
 
             <div className="flex items-center justify-between">
               <p className="text-xs text-stone-500">
-                추천 수량입니다. ± 버튼으로 조정할 수 있어요.
+                추천 수량입니다. 숫자를 직접 입력하거나 ± 버튼으로 조정할 수 있어요.
               </p>
               {lastFetchedAt != null && <PriceFreshnessLabel lastFetchedAt={lastFetchedAt} />}
             </div>
@@ -494,12 +554,15 @@ export function BuyPlanScreen({
             <div className="rounded-xl border border-stone-200 bg-stone-50 divide-y divide-stone-200">
               {summary.rows.map((row) => {
                 const frac = isFractional(row.asset);
-                const sharesLabel = frac
-                  ? formatFractional(row.shares, 6)
-                  : `${row.shares}주`;
                 const perUnitLabel = frac
                   ? `1 ${row.asset.ticker.replace('KRW-', '')}` // "1 BTC"
                   : '1주';
+                const shareUnitLabel = frac
+                  ? row.asset.ticker.replace('KRW-', '')
+                  : '주';
+                const shareInputId = `buy-shares-${row.asset.ticker.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+                const shareInputValue =
+                  shareDrafts[row.asset.ticker] ?? formatSharesForInput(row.shares, frac);
                 const canDecrease = frac
                   ? row.shares > 0.000009 // at least one step worth
                   : row.shares >= 1;
@@ -533,10 +596,25 @@ export function BuyPlanScreen({
                       />
                     </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm text-stone-600 tabular-nums">
-                        {sharesLabel}
-                      </span>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <label htmlFor={shareInputId} className="sr-only">
+                          {row.asset.name || row.asset.ticker} 매수 수량
+                        </label>
+                        <input
+                          id={shareInputId}
+                          type="text"
+                          inputMode={frac ? 'decimal' : 'numeric'}
+                          value={shareInputValue}
+                          onChange={(e) => setSharesFromInput(row.asset, e.target.value)}
+                          onBlur={() => commitShareInput(row.asset)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                          }}
+                          className="h-9 w-24 rounded-lg border border-stone-200 bg-white px-3 text-right text-sm font-medium text-stone-700 tabular-nums outline-none transition-colors focus:border-amber-500 focus:ring-2 focus:ring-amber-100 sm:w-28"
+                        />
+                        <span className="text-sm text-stone-500">{shareUnitLabel}</span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
