@@ -30,7 +30,7 @@ interface ReturnChartProps {
   series: ChartSeries[];
   /** Height of the plot area in px. Width is 100% of container. */
   height?: number;
-  /** Shows compact range/location sliders for dense historical charts. */
+  /** Shows a compact draggable time-window selector for dense historical charts. */
   enableWindowControls?: boolean;
   windowControlLabels?: {
     range?: string;
@@ -38,6 +38,20 @@ interface ReturnChartProps {
     full?: string;
   };
 }
+
+type WindowRange = {
+  startPct: number;
+  endPct: number;
+};
+
+type WindowDragMode = 'start' | 'end' | 'move';
+
+type WindowDragState = {
+  mode: WindowDragMode;
+  pointerStartPct: number;
+  startPct: number;
+  endPct: number;
+};
 
 // Theme-aware chart colors — resolved at paint time from CSS variables
 // defined in src/index.css. These let the chart adapt to light/dark theme
@@ -55,9 +69,13 @@ export function ReturnChart({
   windowControlLabels,
 }: ReturnChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const windowSliderRef = useRef<HTMLDivElement>(null);
+  const windowDragRef = useRef<WindowDragState | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const [windowPct, setWindowPct] = useState(100);
-  const [windowStartPct, setWindowStartPct] = useState(100);
+  const [windowRange, setWindowRange] = useState<WindowRange>({
+    startPct: 0,
+    endPct: 100,
+  });
 
   // We use a viewBox-based SVG so the chart scales fluidly with container width.
   const VB_WIDTH = 600;
@@ -69,6 +87,15 @@ export function ReturnChart({
 
   // The source primary decides which dates are available before any zooming.
   const sourcePrimary = useMemo(() => pickPrimarySeries(series), [series]);
+  const minWindowSpanPct = useMemo(() => {
+    const totalPoints = sourcePrimary?.points.length ?? 0;
+    if (totalPoints <= 1) return MIN_WINDOW_PCT;
+    return clamp(
+      Math.max(MIN_WINDOW_PCT, ((MIN_WINDOW_POINTS - 1) / (totalPoints - 1)) * 100),
+      MIN_WINDOW_PCT,
+      100,
+    );
+  }, [sourcePrimary]);
 
   const windowState = useMemo(() => {
     const totalPoints = sourcePrimary?.points.length ?? 0;
@@ -78,21 +105,23 @@ export function ReturnChart({
       return {
         canUseWindow,
         visibleSeries: series,
-        maxStart: 0,
         startDate: sourcePrimary?.points[0]?.date ?? null,
         endDate: sourcePrimary?.points[Math.max(0, totalPoints - 1)]?.date ?? null,
+        startPct: 0,
+        endPct: 100,
         appliedWindowPct: 100,
       };
     }
 
-    const appliedWindowPct = clamp(windowPct, MIN_WINDOW_PCT, 100);
-    const visibleCount = Math.min(
-      totalPoints,
-      Math.max(MIN_WINDOW_POINTS, Math.round((totalPoints * appliedWindowPct) / 100)),
+    const appliedRange = normalizeWindowRange(windowRange, minWindowSpanPct);
+    const startIdx = Math.floor((appliedRange.startPct / 100) * (totalPoints - 1));
+    const endIdx = Math.min(
+      totalPoints - 1,
+      Math.max(
+        startIdx + MIN_WINDOW_POINTS - 1,
+        Math.ceil((appliedRange.endPct / 100) * (totalPoints - 1)),
+      ),
     );
-    const maxStart = Math.max(0, totalPoints - visibleCount);
-    const startIdx = Math.round((clamp(windowStartPct, 0, 100) / 100) * maxStart);
-    const endIdx = Math.min(totalPoints - 1, startIdx + visibleCount - 1);
     const startDate = sourcePrimary.points[startIdx].date;
     const endDate = sourcePrimary.points[endIdx].date;
 
@@ -102,12 +131,13 @@ export function ReturnChart({
         ...s,
         points: s.points.filter((p) => p.date >= startDate && p.date <= endDate),
       })),
-      maxStart,
       startDate,
       endDate,
-      appliedWindowPct,
+      startPct: appliedRange.startPct,
+      endPct: appliedRange.endPct,
+      appliedWindowPct: appliedRange.endPct - appliedRange.startPct,
     };
-  }, [enableWindowControls, series, sourcePrimary, windowPct, windowStartPct]);
+  }, [enableWindowControls, minWindowSpanPct, series, sourcePrimary, windowRange]);
 
   const { visibleSeries } = windowState;
 
@@ -255,6 +285,117 @@ export function ReturnChart({
     windowState.startDate && windowState.endDate
       ? `${formatDateShort(windowState.startDate)} - ${formatDateShort(windowState.endDate)}`
       : '';
+  const isFullWindow = windowState.startPct <= 0.5 && windowState.endPct >= 99.5;
+  const handleWindowPointerDown = (
+    event: React.PointerEvent<HTMLElement>,
+    mode: WindowDragMode,
+    initialRange = {
+      startPct: windowState.startPct,
+      endPct: windowState.endPct,
+    },
+  ) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerStartPct = getWindowPointerPct(event.clientX, windowSliderRef.current);
+    windowDragRef.current = {
+      mode,
+      pointerStartPct,
+      startPct: initialRange.startPct,
+      endPct: initialRange.endPct,
+    };
+    windowSliderRef.current?.setPointerCapture(event.pointerId);
+  };
+  const handleWindowTrackPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const pointerPct = getWindowPointerPct(event.clientX, windowSliderRef.current);
+    const span = Math.max(minWindowSpanPct, windowState.endPct - windowState.startPct);
+    const startPct = clamp(pointerPct - span / 2, 0, 100 - span);
+    const nextRange = { startPct, endPct: startPct + span };
+    setWindowRange(nextRange);
+    handleWindowPointerDown(event, 'move', nextRange);
+  };
+  const handleWindowPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = windowDragRef.current;
+    if (!drag) return;
+
+    const pointerPct = getWindowPointerPct(event.clientX, windowSliderRef.current);
+    if (drag.mode === 'start') {
+      setWindowRange({
+        startPct: clamp(pointerPct, 0, drag.endPct - minWindowSpanPct),
+        endPct: drag.endPct,
+      });
+      return;
+    }
+
+    if (drag.mode === 'end') {
+      setWindowRange({
+        startPct: drag.startPct,
+        endPct: clamp(pointerPct, drag.startPct + minWindowSpanPct, 100),
+      });
+      return;
+    }
+
+    const span = drag.endPct - drag.startPct;
+    const nextStartPct = clamp(
+      drag.startPct + pointerPct - drag.pointerStartPct,
+      0,
+      100 - span,
+    );
+    setWindowRange({
+      startPct: nextStartPct,
+      endPct: nextStartPct + span,
+    });
+  };
+  const handleWindowPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    windowDragRef.current = null;
+    if (windowSliderRef.current?.hasPointerCapture(event.pointerId)) {
+      windowSliderRef.current.releasePointerCapture(event.pointerId);
+    }
+  };
+  const handleWindowKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    mode: WindowDragMode,
+  ) => {
+    const step = event.shiftKey ? 10 : 5;
+    const isLeft = event.key === 'ArrowLeft' || event.key === 'ArrowDown';
+    const isRight = event.key === 'ArrowRight' || event.key === 'ArrowUp';
+    if (!isLeft && !isRight) return;
+    event.preventDefault();
+
+    const direction = isLeft ? -step : step;
+    if (mode === 'start') {
+      setWindowRange((current) => {
+        const range = normalizeWindowRange(current, minWindowSpanPct);
+        return {
+          startPct: clamp(range.startPct + direction, 0, range.endPct - minWindowSpanPct),
+          endPct: range.endPct,
+        };
+      });
+      return;
+    }
+
+    if (mode === 'end') {
+      setWindowRange((current) => {
+        const range = normalizeWindowRange(current, minWindowSpanPct);
+        return {
+          startPct: range.startPct,
+          endPct: clamp(range.endPct + direction, range.startPct + minWindowSpanPct, 100),
+        };
+      });
+      return;
+    }
+
+    setWindowRange((current) => {
+      const range = normalizeWindowRange(current, minWindowSpanPct);
+      const span = range.endPct - range.startPct;
+      const nextStartPct = clamp(range.startPct + direction, 0, 100 - span);
+      return {
+        startPct: nextStartPct,
+        endPct: nextStartPct + span,
+      };
+    });
+  };
 
   return (
     <div ref={containerRef} className="relative w-full select-none">
@@ -396,39 +537,52 @@ export function ReturnChart({
           <div className="flex items-center justify-between gap-2">
             <span>{windowRangeLabel}</span>
             <span className="shrink-0 tabular-nums">
-              {windowState.appliedWindowPct >= 100
+              {isFullWindow
                 ? windowFullLabel
-                : `${windowState.appliedWindowPct}% · ${windowDateLabel}`}
+                : `${formatWindowPct(windowState.appliedWindowPct)} · ${windowDateLabel}`}
             </span>
           </div>
-          <input
-            type="range"
-            min={MIN_WINDOW_PCT}
-            max={100}
-            step={5}
-            value={windowState.appliedWindowPct}
-            onChange={(event) => setWindowPct(Number(event.currentTarget.value))}
-            className="h-2 w-full cursor-pointer accent-orange-700"
+          <div
+            ref={windowSliderRef}
+            role="group"
             aria-label={windowRangeLabel}
-          />
-          {windowState.maxStart > 0 && (
-            <>
-              <div className="flex items-center justify-between gap-2 pt-0.5">
-                <span>{windowPositionLabel}</span>
-                <span className="shrink-0 tabular-nums">{windowDateLabel}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={windowStartPct}
-                onChange={(event) => setWindowStartPct(Number(event.currentTarget.value))}
-                className="h-2 w-full cursor-pointer accent-stone-700"
-                aria-label={windowPositionLabel}
-              />
-            </>
-          )}
+            className="relative h-7 touch-none cursor-pointer"
+            onPointerDown={handleWindowTrackPointerDown}
+            onPointerMove={handleWindowPointerMove}
+            onPointerUp={handleWindowPointerEnd}
+            onPointerCancel={handleWindowPointerEnd}
+          >
+            <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-stone-200" />
+            <button
+              type="button"
+              className="absolute top-1/2 h-5 -translate-y-1/2 cursor-grab rounded-full bg-orange-600/20 outline-none ring-orange-700/20 transition-shadow focus-visible:ring-2 active:cursor-grabbing"
+              style={{
+                left: `${windowState.startPct}%`,
+                width: `${windowState.appliedWindowPct}%`,
+              }}
+              aria-label={windowPositionLabel}
+              onPointerDown={(event) => handleWindowPointerDown(event, 'move')}
+              onKeyDown={(event) => handleWindowKeyDown(event, 'move')}
+            >
+              <span className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-orange-600" />
+            </button>
+            <button
+              type="button"
+              className="absolute top-1/2 h-5 w-3 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border border-white bg-orange-700 shadow-sm outline-none ring-orange-700/20 focus-visible:ring-2"
+              style={{ left: `${windowState.startPct}%` }}
+              aria-label={`${windowRangeLabel} start`}
+              onPointerDown={(event) => handleWindowPointerDown(event, 'start')}
+              onKeyDown={(event) => handleWindowKeyDown(event, 'start')}
+            />
+            <button
+              type="button"
+              className="absolute top-1/2 h-5 w-3 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border border-white bg-orange-700 shadow-sm outline-none ring-orange-700/20 focus-visible:ring-2"
+              style={{ left: `${windowState.endPct}%` }}
+              aria-label={`${windowRangeLabel} end`}
+              onPointerDown={(event) => handleWindowPointerDown(event, 'end')}
+              onKeyDown={(event) => handleWindowKeyDown(event, 'end')}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -452,6 +606,10 @@ function formatDateShort(iso: string): string {
   return `${yy}.${match[2]}.${match[3]}`;
 }
 
+function formatWindowPct(value: number): string {
+  return `${Math.round(value)}%`;
+}
+
 function getTooltipPositionStyle(xRatio: number): React.CSSProperties {
   if (xRatio > 0.66) return { right: 4 };
   if (xRatio < 0.34) return { left: 4 };
@@ -459,6 +617,27 @@ function getTooltipPositionStyle(xRatio: number): React.CSSProperties {
     left: `${xRatio * 100}%`,
     transform: 'translateX(-50%)',
   };
+}
+
+function getWindowPointerPct(clientX: number, element: HTMLElement | null): number {
+  if (!element) return 0;
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0) return 0;
+  return clamp(((clientX - rect.left) / rect.width) * 100, 0, 100);
+}
+
+function normalizeWindowRange(range: WindowRange, minSpanPct: number): WindowRange {
+  let startPct = clamp(Math.min(range.startPct, range.endPct), 0, 100);
+  let endPct = clamp(Math.max(range.startPct, range.endPct), 0, 100);
+  const spanPct = endPct - startPct;
+
+  if (spanPct < minSpanPct) {
+    const centerPct = (startPct + endPct) / 2;
+    startPct = clamp(centerPct - minSpanPct / 2, 0, 100 - minSpanPct);
+    endPct = startPct + minSpanPct;
+  }
+
+  return { startPct, endPct };
 }
 
 function pickPrimarySeries(series: ChartSeries[]): ChartSeries | null {
