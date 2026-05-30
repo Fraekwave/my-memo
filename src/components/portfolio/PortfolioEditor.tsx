@@ -13,6 +13,9 @@ import {
 } from '@/lib/benchmarkPortfolios';
 import {
   buildCandidateBacktest,
+  optimizeCandidateBacktest,
+  type CandidateBacktestSuggestion,
+  type CandidateOptimizationResult,
   type CandidateBacktestResult,
 } from '@/lib/portfolioBacktest';
 import {
@@ -199,6 +202,7 @@ export function PortfolioEditor({
     selectedBenchmarkReference.kind === 'none'
       ? t('portfolio.benchmarkNone')
       : selectedBenchmarkReference.label;
+  const candidateBacktestName = name.trim() || t('portfolio.backtestSeriesLabel');
 
   const backtestAssets = useMemo(
     () =>
@@ -221,7 +225,6 @@ export function PortfolioEditor({
             .filter(
               (asset) =>
                 asset.category !== '현금' &&
-                asset.targetPct > 0 &&
                 supportsHistoricalPrices(asset.ticker),
             )
             .map((asset) => asset.ticker),
@@ -244,7 +247,7 @@ export function PortfolioEditor({
     error: backtestError,
   } = useHistoricalPrices(
     backtestTickers,
-    totalPctOk && backtestTickers.length > 0 ? backtestFromDate : null,
+    backtestTickers.length > 0 ? backtestFromDate : null,
   );
 
   const backtestResult = useMemo(
@@ -254,13 +257,17 @@ export function PortfolioEditor({
       }),
     [backtestAssets, backtestPrices],
   );
+  const optimizationResult = useMemo(
+    () => optimizeCandidateBacktest(backtestAssets, backtestPrices),
+    [backtestAssets, backtestPrices],
+  );
 
   const backtestChartSeries = useMemo<ChartSeries[]>(() => {
     if (backtestResult.status !== 'ok') return [];
     return [
       {
         id: 'candidate',
-        label: t('portfolio.backtestSeriesLabel'),
+        label: candidateBacktestName,
         color: TOTAL_COLOR,
         points: backtestResult.points.map((point) => ({
           date: point.date,
@@ -269,7 +276,7 @@ export function PortfolioEditor({
         isPrimary: true,
       },
     ];
-  }, [backtestResult, t]);
+  }, [backtestResult, candidateBacktestName]);
 
   // Tracks rows currently waiting on a name lookup so we can show
   // "검색 중..." in the name field. Set of asset row indexes.
@@ -687,6 +694,8 @@ export function PortfolioEditor({
           isLoading={backtestLoading}
           error={backtestError}
           failures={backtestFailures}
+          candidateName={candidateBacktestName}
+          optimizationResult={optimizationResult}
           t={t}
         />
 
@@ -821,6 +830,8 @@ function CandidateBacktestPreview({
   isLoading,
   error,
   failures,
+  candidateName,
+  optimizationResult,
   t,
 }: {
   result: CandidateBacktestResult;
@@ -828,18 +839,21 @@ function CandidateBacktestPreview({
   isLoading: boolean;
   error: string | null;
   failures: string[];
+  candidateName: string;
+  optimizationResult: CandidateOptimizationResult;
   t: ReturnType<typeof useTranslation>['t'];
 }) {
   const ok = result.status === 'ok' ? result : null;
   const annualRows = ok?.metrics.annualReturns.slice(-6) ?? [];
   const statusText = getBacktestStatusText(result, failures, error, t);
+  const hasOptimization = optimizationResult.status === 'ok';
 
   return (
     <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-base font-semibold text-black">
-            {t('portfolio.backtestTitle')}
+            {t('portfolio.backtestTitle', { name: candidateName })}
           </h3>
           <p className="mt-0.5 text-xs leading-relaxed text-stone-500">
             {t('portfolio.backtestSubtitle')}
@@ -916,6 +930,98 @@ function CandidateBacktestPreview({
           {isLoading ? t('portfolio.backtestLoading') : statusText}
         </div>
       )}
+
+      {hasOptimization ? (
+        <div className="border-t border-stone-100 pt-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="text-sm font-semibold text-stone-900">
+                {t('portfolio.backtestOptimizationTitle')}
+              </h4>
+              <p className="mt-0.5 text-xs leading-relaxed text-stone-500">
+                {t('portfolio.backtestOptimizationHint', {
+                  count: optimizationResult.candidateCount,
+                  step: optimizationResult.stepPct,
+                })}
+              </p>
+            </div>
+            <span className="flex-shrink-0 text-right text-xs text-stone-400 tabular-nums">
+              {formatDateLong(optimizationResult.startDate)} - {formatDateLong(optimizationResult.endDate)}
+            </span>
+          </div>
+          <div className="mt-2 divide-y divide-stone-100">
+            {optimizationResult.suggestions.map((suggestion) => (
+              <OptimizationSuggestionRow
+                key={suggestion.objective}
+                suggestion={suggestion}
+                t={t}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        !isLoading && (
+          <div className="border-t border-stone-100 pt-3 text-xs leading-relaxed text-stone-400">
+            {getOptimizationStatusText(optimizationResult, failures, error, t)}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function OptimizationSuggestionRow({
+  suggestion,
+  t,
+}: {
+  suggestion: CandidateBacktestSuggestion;
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const label =
+    suggestion.objective === 'performance'
+      ? t('portfolio.backtestOptimizationPerformance')
+      : suggestion.objective === 'risk'
+        ? t('portfolio.backtestOptimizationRisk')
+        : t('portfolio.backtestOptimizationBalanced');
+  const caption =
+    suggestion.objective === 'performance'
+      ? t('portfolio.backtestOptimizationPerformanceHint')
+      : suggestion.objective === 'risk'
+        ? t('portfolio.backtestOptimizationRiskHint')
+        : t('portfolio.backtestOptimizationBalancedHint');
+  const nonZeroWeights = suggestion.weights.filter((weight) => weight.targetPct > 0);
+
+  return (
+    <div className="py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-stone-900">{label}</div>
+          <div className="text-xs text-stone-500">{caption}</div>
+        </div>
+        <div className="flex flex-shrink-0 items-baseline gap-2 text-xs tabular-nums">
+          <span className={toneClass(suggestion.metrics.annualizedReturnPct)}>
+            {formatSignedPct(suggestion.metrics.annualizedReturnPct)}
+          </span>
+          <span className="text-stone-400">
+            MDD {formatPct(suggestion.metrics.maxDrawdownPct)}
+          </span>
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {nonZeroWeights.map((weight) => (
+          <span
+            key={`${suggestion.objective}-${weight.ticker || weight.category}`}
+            className="inline-flex max-w-full items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700"
+          >
+            <span className="truncate max-w-[120px]">
+              {weight.name || weight.ticker || weight.category}
+            </span>
+            <span className="font-semibold tabular-nums text-stone-900">
+              {formatWeight(weight.targetPct)}
+            </span>
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -974,6 +1080,30 @@ function getBacktestStatusText(
   return t('portfolio.backtestNoAssets');
 }
 
+function getOptimizationStatusText(
+  result: CandidateOptimizationResult,
+  failures: string[],
+  error: string | null,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  if (error) return t('portfolio.backtestOptimizationError');
+  if (failures.length > 0) {
+    return t('portfolio.backtestOptimizationMissingPrices', {
+      tickers: failures.join(', '),
+    });
+  }
+  if (result.status === 'no_assets') return t('portfolio.backtestOptimizationNoAssets');
+  if (result.status === 'missing_prices') {
+    const tickers = (result.missingTickers ?? []).filter(Boolean).join(', ');
+    if (!tickers) return t('portfolio.backtestOptimizationNoAssets');
+    return t('portfolio.backtestOptimizationMissingPrices', { tickers });
+  }
+  if (result.status === 'insufficient_overlap') {
+    return t('portfolio.backtestOptimizationInsufficientOverlap');
+  }
+  return t('portfolio.backtestOptimizationNoAssets');
+}
+
 function supportsHistoricalPrices(ticker: string): boolean {
   return /^\d{6}$/.test(ticker) || /^KRW-[A-Z0-9]+$/.test(ticker);
 }
@@ -996,8 +1126,19 @@ function formatPct(value: number, decimals = 2): string {
   return `${value.toFixed(decimals)}%`;
 }
 
+function formatWeight(value: number): string {
+  return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}%`;
+}
+
 function toneForPct(value: number): 'good' | 'bad' | 'neutral' {
   if (value > 0) return 'good';
   if (value < 0) return 'bad';
   return 'neutral';
+}
+
+function toneClass(value: number): string {
+  const tone = toneForPct(value);
+  if (tone === 'good') return 'text-emerald-600';
+  if (tone === 'bad') return 'text-red-600';
+  return 'text-stone-600';
 }

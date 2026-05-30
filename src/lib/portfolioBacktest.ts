@@ -47,8 +47,52 @@ export type CandidateBacktestResult =
       missingTickers?: string[];
     };
 
+export type OptimizationObjective = 'performance' | 'risk' | 'balanced';
+
+export interface CandidateBacktestWeight {
+  ticker: string;
+  name?: string;
+  category: AssetCategory;
+  targetPct: number;
+}
+
+export interface CandidateBacktestSuggestion {
+  objective: OptimizationObjective;
+  weights: CandidateBacktestWeight[];
+  metrics: CandidateBacktestMetrics;
+}
+
+export interface CandidateOptimizationOk {
+  status: 'ok';
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  candidateCount: number;
+  stepPct: number;
+  suggestions: CandidateBacktestSuggestion[];
+}
+
+export type CandidateOptimizationResult =
+  | CandidateOptimizationOk
+  | Exclude<CandidateBacktestResult, CandidateBacktestOk>;
+
 export interface CandidateBacktestOptions {
   maxPoints?: number;
+}
+
+export interface CandidateOptimizationOptions {
+  minWeightPct?: number;
+  stepPct?: number;
+}
+
+interface PreparedBacktestContext {
+  status: 'ok';
+  assets: CandidateBacktestAsset[];
+  dates: string[];
+  normalizedValues: number[][];
+  startDate: string;
+  endDate: string;
+  durationDays: number;
 }
 
 const CASH_CATEGORY: AssetCategory = '현금';
@@ -71,7 +115,81 @@ export function buildCandidateBacktest(
   const totalPct = weightedAssets.reduce((sum, asset) => sum + asset.targetPct, 0);
   if (Math.abs(totalPct - 100) > 0.01) return { status: 'invalid_weights' };
 
-  const pricedAssets = weightedAssets.filter((asset) => asset.category !== CASH_CATEGORY);
+  const context = prepareBacktestContext(weightedAssets, priceByTicker);
+  if (context.status !== 'ok') return context;
+
+  return evaluateWeights(
+    context,
+    weightedAssets.map((asset) => asset.targetPct),
+    options,
+  );
+}
+
+export function optimizeCandidateBacktest(
+  assets: CandidateBacktestAsset[],
+  priceByTicker: Record<string, Record<string, number>>,
+  options: CandidateOptimizationOptions = {},
+): CandidateOptimizationResult {
+  const pickedAssets = assets
+    .map((asset) => ({
+      ...asset,
+      ticker: asset.ticker.trim(),
+      targetPct: Number(asset.targetPct) || 0,
+    }))
+    .filter((asset) => asset.category === CASH_CATEGORY || asset.ticker.length > 0);
+
+  if (pickedAssets.length === 0) return { status: 'no_assets' };
+
+  const context = prepareBacktestContext(pickedAssets, priceByTicker);
+  if (context.status !== 'ok') return context;
+
+  const stepPct =
+    options.stepPct ?? (pickedAssets.length <= 4 ? 5 : 10);
+  const requestedMinPct = options.minWeightPct ?? stepPct;
+  const minWeightPct =
+    pickedAssets.length * requestedMinPct <= 100 ? requestedMinPct : 0;
+  const weightVectors = generateWeightVectors(
+    pickedAssets.length,
+    stepPct,
+    minWeightPct,
+  );
+  if (weightVectors.length === 0) return { status: 'invalid_weights' };
+
+  const evaluated = weightVectors.map((weights) => {
+    const result = evaluateWeights(context, weights);
+    return { weights, result };
+  });
+
+  const okEvaluated = evaluated.filter(
+    (row): row is { weights: number[]; result: CandidateBacktestOk } =>
+      row.result.status === 'ok',
+  );
+  if (okEvaluated.length === 0) return { status: 'insufficient_overlap' };
+
+  const performance = pickBest(okEvaluated, comparePerformance);
+  const risk = pickBest(okEvaluated, compareRisk);
+  const balanced = pickBest(okEvaluated, compareBalanced);
+
+  return {
+    status: 'ok',
+    startDate: context.startDate,
+    endDate: context.endDate,
+    durationDays: context.durationDays,
+    candidateCount: okEvaluated.length,
+    stepPct,
+    suggestions: [
+      toSuggestion('performance', context.assets, performance),
+      toSuggestion('risk', context.assets, risk),
+      toSuggestion('balanced', context.assets, balanced),
+    ],
+  };
+}
+
+function prepareBacktestContext(
+  assets: CandidateBacktestAsset[],
+  priceByTicker: Record<string, Record<string, number>>,
+): PreparedBacktestContext | Exclude<CandidateBacktestResult, CandidateBacktestOk> {
+  const pricedAssets = assets.filter((asset) => asset.category !== CASH_CATEGORY);
   if (pricedAssets.length === 0) return { status: 'insufficient_overlap' };
 
   const dateRanges = pricedAssets.map((asset) => {
@@ -100,35 +218,49 @@ export function buildCandidateBacktest(
   if (durationDays < 7) return { status: 'insufficient_overlap' };
 
   const dates = enumerateDates(startDate, endDate);
-  const filledPrices: Record<string, Record<string, number>> = {};
-  const basePrices: Record<string, number> = {};
+  const normalizedValues = assets.map((asset) => {
+    if (asset.category === CASH_CATEGORY) {
+      return dates.map(() => 1);
+    }
 
-  for (const asset of pricedAssets) {
     const filled = buildForwardFilledPrices(
       priceByTicker[asset.ticker] ?? {},
       startDate,
       endDate,
     );
     const base = filled[startDate];
-    if (!Number.isFinite(base) || base <= 0) {
-      return { status: 'missing_prices', missingTickers: [asset.ticker] };
-    }
-    filledPrices[asset.ticker] = filled;
-    basePrices[asset.ticker] = base;
+    if (!Number.isFinite(base) || base <= 0) return [];
+    return dates.map((date) => (filled[date] ?? base) / base);
+  });
+
+  const missingNormalizedIdx = normalizedValues.findIndex((values) => values.length === 0);
+  if (missingNormalizedIdx >= 0) {
+    return {
+      status: 'missing_prices',
+      missingTickers: [assets[missingNormalizedIdx].ticker],
+    };
   }
 
-  const fullPoints = dates.map((date) => {
-    let value = 0;
-    for (const asset of weightedAssets) {
-      const weight = asset.targetPct / 100;
-      if (asset.category === CASH_CATEGORY) {
-        value += weight;
-        continue;
-      }
-      const price = filledPrices[asset.ticker]?.[date] ?? 0;
-      const base = basePrices[asset.ticker] ?? 0;
-      value += base > 0 ? weight * (price / base) : 0;
-    }
+  return {
+    status: 'ok',
+    assets,
+    dates,
+    normalizedValues,
+    startDate,
+    endDate,
+    durationDays,
+  };
+}
+
+function evaluateWeights(
+  context: PreparedBacktestContext,
+  weights: number[],
+  options: CandidateBacktestOptions = {},
+): CandidateBacktestOk {
+  const fullPoints = context.dates.map((date, dateIndex) => {
+    const value = context.normalizedValues.reduce((sum, values, assetIndex) => {
+      return sum + (weights[assetIndex] / 100) * values[dateIndex];
+    }, 0);
     return {
       date,
       value: round4(value),
@@ -136,12 +268,12 @@ export function buildCandidateBacktest(
     };
   });
 
-  const metrics = buildMetrics(fullPoints, durationDays);
+  const metrics = buildMetrics(fullPoints, context.durationDays);
   return {
     status: 'ok',
-    startDate,
-    endDate,
-    durationDays,
+    startDate: context.startDate,
+    endDate: context.endDate,
+    durationDays: context.durationDays,
     points: options.maxPoints ? downsample(fullPoints, options.maxPoints) : fullPoints,
     metrics,
   };
@@ -197,6 +329,116 @@ function buildAnnualReturns(points: CandidateBacktestPoint[]): AnnualReturn[] {
     year,
     returnPct: row.first > 0 ? round2(((row.last / row.first) - 1) * 100) : 0,
   }));
+}
+
+function generateWeightVectors(
+  assetCount: number,
+  stepPct: number,
+  minWeightPct: number,
+): number[][] {
+  if (assetCount <= 0) return [];
+  if (assetCount === 1) return [[100]];
+  const totalUnits = Math.round(100 / stepPct);
+  const minUnits = Math.round(minWeightPct / stepPct);
+  const remainingUnits = totalUnits - assetCount * minUnits;
+  if (remainingUnits < 0) return [];
+
+  const out: number[][] = [];
+  const current = Array(assetCount).fill(minUnits);
+  const distribute = (idx: number, remaining: number) => {
+    if (idx === assetCount - 1) {
+      current[idx] = minUnits + remaining;
+      out.push(current.map((units) => units * stepPct));
+      return;
+    }
+    for (let units = 0; units <= remaining; units += 1) {
+      current[idx] = minUnits + units;
+      distribute(idx + 1, remaining - units);
+    }
+  };
+  distribute(0, remainingUnits);
+  return out;
+}
+
+function pickBest(
+  candidates: Array<{ weights: number[]; result: CandidateBacktestOk }>,
+  compare: (
+    a: { weights: number[]; result: CandidateBacktestOk },
+    b: { weights: number[]; result: CandidateBacktestOk },
+  ) => number,
+): { weights: number[]; result: CandidateBacktestOk } {
+  return candidates.reduce((best, candidate) =>
+    compare(candidate, best) > 0 ? candidate : best,
+  );
+}
+
+function comparePerformance(
+  a: { result: CandidateBacktestOk },
+  b: { result: CandidateBacktestOk },
+): number {
+  return compareBy(
+    a,
+    b,
+    (row) => row.result.metrics.annualizedReturnPct,
+    (row) => row.result.metrics.maxDrawdownPct,
+  );
+}
+
+function compareRisk(
+  a: { result: CandidateBacktestOk },
+  b: { result: CandidateBacktestOk },
+): number {
+  return compareBy(
+    a,
+    b,
+    (row) => row.result.metrics.maxDrawdownPct,
+    (row) => row.result.metrics.annualizedReturnPct,
+  );
+}
+
+function compareBalanced(
+  a: { result: CandidateBacktestOk },
+  b: { result: CandidateBacktestOk },
+): number {
+  return compareBy(
+    a,
+    b,
+    (row) => calmarLikeScore(row.result.metrics),
+    (row) => row.result.metrics.annualizedReturnPct,
+  );
+}
+
+function compareBy<T>(
+  a: T,
+  b: T,
+  primary: (row: T) => number,
+  secondary: (row: T) => number,
+): number {
+  const primaryDelta = primary(a) - primary(b);
+  if (Math.abs(primaryDelta) > 0.0001) return primaryDelta;
+  return secondary(a) - secondary(b);
+}
+
+function calmarLikeScore(metrics: CandidateBacktestMetrics): number {
+  const drawdownPenalty = Math.max(Math.abs(metrics.maxDrawdownPct), 1);
+  return metrics.annualizedReturnPct / drawdownPenalty;
+}
+
+function toSuggestion(
+  objective: OptimizationObjective,
+  assets: CandidateBacktestAsset[],
+  candidate: { weights: number[]; result: CandidateBacktestOk },
+): CandidateBacktestSuggestion {
+  return {
+    objective,
+    weights: assets.map((asset, idx) => ({
+      ticker: asset.ticker,
+      name: asset.name,
+      category: asset.category,
+      targetPct: candidate.weights[idx],
+    })),
+    metrics: candidate.result.metrics,
+  };
 }
 
 function buildForwardFilledPrices(

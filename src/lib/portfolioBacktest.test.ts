@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildCandidateBacktest } from './portfolioBacktest';
+import {
+  buildCandidateBacktest,
+  optimizeCandidateBacktest,
+} from './portfolioBacktest';
 
 describe('buildCandidateBacktest', () => {
   it('builds a weighted buy-and-hold return series over the common price range', () => {
@@ -105,5 +108,84 @@ describe('buildCandidateBacktest', () => {
     );
 
     expect(result.status).toBe('invalid_weights');
+  });
+});
+
+describe('optimizeCandidateBacktest', () => {
+  it('recommends the strongest historical performer for the performance profile', () => {
+    const result = optimizeCandidateBacktest(
+      [
+        { ticker: 'GROWTH', category: '주식', targetPct: 50 },
+        { ticker: 'SLOW', category: '채권', targetPct: 50 },
+      ],
+      {
+        GROWTH: {
+          '2024-01-01': 100,
+          '2024-01-10': 180,
+        },
+        SLOW: {
+          '2024-01-01': 100,
+          '2024-01-10': 105,
+        },
+      },
+    );
+
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+
+    const performance = result.suggestions.find((s) => s.objective === 'performance')!;
+    expect(performance.weights.find((w) => w.ticker === 'GROWTH')?.targetPct).toBe(95);
+    expect(performance.weights.find((w) => w.ticker === 'SLOW')?.targetPct).toBe(5);
+  });
+
+  it('recommends the lowest drawdown mix for the defensive profile', () => {
+    const result = optimizeCandidateBacktest(
+      [
+        { ticker: 'BUMPY', category: '주식', targetPct: 50 },
+        { ticker: 'CALM', category: '채권', targetPct: 50 },
+      ],
+      {
+        BUMPY: {
+          '2024-01-01': 100,
+          '2024-01-05': 160,
+          '2024-01-10': 80,
+          '2024-01-15': 170,
+        },
+        CALM: {
+          '2024-01-01': 100,
+          '2024-01-15': 103,
+        },
+      },
+    );
+
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+
+    const defensive = result.suggestions.find((s) => s.objective === 'risk')!;
+    expect(defensive.weights.find((w) => w.ticker === 'CALM')?.targetPct).toBe(95);
+    expect(defensive.metrics.maxDrawdownPct).toBeGreaterThan(-5);
+  });
+
+  it('can optimize before the current draft weights add up to 100%', () => {
+    const result = optimizeCandidateBacktest(
+      [
+        { ticker: 'A', category: '주식', targetPct: 0 },
+        { ticker: 'B', category: '채권', targetPct: 0 },
+      ],
+      {
+        A: {
+          '2024-01-01': 100,
+          '2024-01-10': 120,
+        },
+        B: {
+          '2024-01-01': 100,
+          '2024-01-10': 110,
+        },
+      },
+    );
+
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.suggestions).toHaveLength(3);
   });
 });
