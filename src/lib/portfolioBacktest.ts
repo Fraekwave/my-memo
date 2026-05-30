@@ -59,6 +59,7 @@ export interface CandidateBacktestWeight {
 export interface CandidateBacktestSuggestion {
   objective: OptimizationObjective;
   weights: CandidateBacktestWeight[];
+  points: CandidateBacktestPoint[];
   metrics: CandidateBacktestMetrics;
 }
 
@@ -83,6 +84,7 @@ export interface CandidateBacktestOptions {
 export interface CandidateOptimizationOptions {
   minWeightPct?: number;
   stepPct?: number;
+  maxPoints?: number;
 }
 
 interface PreparedBacktestContext {
@@ -156,7 +158,9 @@ export function optimizeCandidateBacktest(
   if (weightVectors.length === 0) return { status: 'invalid_weights' };
 
   const evaluated = weightVectors.map((weights) => {
-    const result = evaluateWeights(context, weights);
+    const result = evaluateWeights(context, weights, {
+      maxPoints: options.maxPoints,
+    });
     return { weights, result };
   });
 
@@ -437,6 +441,7 @@ function toSuggestion(
       category: asset.category,
       targetPct: candidate.weights[idx],
     })),
+    points: candidate.result.points,
     metrics: candidate.result.metrics,
   };
 }

@@ -17,6 +17,7 @@ import {
   type CandidateBacktestSuggestion,
   type CandidateOptimizationResult,
   type CandidateBacktestResult,
+  type OptimizationObjective,
 } from '@/lib/portfolioBacktest';
 import {
   ReturnChart,
@@ -47,6 +48,11 @@ const BTC_NAME = '비트코인';
 const BACKTEST_ETF_FROM_DATE = '2000-01-01';
 const BACKTEST_CRYPTO_FROM_DATE = '2015-01-01';
 const MAX_BACKTEST_POINTS = 365;
+const OPTIMIZATION_LINE_COLORS: Record<OptimizationObjective, string> = {
+  performance: '#2563eb',
+  risk: '#7c3aed',
+  balanced: '#ea580c',
+};
 
 interface DraftAsset {
   ticker: string;
@@ -258,7 +264,10 @@ export function PortfolioEditor({
     [backtestAssets, backtestPrices],
   );
   const optimizationResult = useMemo(
-    () => optimizeCandidateBacktest(backtestAssets, backtestPrices),
+    () =>
+      optimizeCandidateBacktest(backtestAssets, backtestPrices, {
+        maxPoints: MAX_BACKTEST_POINTS,
+      }),
     [backtestAssets, backtestPrices],
   );
 
@@ -847,6 +856,33 @@ function CandidateBacktestPreview({
   const annualRows = ok?.metrics.annualReturns.slice(-6) ?? [];
   const statusText = getBacktestStatusText(result, failures, error, t);
   const hasOptimization = optimizationResult.status === 'ok';
+  const [visibleOptimizationLines, setVisibleOptimizationLines] = useState<
+    Set<OptimizationObjective>
+  >(() => new Set(['performance', 'risk', 'balanced']));
+  const comparisonSeries = useMemo<ChartSeries[]>(() => {
+    if (optimizationResult.status !== 'ok') return chartSeries;
+    const suggestionSeries = optimizationResult.suggestions
+      .filter((suggestion) => visibleOptimizationLines.has(suggestion.objective))
+      .map((suggestion) => ({
+        id: `optimized-${suggestion.objective}`,
+        label: getOptimizationLabel(suggestion.objective, t),
+        color: OPTIMIZATION_LINE_COLORS[suggestion.objective],
+        points: suggestion.points.map((point) => ({
+          date: point.date,
+          returnPct: point.returnPct,
+        })),
+        opacity: 0.9,
+      }));
+    return [...chartSeries, ...suggestionSeries];
+  }, [chartSeries, hasOptimization, optimizationResult, visibleOptimizationLines, t]);
+  const toggleOptimizationLine = (objective: OptimizationObjective) => {
+    setVisibleOptimizationLines((prev) => {
+      const next = new Set(prev);
+      if (next.has(objective)) next.delete(objective);
+      else next.add(objective);
+      return next;
+    });
+  };
 
   return (
     <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-3">
@@ -900,8 +936,40 @@ function CandidateBacktestPreview({
             />
           </div>
 
+          {hasOptimization && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="mr-1 text-stone-500">
+                {t('portfolio.backtestChartCompare')}
+              </span>
+              {optimizationResult.suggestions.map((suggestion) => {
+                const active = visibleOptimizationLines.has(suggestion.objective);
+                return (
+                  <button
+                    key={`toggle-${suggestion.objective}`}
+                    type="button"
+                    onClick={() => toggleOptimizationLine(suggestion.objective)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 transition-colors ${
+                      active
+                        ? 'border-stone-300 bg-stone-100 text-stone-800'
+                        : 'border-stone-200 bg-white text-stone-400'
+                    }`}
+                    aria-pressed={active}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{
+                        backgroundColor: OPTIMIZATION_LINE_COLORS[suggestion.objective],
+                      }}
+                    />
+                    <span>{getOptimizationLabel(suggestion.objective, t)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className={isLoading ? 'opacity-70 transition-opacity' : ''}>
-            <ReturnChart series={chartSeries} height={160} />
+            <ReturnChart series={comparisonSeries} height={160} />
           </div>
 
           {annualRows.length > 0 && (
@@ -977,12 +1045,7 @@ function OptimizationSuggestionRow({
   suggestion: CandidateBacktestSuggestion;
   t: ReturnType<typeof useTranslation>['t'];
 }) {
-  const label =
-    suggestion.objective === 'performance'
-      ? t('portfolio.backtestOptimizationPerformance')
-      : suggestion.objective === 'risk'
-        ? t('portfolio.backtestOptimizationRisk')
-        : t('portfolio.backtestOptimizationBalanced');
+  const label = getOptimizationLabel(suggestion.objective, t);
   const caption =
     suggestion.objective === 'performance'
       ? t('portfolio.backtestOptimizationPerformanceHint')
@@ -1024,6 +1087,15 @@ function OptimizationSuggestionRow({
       </div>
     </div>
   );
+}
+
+function getOptimizationLabel(
+  objective: OptimizationObjective,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  if (objective === 'performance') return t('portfolio.backtestOptimizationPerformance');
+  if (objective === 'risk') return t('portfolio.backtestOptimizationRisk');
+  return t('portfolio.backtestOptimizationBalanced');
 }
 
 function BacktestMetric({

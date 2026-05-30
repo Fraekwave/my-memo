@@ -188,4 +188,36 @@ describe('optimizeCandidateBacktest', () => {
     if (result.status !== 'ok') return;
     expect(result.suggestions).toHaveLength(3);
   });
+
+  it('includes downsampled return points for suggested chart overlays', () => {
+    const result = optimizeCandidateBacktest(
+      [
+        { ticker: 'A', category: '주식', targetPct: 50 },
+        { ticker: 'B', category: '채권', targetPct: 50 },
+      ],
+      {
+        A: {
+          '2024-01-01': 100,
+          '2024-01-10': 120,
+        },
+        B: {
+          '2024-01-01': 100,
+          '2024-01-10': 110,
+        },
+      },
+      { maxPoints: 4 },
+    );
+
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+
+    for (const suggestion of result.suggestions) {
+      expect(suggestion.points.length).toBeLessThanOrEqual(4);
+      expect(suggestion.points[0]).toMatchObject({
+        date: '2024-01-01',
+        returnPct: 0,
+      });
+      expect(suggestion.points[suggestion.points.length - 1].date).toBe('2024-01-10');
+    }
+  });
 });
