@@ -391,6 +391,7 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {sortedAssets.map((a) => {
               const excluded = excludedAssets.has(a.ticker);
+              const assetLabel = a.name || a.ticker;
               const pct = assetFinalPct.get(a.ticker);
               const pctText = pct != null ? formatSignedPct(pct) : '—';
               const pctColor =
@@ -406,20 +407,23 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
                   key={a.ticker}
                   type="button"
                   onClick={() => toggleExclude(a.ticker)}
-                  className={`grid h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 text-left text-xs transition-colors ${
+                  className={`group relative grid h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 text-left text-xs transition-colors ${
                     excluded
                       ? 'border-stone-200 bg-stone-100 text-stone-400'
                       : 'border-stone-300 bg-stone-50 text-stone-800 hover:bg-stone-100'
                   }`}
                   aria-pressed={!excluded}
-                  title={excluded ? '시뮬레이션에서 제외됨 — 탭하여 다시 포함' : '탭하여 시뮬레이션에서 제외'}
+                  title={assetLabel}
                 >
+                  <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 max-w-[260px] -translate-x-1/2 rounded bg-stone-900/90 px-2 py-1 text-xs font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                    {assetLabel}
+                  </span>
                   <span
                     className={`min-w-0 truncate font-medium ${
                       excluded ? 'line-through' : ''
                     }`}
                   >
-                    {a.name || a.ticker}
+                    {assetLabel}
                   </span>
                   <span
                     className={`justify-self-end whitespace-nowrap tabular-nums ${
