@@ -512,7 +512,6 @@ export function ReturnChart({
           style={{
             ...tooltipPositionStyle,
             top: '-4px',
-            maxWidth: 'calc(100% - 8px)',
           }}
         >
           <div className="mb-0.5 whitespace-nowrap tabular-nums opacity-80">{hoveredDate}</div>
@@ -611,7 +610,15 @@ function formatWindowPct(value: number): string {
 }
 
 function getTooltipPositionStyle(xRatio: number): React.CSSProperties {
-  return xRatio >= 0.5 ? { left: 4 } : { right: 4 };
+  const availableSidePct = xRatio >= 0.5 ? xRatio * 100 : (1 - xRatio) * 100;
+  return {
+    left: `${xRatio * 100}%`,
+    maxWidth: `min(calc(100% - 32px), calc(${availableSidePct.toFixed(2)}% - 20px))`,
+    transform:
+      xRatio >= 0.5
+        ? 'translateX(calc(-100% - 16px))'
+        : 'translateX(16px)',
+  };
 }
 
 function getWindowPointerPct(clientX: number, element: HTMLElement | null): number {
