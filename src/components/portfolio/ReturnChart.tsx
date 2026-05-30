@@ -508,7 +508,7 @@ export function ReturnChart({
       {/* Tooltip — lists all visible series at the hovered date */}
       {hoveredDate && hoveredPt && hoverRows.length > 0 && (
         <div
-          className="absolute pointer-events-none bg-stone-900 text-white text-xs rounded px-2 py-1 shadow-lg z-10"
+          className="absolute pointer-events-none z-10 rounded border border-white/10 bg-stone-900/85 px-2 py-1 text-xs text-white shadow-lg"
           style={{
             ...tooltipPositionStyle,
             top: '-4px',
