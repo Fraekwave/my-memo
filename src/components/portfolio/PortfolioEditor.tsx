@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Info, Plus, Trash2, X } from 'lucide-react';
 import { PortfolioWithAssets, PortfolioInput, AssetInput } from '@/hooks/usePortfolios';
+import { useHistoricalPrices } from '@/hooks/useHistoricalPrices';
 import { AssetCategory, PortfolioKind } from '@/lib/types';
 import { resolveTickerName, prewarmTickerNameResolver } from '@/lib/tickerName';
 import {
@@ -10,6 +11,15 @@ import {
   resolveBenchmarkReference,
   type BenchmarkPresetId,
 } from '@/lib/benchmarkPortfolios';
+import {
+  buildCandidateBacktest,
+  type CandidateBacktestResult,
+} from '@/lib/portfolioBacktest';
+import {
+  ReturnChart,
+  TOTAL_COLOR,
+  type ChartSeries,
+} from './ReturnChart';
 
 interface PortfolioEditorProps {
   existing: PortfolioWithAssets | null;
@@ -31,6 +41,9 @@ const ALL_CATEGORIES: readonly AssetCategory[] = [
 
 const BTC_TICKER = 'KRW-BTC';
 const BTC_NAME = '비트코인';
+const BACKTEST_ETF_FROM_DATE = '2000-01-01';
+const BACKTEST_CRYPTO_FROM_DATE = '2015-01-01';
+const MAX_BACKTEST_POINTS = 365;
 
 interface DraftAsset {
   ticker: string;
@@ -186,6 +199,77 @@ export function PortfolioEditor({
     selectedBenchmarkReference.kind === 'none'
       ? t('portfolio.benchmarkNone')
       : selectedBenchmarkReference.label;
+
+  const backtestAssets = useMemo(
+    () =>
+      assets
+        .filter((asset) => asset.category === '현금' || asset.ticker.trim().length > 0)
+        .map((asset) => ({
+          ticker: asset.ticker.trim(),
+          name: asset.name.trim(),
+          category: asset.category,
+          targetPct: Number(asset.target_pct) || 0,
+        })),
+    [assets],
+  );
+
+  const backtestTickers = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          backtestAssets
+            .filter(
+              (asset) =>
+                asset.category !== '현금' &&
+                asset.targetPct > 0 &&
+                supportsHistoricalPrices(asset.ticker),
+            )
+            .map((asset) => asset.ticker),
+        ),
+      ),
+    [backtestAssets],
+  );
+  const backtestFromDate = useMemo(
+    () =>
+      backtestTickers.some((ticker) => ticker.startsWith('KRW-'))
+        ? BACKTEST_CRYPTO_FROM_DATE
+        : BACKTEST_ETF_FROM_DATE,
+    [backtestTickers],
+  );
+
+  const {
+    prices: backtestPrices,
+    failures: backtestFailures,
+    isLoading: backtestLoading,
+    error: backtestError,
+  } = useHistoricalPrices(
+    backtestTickers,
+    totalPctOk && backtestTickers.length > 0 ? backtestFromDate : null,
+  );
+
+  const backtestResult = useMemo(
+    () =>
+      buildCandidateBacktest(backtestAssets, backtestPrices, {
+        maxPoints: MAX_BACKTEST_POINTS,
+      }),
+    [backtestAssets, backtestPrices],
+  );
+
+  const backtestChartSeries = useMemo<ChartSeries[]>(() => {
+    if (backtestResult.status !== 'ok') return [];
+    return [
+      {
+        id: 'candidate',
+        label: t('portfolio.backtestSeriesLabel'),
+        color: TOTAL_COLOR,
+        points: backtestResult.points.map((point) => ({
+          date: point.date,
+          returnPct: point.returnPct,
+        })),
+        isPrimary: true,
+      },
+    ];
+  }, [backtestResult, t]);
 
   // Tracks rows currently waiting on a name lookup so we can show
   // "검색 중..." in the name field. Set of asset row indexes.
@@ -597,6 +681,15 @@ export function PortfolioEditor({
           </button>
         </div>
 
+        <CandidateBacktestPreview
+          result={backtestResult}
+          chartSeries={backtestChartSeries}
+          isLoading={backtestLoading}
+          error={backtestError}
+          failures={backtestFailures}
+          t={t}
+        />
+
         {saveError && (
           <p className="text-sm text-red-600">{saveError}</p>
         )}
@@ -722,7 +815,189 @@ function formatBenchmarkWeight(value: number): string {
   return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}%`;
 }
 
+function CandidateBacktestPreview({
+  result,
+  chartSeries,
+  isLoading,
+  error,
+  failures,
+  t,
+}: {
+  result: CandidateBacktestResult;
+  chartSeries: ChartSeries[];
+  isLoading: boolean;
+  error: string | null;
+  failures: string[];
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const ok = result.status === 'ok' ? result : null;
+  const annualRows = ok?.metrics.annualReturns.slice(-6) ?? [];
+  const statusText = getBacktestStatusText(result, failures, error, t);
+
+  return (
+    <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-black">
+            {t('portfolio.backtestTitle')}
+          </h3>
+          <p className="mt-0.5 text-xs leading-relaxed text-stone-500">
+            {t('portfolio.backtestSubtitle')}
+          </p>
+        </div>
+        {ok && (
+          <div className="flex-shrink-0 text-right text-xs text-stone-500 tabular-nums">
+            <div>{formatDateLong(ok.startDate)} - {formatDateLong(ok.endDate)}</div>
+            <div>
+              {t('portfolio.backtestDurationYears', {
+                years: formatYears(ok.durationDays),
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {ok ? (
+        <>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-stone-100 py-3 sm:grid-cols-4">
+            <BacktestMetric
+              label={t('portfolio.backtestMetricAnnualized')}
+              value={formatSignedPct(ok.metrics.annualizedReturnPct)}
+              tone={toneForPct(ok.metrics.annualizedReturnPct)}
+            />
+            <BacktestMetric
+              label={t('portfolio.backtestMetricMdd')}
+              value={formatPct(ok.metrics.maxDrawdownPct)}
+              tone={ok.metrics.maxDrawdownPct < 0 ? 'bad' : 'neutral'}
+            />
+            <BacktestMetric
+              label={t('portfolio.backtestMetricCumulative')}
+              value={formatSignedPct(ok.metrics.cumulativeReturnPct)}
+              tone={toneForPct(ok.metrics.cumulativeReturnPct)}
+            />
+            <BacktestMetric
+              label={t('portfolio.backtestMetricWorstYear')}
+              value={
+                ok.metrics.worstYearReturnPct == null
+                  ? '-'
+                  : formatSignedPct(ok.metrics.worstYearReturnPct)
+              }
+              tone={toneForPct(ok.metrics.worstYearReturnPct ?? 0)}
+            />
+          </div>
+
+          <div className={isLoading ? 'opacity-70 transition-opacity' : ''}>
+            <ReturnChart series={chartSeries} height={160} />
+          </div>
+
+          {annualRows.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="mr-1 text-stone-500">
+                {t('portfolio.backtestAnnualReturns')}
+              </span>
+              {annualRows.map((row) => (
+                <span
+                  key={row.year}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 tabular-nums ${
+                    row.returnPct >= 0
+                      ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                      : 'border-red-100 bg-red-50 text-red-600'
+                  }`}
+                >
+                  <span>{row.year}</span>
+                  <span>{formatSignedPct(row.returnPct, 1)}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="rounded-lg border border-stone-100 bg-stone-50 px-3 py-4 text-center text-sm leading-relaxed text-stone-500">
+          {isLoading ? t('portfolio.backtestLoading') : statusText}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BacktestMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'good' | 'bad' | 'neutral';
+}) {
+  const color =
+    tone === 'good'
+      ? 'text-emerald-600'
+      : tone === 'bad'
+        ? 'text-red-600'
+        : 'text-stone-700';
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] uppercase tracking-wider text-stone-400">
+        {label}
+      </div>
+      <div className={`mt-0.5 text-base font-semibold tabular-nums ${color}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function getBacktestStatusText(
+  result: CandidateBacktestResult,
+  failures: string[],
+  error: string | null,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  if (error) return t('portfolio.backtestError');
+  if (failures.length > 0) {
+    return t('portfolio.backtestMissingPrices', {
+      tickers: failures.join(', '),
+    });
+  }
+  if (result.status === 'no_assets') return t('portfolio.backtestNoAssets');
+  if (result.status === 'invalid_weights') return t('portfolio.backtestInvalidWeights');
+  if (result.status === 'missing_prices') {
+    const tickers = (result.missingTickers ?? []).filter(Boolean).join(', ');
+    if (!tickers) return t('portfolio.backtestNoAssets');
+    return t('portfolio.backtestMissingPrices', {
+      tickers,
+    });
+  }
+  if (result.status === 'insufficient_overlap') {
+    return t('portfolio.backtestInsufficientOverlap');
+  }
+  return t('portfolio.backtestNoAssets');
+}
+
+function supportsHistoricalPrices(ticker: string): boolean {
+  return /^\d{6}$/.test(ticker) || /^KRW-[A-Z0-9]+$/.test(ticker);
+}
+
 function formatDateLong(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   return m ? `${m[1]}.${m[2]}.${m[3]}` : iso;
+}
+
+function formatYears(days: number): string {
+  return (days / 365.25).toFixed(1);
+}
+
+function formatSignedPct(value: number, decimals = 2): string {
+  const sign = value >= 0 ? '+' : '';
+  return `${sign}${value.toFixed(decimals)}%`;
+}
+
+function formatPct(value: number, decimals = 2): string {
+  return `${value.toFixed(decimals)}%`;
+}
+
+function toneForPct(value: number): 'good' | 'bad' | 'neutral' {
+  if (value > 0) return 'good';
+  if (value < 0) return 'bad';
+  return 'neutral';
 }
