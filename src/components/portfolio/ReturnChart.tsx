@@ -4,7 +4,7 @@
  * each with its own color. Hand-rolled SVG so we don't pull in a chart library.
  */
 
-import { useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 
 export interface ChartPoint {
   date: string;      // ISO YYYY-MM-DD
@@ -30,6 +30,13 @@ interface ReturnChartProps {
   series: ChartSeries[];
   /** Height of the plot area in px. Width is 100% of container. */
   height?: number;
+  /** Shows compact range/location sliders for dense historical charts. */
+  enableWindowControls?: boolean;
+  windowControlLabels?: {
+    range?: string;
+    position?: string;
+    full?: string;
+  };
 }
 
 // Theme-aware chart colors — resolved at paint time from CSS variables
@@ -38,10 +45,19 @@ interface ReturnChartProps {
 const GRID = 'var(--chart-grid)';
 const AXIS_TEXT = 'var(--chart-axis-text)';
 const ZERO_LINE = 'var(--chart-zero-line)';
+const MIN_WINDOW_PCT = 20;
+const MIN_WINDOW_POINTS = 8;
 
-export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
+export function ReturnChart({
+  series,
+  height = 200,
+  enableWindowControls = false,
+  windowControlLabels,
+}: ReturnChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [windowPct, setWindowPct] = useState(100);
+  const [windowStartPct, setWindowStartPct] = useState(100);
 
   // We use a viewBox-based SVG so the chart scales fluidly with container width.
   const VB_WIDTH = 600;
@@ -51,17 +67,57 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
   const PADDING_TOP = 16;
   const PADDING_BOTTOM = 24;
 
-  // The primary series drives the X-axis (date ticks + tooltip). If the caller
-  // doesn't mark one, fall back to the longest series.
-  const primary = useMemo(() => {
-    const explicit = series.find((s) => s.isPrimary && s.points.length > 0);
-    if (explicit) return explicit;
-    return series.reduce<ChartSeries | null>((best, s) => {
-      if (s.points.length === 0) return best;
-      if (!best || s.points.length > best.points.length) return s;
-      return best;
-    }, null);
-  }, [series]);
+  // The source primary decides which dates are available before any zooming.
+  const sourcePrimary = useMemo(() => pickPrimarySeries(series), [series]);
+
+  const windowState = useMemo(() => {
+    const totalPoints = sourcePrimary?.points.length ?? 0;
+    const canUseWindow = enableWindowControls && totalPoints > MIN_WINDOW_POINTS * 2;
+
+    if (!sourcePrimary || !canUseWindow) {
+      return {
+        canUseWindow,
+        visibleSeries: series,
+        maxStart: 0,
+        startDate: sourcePrimary?.points[0]?.date ?? null,
+        endDate: sourcePrimary?.points[Math.max(0, totalPoints - 1)]?.date ?? null,
+        appliedWindowPct: 100,
+      };
+    }
+
+    const appliedWindowPct = clamp(windowPct, MIN_WINDOW_PCT, 100);
+    const visibleCount = Math.min(
+      totalPoints,
+      Math.max(MIN_WINDOW_POINTS, Math.round((totalPoints * appliedWindowPct) / 100)),
+    );
+    const maxStart = Math.max(0, totalPoints - visibleCount);
+    const startIdx = Math.round((clamp(windowStartPct, 0, 100) / 100) * maxStart);
+    const endIdx = Math.min(totalPoints - 1, startIdx + visibleCount - 1);
+    const startDate = sourcePrimary.points[startIdx].date;
+    const endDate = sourcePrimary.points[endIdx].date;
+
+    return {
+      canUseWindow,
+      visibleSeries: series.map((s) => ({
+        ...s,
+        points: s.points.filter((p) => p.date >= startDate && p.date <= endDate),
+      })),
+      maxStart,
+      startDate,
+      endDate,
+      appliedWindowPct,
+    };
+  }, [enableWindowControls, series, sourcePrimary, windowPct, windowStartPct]);
+
+  const { visibleSeries } = windowState;
+
+  // The visible primary drives the X-axis (date ticks + tooltip). If the caller
+  // doesn't mark one, fall back to the longest series in the current window.
+  const primary = useMemo(() => pickPrimarySeries(visibleSeries), [visibleSeries]);
+
+  useEffect(() => {
+    setHoverIdx(null);
+  }, [windowState.startDate, windowState.endDate]);
 
   const plot = useMemo(() => {
     if (!primary) return null;
@@ -70,7 +126,7 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
     // must not reserve vertical space, otherwise the real P&L line becomes tiny.
     let minVal = 0;
     let maxVal = 0;
-    for (const s of series) {
+    for (const s of visibleSeries) {
       for (const p of s.points) {
         if (p.returnPct < minVal) minVal = p.returnPct;
         if (p.returnPct > maxVal) maxVal = p.returnPct;
@@ -100,7 +156,7 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
 
     // Build per-series path data on a shared date scale. This keeps sparse
     // monthly benchmarks aligned with daily portfolio series.
-    const renderedSeries = series
+    const renderedSeries = visibleSeries
       .filter((s) => s.points.length > 0)
       .map((s) => {
         const pathPoints = s.points.map((p, i) => {
@@ -136,7 +192,7 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
     }
 
     return { renderedSeries, yTicks, xTicks, yMin, yMax, plotH };
-  }, [series, primary, VB_HEIGHT]);
+  }, [visibleSeries, primary, VB_HEIGHT]);
 
   if (!plot || !primary) {
     return (
@@ -189,6 +245,16 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
         })
         .filter((r): r is { id: string; label: string; color: string; returnPct: number } => r !== null)
     : [];
+  const tooltipPositionStyle = hoveredPt
+    ? getTooltipPositionStyle(hoveredPt.x / VB_WIDTH)
+    : {};
+  const windowRangeLabel = windowControlLabels?.range ?? '보기 범위';
+  const windowPositionLabel = windowControlLabels?.position ?? '위치';
+  const windowFullLabel = windowControlLabels?.full ?? '전체';
+  const windowDateLabel =
+    windowState.startDate && windowState.endDate
+      ? `${formatDateShort(windowState.startDate)} - ${formatDateShort(windowState.endDate)}`
+      : '';
 
   return (
     <div ref={containerRef} className="relative w-full select-none">
@@ -273,7 +339,7 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
             y={VB_HEIGHT - 6}
             fill={AXIS_TEXT}
             fontSize="10"
-            textAnchor="middle"
+            textAnchor={i === 0 ? 'start' : i === plot.xTicks.length - 1 ? 'end' : 'middle'}
             fontFamily="inherit"
           >
             {t.label}
@@ -303,22 +369,66 @@ export function ReturnChart({ series, height = 200 }: ReturnChartProps) {
         <div
           className="absolute pointer-events-none bg-stone-900 text-white text-xs rounded px-2 py-1 shadow-lg z-10"
           style={{
-            left: `calc(${(hoveredPt.x / VB_WIDTH) * 100}% - 60px)`,
+            ...tooltipPositionStyle,
             top: '-4px',
-            whiteSpace: 'nowrap',
+            maxWidth: 'calc(100% - 8px)',
           }}
         >
-          <div className="opacity-80 tabular-nums mb-0.5">{hoveredDate}</div>
+          <div className="mb-0.5 whitespace-nowrap tabular-nums opacity-80">{hoveredDate}</div>
           {hoverRows.map((r) => (
-            <div key={r.id} className="flex items-center gap-1.5 tabular-nums">
+            <div
+              key={r.id}
+              className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 tabular-nums"
+            >
               <span
                 className="inline-block w-2 h-2 rounded-full"
                 style={{ backgroundColor: r.color }}
               />
-              <span className="font-medium">{r.label}</span>
-              <span className="ml-auto pl-2">{formatSignedPct(r.returnPct, 2)}</span>
+              <span className="min-w-0 truncate font-medium">{r.label}</span>
+              <span>{formatSignedPct(r.returnPct, 2)}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {windowState.canUseWindow && (
+        <div className="mt-2 space-y-1.5 text-[11px] leading-tight text-stone-500">
+          <div className="flex items-center justify-between gap-2">
+            <span>{windowRangeLabel}</span>
+            <span className="shrink-0 tabular-nums">
+              {windowState.appliedWindowPct >= 100
+                ? windowFullLabel
+                : `${windowState.appliedWindowPct}% · ${windowDateLabel}`}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={MIN_WINDOW_PCT}
+            max={100}
+            step={5}
+            value={windowState.appliedWindowPct}
+            onChange={(event) => setWindowPct(Number(event.currentTarget.value))}
+            className="h-2 w-full cursor-pointer accent-orange-700"
+            aria-label={windowRangeLabel}
+          />
+          {windowState.maxStart > 0 && (
+            <>
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                <span>{windowPositionLabel}</span>
+                <span className="shrink-0 tabular-nums">{windowDateLabel}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={windowStartPct}
+                onChange={(event) => setWindowStartPct(Number(event.currentTarget.value))}
+                className="h-2 w-full cursor-pointer accent-stone-700"
+                aria-label={windowPositionLabel}
+              />
+            </>
+          )}
         </div>
       )}
     </div>
@@ -342,10 +452,33 @@ function formatDateShort(iso: string): string {
   return `${yy}.${match[2]}.${match[3]}`;
 }
 
+function getTooltipPositionStyle(xRatio: number): React.CSSProperties {
+  if (xRatio > 0.66) return { right: 4 };
+  if (xRatio < 0.34) return { left: 4 };
+  return {
+    left: `${xRatio * 100}%`,
+    transform: 'translateX(-50%)',
+  };
+}
+
+function pickPrimarySeries(series: ChartSeries[]): ChartSeries | null {
+  const explicit = series.find((s) => s.isPrimary && s.points.length > 0);
+  if (explicit) return explicit;
+  return series.reduce<ChartSeries | null>((best, s) => {
+    if (s.points.length === 0) return best;
+    if (!best || s.points.length > best.points.length) return s;
+    return best;
+  }, null);
+}
+
 function dateToTime(iso: string | undefined): number {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '');
   if (!match) return Number.NaN;
   return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 // Stable color palette for asset lines (cycled if more assets than colors).

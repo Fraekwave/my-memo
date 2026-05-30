@@ -969,7 +969,16 @@ function CandidateBacktestPreview({
           )}
 
           <div className={isLoading ? 'opacity-70 transition-opacity' : ''}>
-            <ReturnChart series={comparisonSeries} height={160} />
+            <ReturnChart
+              series={comparisonSeries}
+              height={160}
+              enableWindowControls
+              windowControlLabels={{
+                range: t('portfolio.backtestChartRange'),
+                position: t('portfolio.backtestChartPosition'),
+                full: t('portfolio.backtestChartFull'),
+              }}
+            />
           </div>
 
           {annualRows.length > 0 && (
