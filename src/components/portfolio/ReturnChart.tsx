@@ -554,7 +554,7 @@ export function ReturnChart({
             <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-stone-200" />
             <button
               type="button"
-              className="absolute top-1/2 h-5 -translate-y-1/2 cursor-grab rounded-full bg-orange-600/20 outline-none ring-orange-700/20 transition-shadow focus-visible:ring-2 active:cursor-grabbing"
+              className="absolute top-1/2 h-5 -translate-y-1/2 cursor-grab rounded-full bg-stone-400/20 outline-none ring-stone-500/25 transition-shadow focus-visible:ring-2 active:cursor-grabbing"
               style={{
                 left: `${windowState.startPct}%`,
                 width: `${windowState.appliedWindowPct}%`,
@@ -563,11 +563,11 @@ export function ReturnChart({
               onPointerDown={(event) => handleWindowPointerDown(event, 'move')}
               onKeyDown={(event) => handleWindowKeyDown(event, 'move')}
             >
-              <span className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-orange-600" />
+              <span className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-stone-500" />
             </button>
             <button
               type="button"
-              className="absolute top-1/2 h-5 w-3 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border border-white bg-orange-700 shadow-sm outline-none ring-orange-700/20 focus-visible:ring-2"
+              className="absolute top-1/2 h-5 w-3 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border border-white bg-stone-600 shadow-sm outline-none ring-stone-500/25 focus-visible:ring-2"
               style={{ left: `${windowState.startPct}%` }}
               aria-label={`${windowRangeLabel} start`}
               onPointerDown={(event) => handleWindowPointerDown(event, 'start')}
@@ -575,7 +575,7 @@ export function ReturnChart({
             />
             <button
               type="button"
-              className="absolute top-1/2 h-5 w-3 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border border-white bg-orange-700 shadow-sm outline-none ring-orange-700/20 focus-visible:ring-2"
+              className="absolute top-1/2 h-5 w-3 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border border-white bg-stone-600 shadow-sm outline-none ring-stone-500/25 focus-visible:ring-2"
               style={{ left: `${windowState.endPct}%` }}
               aria-label={`${windowRangeLabel} end`}
               onPointerDown={(event) => handleWindowPointerDown(event, 'end')}
