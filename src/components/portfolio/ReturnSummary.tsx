@@ -388,7 +388,7 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
             </span>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {sortedAssets.map((a) => {
               const excluded = excludedAssets.has(a.ticker);
               const pct = assetFinalPct.get(a.ticker);
@@ -406,7 +406,7 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
                   key={a.ticker}
                   type="button"
                   onClick={() => toggleExclude(a.ticker)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs transition-colors ${
+                  className={`grid h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 text-left text-xs transition-colors ${
                     excluded
                       ? 'border-stone-200 bg-stone-100 text-stone-400'
                       : 'border-stone-300 bg-stone-50 text-stone-800 hover:bg-stone-100'
@@ -415,13 +415,17 @@ export function ReturnSummary({ userId, portfolio }: ReturnSummaryProps) {
                   title={excluded ? '시뮬레이션에서 제외됨 — 탭하여 다시 포함' : '탭하여 시뮬레이션에서 제외'}
                 >
                   <span
-                    className={`font-medium truncate max-w-[100px] ${
+                    className={`min-w-0 truncate font-medium ${
                       excluded ? 'line-through' : ''
                     }`}
                   >
                     {a.name || a.ticker}
                   </span>
-                  <span className={`tabular-nums ${excluded ? 'text-stone-400' : pctColor}`}>
+                  <span
+                    className={`justify-self-end whitespace-nowrap tabular-nums ${
+                      excluded ? 'text-stone-400' : pctColor
+                    }`}
+                  >
                     {pctText}
                   </span>
                 </button>
