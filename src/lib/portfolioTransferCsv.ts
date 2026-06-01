@@ -161,7 +161,7 @@ export function generatePortfolioTransferCsv(
     .join('\n') + '\n';
 }
 
-export function generatePortfolioTransferTemplate(): string {
+export function generatePortfolioTransferExample(): string {
   const rows = [
     [
       'asset',
@@ -208,12 +208,32 @@ export function generatePortfolioTransferTemplate(): string {
     '2026-01-15',
     '3',
     '33250',
+    '첫 매수',
+  ]);
+
+  rows.push([
+    'transaction',
+    '장기투자',
+    'crypto',
+    '500000',
+    '069500',
+    'KRW-BTC',
+    '비트코인',
+    '암호화폐',
     '',
+    '2026-01-15',
+    '0.01',
+    '145000000',
+    '첫 매수',
   ]);
 
   return [TRANSFER_HEADER, ...rows]
     .map((row) => row.map(escapeCsvCell).join(','))
     .join('\n') + '\n';
+}
+
+export function generatePortfolioTransferTemplate(): string {
+  return generatePortfolioTransferExample();
 }
 
 export function parsePortfolioTransferCsv(

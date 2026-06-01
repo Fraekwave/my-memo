@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PortfolioWithAssets } from '@/hooks/usePortfolios';
 import {
   generatePortfolioTransferCsv,
+  generatePortfolioTransferExample,
   parsePortfolioTransferCsv,
 } from './portfolioTransferCsv';
 
@@ -107,6 +108,21 @@ describe('portfolio transfer CSV', () => {
         note: 'annual rebalance',
       },
     ]);
+  });
+
+  it('provides a downloadable example that imports as full CSV', () => {
+    const csv = generatePortfolioTransferExample();
+    const parsed = parsePortfolioTransferCsv(csv, 'full');
+
+    expect(csv.split('\n')[0]).toBe(
+      'type,portfolio_name,kind,monthly_budget,benchmark_reference,ticker,name,category,target_pct,trade_date,shares,price,note',
+    );
+    expect(csv).toContain('asset,장기투자,etf,500000,069500,069500,KODEX 200');
+    expect(csv).toContain('transaction,장기투자,crypto,500000,069500,KRW-BTC');
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.draft.assets).toHaveLength(2);
+    expect(parsed.draft.transactions).toHaveLength(2);
   });
 
   it('lets the recipient choose portfolio-only while reading the full CSV', () => {

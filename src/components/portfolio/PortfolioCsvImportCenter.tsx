@@ -5,6 +5,7 @@ import type { AssetInput, PortfolioInput, PortfolioWithAssets } from '@/hooks/us
 import { useTransactions, type TransactionInput } from '@/hooks/useTransactions';
 import { supabase } from '@/lib/supabase';
 import {
+  generatePortfolioTransferExample,
   generatePortfolioTransferTemplate,
   parsePortfolioTransferCsv,
   type PortfolioTransferDraft,
@@ -23,6 +24,20 @@ interface PortfolioCsvImportCenterProps {
 
 type ImportCenterMode = 'choose' | PortfolioTransferMode;
 type Step = 'upload' | 'review' | 'done';
+const PORTFOLIO_TRANSFER_EXAMPLE_FILENAME = 'inadone-portfolio-csv-example.csv';
+
+function downloadPortfolioTransferExample() {
+  const csv = generatePortfolioTransferExample();
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = PORTFOLIO_TRANSFER_EXAMPLE_FILENAME;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 export function PortfolioCsvImportCenter({
   userId,
@@ -74,6 +89,25 @@ export function PortfolioCsvImportCenter({
             {t('portfolio.importCenterTitle')}
           </h2>
           <p className="text-sm text-stone-500">{t('portfolio.importCenterSubtitle')}</p>
+        </div>
+
+        <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-stone-800">
+              {t('portfolio.transferImportExampleTitle')}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-stone-500">
+              {t('portfolio.transferImportExampleHint')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={downloadPortfolioTransferExample}
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-100 sm:mt-0 sm:w-auto sm:shrink-0"
+          >
+            <Download className="w-4 h-4" strokeWidth={1.5} />
+            <span>{t('portfolio.transferImportExampleBtn')}</span>
+          </button>
         </div>
 
         <ImportChoiceCard
@@ -216,19 +250,6 @@ function PortfolioTransferImportForm({
     reader.readAsText(file, 'UTF-8');
   }, []);
 
-  const handleDownloadTemplate = useCallback(() => {
-    const csv = generatePortfolioTransferTemplate();
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'inadone-full-template.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, []);
-
   const handleParse = useCallback(() => {
     const parsed = parsePortfolioTransferCsv(csvText, mode);
     if (!parsed.ok) {
@@ -360,12 +381,12 @@ function PortfolioTransferImportForm({
               </button>
               <button
                 type="button"
-                onClick={handleDownloadTemplate}
+                onClick={downloadPortfolioTransferExample}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 transition-colors"
               >
                 <Download className="w-4 h-4" strokeWidth={1.5} />
                 <span className="text-base font-medium">
-                  {t('portfolio.transferImportTemplateBtn')}
+                  {t('portfolio.transferImportExampleBtn')}
                 </span>
               </button>
               <input
