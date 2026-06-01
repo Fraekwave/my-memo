@@ -119,10 +119,19 @@ describe('portfolio transfer CSV', () => {
     );
     expect(csv).toContain('asset,장기투자,etf,500000,069500,069500,KODEX 200');
     expect(csv).toContain('transaction,장기투자,crypto,500000,069500,KRW-BTC');
+    expect(csv).toContain(
+      'asset은 자산배분 행입니다 포트폴리오에 담을 종목과 목표비중을 적어요',
+    );
+    expect(csv).toContain(
+      'transaction은 거래내역 행입니다 실제 매수일 수량 단가를 적어요',
+    );
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.draft.assets).toHaveLength(2);
     expect(parsed.draft.transactions).toHaveLength(2);
+    expect(parsed.draft.transactions[0].note).toBe(
+      'transaction은 거래내역 행입니다 실제 매수일 수량 단가를 적어요',
+    );
   });
 
   it('lets the recipient choose portfolio-only while reading the full CSV', () => {

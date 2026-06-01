@@ -42,6 +42,11 @@ const TRANSFER_HEADER = [
   'note',
 ];
 
+const EXAMPLE_ASSET_NOTE =
+  'asset은 자산배분 행입니다 포트폴리오에 담을 종목과 목표비중을 적어요';
+const EXAMPLE_TRANSACTION_NOTE =
+  'transaction은 거래내역 행입니다 실제 매수일 수량 단가를 적어요';
+
 const HEADER_ALIASES: Record<string, string[]> = {
   type: ['type', '구분'],
   portfolio_name: ['portfolio_name', 'portfolio', '포트폴리오명', '포트폴리오'],
@@ -176,7 +181,7 @@ export function generatePortfolioTransferExample(): string {
       '',
       '',
       '',
-      '',
+      EXAMPLE_ASSET_NOTE,
     ],
     [
       'asset',
@@ -191,7 +196,7 @@ export function generatePortfolioTransferExample(): string {
       '',
       '',
       '',
-      '',
+      EXAMPLE_ASSET_NOTE,
     ],
   ];
 
@@ -208,7 +213,7 @@ export function generatePortfolioTransferExample(): string {
     '2026-01-15',
     '3',
     '33250',
-    '첫 매수',
+    EXAMPLE_TRANSACTION_NOTE,
   ]);
 
   rows.push([
@@ -224,7 +229,7 @@ export function generatePortfolioTransferExample(): string {
     '2026-01-15',
     '0.01',
     '145000000',
-    '첫 매수',
+    EXAMPLE_TRANSACTION_NOTE,
   ]);
 
   return [TRANSFER_HEADER, ...rows]
